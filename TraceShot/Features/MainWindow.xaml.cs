@@ -42,6 +42,7 @@ namespace TraceShot
         private WpfPoint _startPoint;
         private WpfRectangle _currentRectangle = new ();
         private WriteableBitmap? _previewBitmap;
+        string _selectedDeviceName = string.Empty;
 
         public MainWindow()
         {
@@ -392,7 +393,7 @@ namespace TraceShot
             if (result == MessageBoxResult.Yes)
             {
                 // 3. データソースから削除
-                RecorderMgr.Evidence.Bookmarks.Remove(selected);
+                RecorderMgr.Evidence?.Bookmarks.Remove(selected);
 
                 // 4. UI（ListBox）から削除
                 // ItemsSourceを使っている場合は自動で消えますが、Items.Add方式の場合は手動で消します
@@ -476,7 +477,7 @@ namespace TraceShot
             // 2. 💡 ここでタイマーを起動！
             StartPlaybackTimer();
         }
-        string _selectedDeviceName = string.Empty;
+
         private void SelectRegionButton_Click(object sender, RoutedEventArgs e)
         {
             // 1. MainWindowを非表示にする
@@ -622,7 +623,6 @@ namespace TraceShot
             }
             catch (HotkeyAlreadyRegisteredException)
             {
-                // 既に登録されている場合の処理
                 MessageBox.Show("RegisterHotkey Error");
             }
         }
