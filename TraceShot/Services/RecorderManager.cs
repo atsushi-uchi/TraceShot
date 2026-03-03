@@ -403,12 +403,7 @@ public class RecorderManager
 
         // 3. インスタンス生成と開始
         _recorder = Recorder.CreateRecorder(options);
-
-        _recorder.OnFrameRecorded += (s, e) =>
-        {
-            // MainWindowへ通知
-            OnPreviewFrameReceived?.Invoke(this, e);
-        };
+        _recorder.OnFrameRecorded += (s, e) => OnPreviewFrameReceived?.Invoke(this, e);
 
         // ステータス変更イベントを登録
         _recorder.OnStatusChanged += (s, e) =>
@@ -467,6 +462,8 @@ public class RecorderManager
 
         // 3. インスタンス生成と開始
         _recorder = Recorder.CreateRecorder(options);
+        _recorder.OnFrameRecorded += (s, e) => OnPreviewFrameReceived?.Invoke(this, e);
+
         // ステータス変更イベントを登録
         _recorder.OnStatusChanged += (s, e) =>
         {
@@ -510,6 +507,7 @@ public class RecorderManager
 
         // 3. インスタンス生成と開始
         _recorder = Recorder.CreateRecorder(options);
+        _recorder.OnFrameRecorded += (s, e) => OnPreviewFrameReceived?.Invoke(this, e);
         _recorder.OnRecordingComplete += (s, e) => TraceLogs.Add("Window Recording Complete");
         _recorder.OnRecordingFailed += (s, e) => TraceLogs.Add("Window Recording Failed: " + e.Error);
 

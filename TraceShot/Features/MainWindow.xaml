@@ -65,13 +65,6 @@
 
         <Grid x:Name="RecordingOverlay" Grid.Row="1" Visibility="Collapsed" Background="Black">
             <Image x:Name="PreviewImage" Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-
-            <StackPanel VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="20" Background="#80000000">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <TextBlock Text="● Recording" Foreground="Red" FontSize="18" VerticalAlignment="Center" Margin="5"/>
-                    <TextBlock x:Name="RecordingTimerText" Text="00:00:00" Foreground="White" FontSize="32" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
-                </StackPanel>
-            </StackPanel>
         </Grid>
 
         <ListBox x:Name="LogListBox" 
@@ -88,14 +81,46 @@
         <Border Grid.Row="2" Background="#F0F0F0" Padding="10">
             <StackPanel>
 
-                <TextBlock x:Name="TimeText" Text="00:00 / 00:00" HorizontalAlignment="Right" Margin="0,0,10,0"/>
+                <Grid Margin="0,5">
+                    <StackPanel x:Name="PlaybackControlsArea" Visibility="Visible">
+                        <TextBlock x:Name="TimeText" 
+                           Text="00:00 / 00:00" 
+                           HorizontalAlignment="Right" 
+                           Margin="0,0,10,0"/>
+                        <Slider x:Name="TimelineSlider" 
+                        Minimum="0" 
+                        Thumb.DragStarted="Slider_DragStarted" 
+                        Thumb.DragCompleted="Slider_DragCompleted" 
+                        ValueChanged="Slider_ValueChanged" 
+                        Margin="0,5"/>
+                    </StackPanel>
 
-                <Slider x:Name="TimelineSlider" 
-                Minimum="0" 
-                Thumb.DragStarted="Slider_DragStarted" 
-                Thumb.DragCompleted="Slider_DragCompleted" 
-                ValueChanged="Slider_ValueChanged"
-                Margin="0,5" />
+                    <Grid x:Name="RecordingTimerArea" Visibility="Collapsed" Height="60" Background="#E0E0E0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="● REC" Foreground="Red" FontWeight="Bold" FontSize="18" Margin="0,0,15,0" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <EventTrigger RoutedEvent="Loaded">
+                                                <BeginStoryboard>
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0" Duration="0:0:0.5" AutoReverse="True"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </EventTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock x:Name="BigRecordingTimerText" 
+                               Text="00:00:00" 
+                               FontFamily="Consolas" 
+                               FontSize="36" 
+                               FontWeight="Bold" 
+                               VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                     <Button x:Name="StartStopButton" Width="100" Click="StartStopButton_Click" Margin="5">

@@ -565,7 +565,7 @@ namespace TraceShot
         private void RecordingTimer_Tick(object? sender, EventArgs e)
         {
             // ストップウォッチの経過時間を表示
-            RecordingTimerText.Text = _recorderManager.RecordingTime;
+            BigRecordingTimerText.Text = _recorderManager.RecordingTime;
         }
 
         private void VideoPlayer_MediaOpened(object sender, RoutedEventArgs e)
@@ -780,48 +780,56 @@ namespace TraceShot
             // ブックマーク削除
             LogListBox.Items.Clear();
 
+            // フラグ更新
+            _isRecording = true;
+
             // イベント登録
             _recorderManager.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
 
-            _isRecording = true;
-
-            VideoPlayer.Stop();
+            // UIの切り替え
             VideoPlayer.Visibility = Visibility.Collapsed;
             RecordingOverlay.Visibility = Visibility.Visible;
+            PlaybackControlsArea.Visibility = Visibility.Collapsed; // 再生系をまとめて隠す
+            RecordingTimerArea.Visibility = Visibility.Visible;     // 録画タイマーを表示
+
+            VideoPlayer.Stop();
             _recordingTimer.Start();
 
+            StartStopIcon.Foreground = Brushes.Black;
             StartStopIcon.Text = "■";
-            StartStopIcon.Foreground = Brushes.Black; // 停止は黒やグレーに
             StartStopText.Text = "録画停止";
         }
 
         // 録画停止時の処理
         private void OnRecordingStopped()
         {
+            // フラグ更新
+            _isRecording = false;
+
             // イベント解除
             _recorderManager.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
 
             // UIの切り替え
-            VideoPlayer.Visibility = Visibility.Collapsed;
-            RecordingOverlay.Visibility = Visibility.Visible;
-
-            _isRecording = false;
+            VideoPlayer.Visibility = Visibility.Visible;
+            RecordingOverlay.Visibility = Visibility.Collapsed;
+            PlaybackControlsArea.Visibility = Visibility.Visible;
+            RecordingTimerArea.Visibility = Visibility.Collapsed;
 
             StatusText.Text = "保存完了";
-            RecordingOverlay.Visibility = Visibility.Collapsed;
+
             _recordingTimer.Stop();
             _playerTimer.Start();
 
             VideoPlayer.Source = new Uri(_currentVideoPath);
-            VideoPlayer.Visibility = Visibility.Visible;
             PlayerPause(true);
 
             ExportPdfButton.IsEnabled = true;
             ExportExcelButton.IsEnabled = true;
 
+            StartStopIcon.Foreground = Brushes.Red;
             StartStopIcon.Text = "●";
-            StartStopIcon.Foreground = Brushes.Red;   // 開始前は赤丸
             StartStopText.Text = "録画開始";
+
             AddBookmarkButton.Content = "📌 証跡追加";
         }
 
