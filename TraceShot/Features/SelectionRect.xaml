@@ -1,0 +1,30 @@
+﻿<Window x:Class="TraceShot.SelectionRect"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SelectionWindow"
+        WindowStyle="None" 
+        AllowsTransparency="True" 
+        Background="#01000000" 
+        Topmost="True" 
+ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Left="0" Top="0"
+Cursor="Cross"
+MouseDown="Window_MouseDown"
+MouseMove="Window_MouseMove"
+MouseUp="Window_MouseUp"
+
+        >
+
+<!--
+WindowState="Maximized"
+UseLayoutRounding="True"-->
+
+    <Canvas x:Name="SelectionCanvas">
+        <Rectangle x:Name="SelectionRectangle" 
+                   Stroke="Cyan" 
+                   StrokeThickness="2" 
+                   Fill="#3300FFFF" 
+                   Visibility="Collapsed"/>
+    </Canvas>
+</Window>

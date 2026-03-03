@@ -1,0 +1,22 @@
+﻿<Window x:Class="TraceShot.SelectionMoniter"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SelectionWindow"
+        WindowStyle="None" 
+        AllowsTransparency="True" 
+        Background="#01000000" 
+        Topmost="True"
+        Opacity="0"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <Grid x:Name="RootGrid" Background="#4400CCFF">
+        <Rectangle x:Name="SelectionRect" 
+                   Stroke="Red" 
+                   StrokeThickness="8" 
+                   VerticalAlignment="Stretch" 
+                   HorizontalAlignment="Stretch"
+                   Margin="0"/>
+    </Grid>
+</Window>
