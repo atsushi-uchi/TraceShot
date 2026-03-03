@@ -1,6 +1,7 @@
 ﻿using DocumentFormat.OpenXml.Drawing.Wordprocessing;
 using NHotkey;
 using NHotkey.Wpf;
+using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
 using System.Media;
@@ -14,13 +15,13 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
-using WinForms = System.Windows.Forms;
+using TraceShot.Services;
+using Brushes = System.Windows.Media.Brushes;
 using Drawing = System.Drawing;
+using MessageBox = System.Windows.MessageBox;
+using WinForms = System.Windows.Forms;
 using WpfPoint = System.Windows.Point; // WPFの座標
 using WpfRectangle = System.Windows.Shapes.Rectangle;
-using MessageBox = System.Windows.MessageBox;
-using Brushes = System.Windows.Media.Brushes;
-using TraceShot.Services;
 
 namespace TraceShot
 {
@@ -776,12 +777,17 @@ namespace TraceShot
         // 録画開始時の処理
         private void OnRecordingStarted()
         {
+            // ブックマーク削除
             LogListBox.Items.Clear();
+
+            // イベント登録
+            _recorderManager.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
+
             _isRecording = true;
 
             VideoPlayer.Stop();
             VideoPlayer.Visibility = Visibility.Collapsed;
-            RecordingOverlay.Visibility = Visibility.Visible; // タイマーを表示
+            RecordingOverlay.Visibility = Visibility.Visible;
             _recordingTimer.Start();
 
             StartStopIcon.Text = "■";
@@ -792,6 +798,13 @@ namespace TraceShot
         // 録画停止時の処理
         private void OnRecordingStopped()
         {
+            // イベント解除
+            _recorderManager.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
+
+            // UIの切り替え
+            VideoPlayer.Visibility = Visibility.Collapsed;
+            RecordingOverlay.Visibility = Visibility.Visible;
+
             _isRecording = false;
 
             StatusText.Text = "保存完了";
@@ -886,6 +899,52 @@ namespace TraceShot
                     //File.WriteAllLines(_currentLogPath, _recorderManager.TraceLogs, Encoding.UTF8);
                 }
             }
+        }
+        private WriteableBitmap? _previewBitmap;
+        private void RecorderManager_OnPreviewFrameReceived(object? sender, FrameRecordedEventArgs e)
+        {
+            // UIスレッドで実行
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (RecordingOverlay.Visibility != Visibility.Visible) return;
+
+                var data = e.BitmapData;
+                if (data == null) return;
+
+                int width = data.Width;
+                int height = data.Height;
+
+                // ビットマップの初期化/再作成
+                if (_previewBitmap == null || _previewBitmap.PixelWidth != width || _previewBitmap.PixelHeight != height)
+                {
+                    // ScreenRecorderLibのBitmapDataは通常 Bgr32 (24bitの場合は Bgr24)
+                    // アルファチャネルを含む場合は Pbgra32 など調整が必要な場合があります
+                    _previewBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr32, null);
+                    PreviewImage.Source = _previewBitmap;
+                }
+
+                _previewBitmap.Lock();
+                try
+                {
+                    // BitmapData.Scan0 (IntPtr) から WriteableBitmap へコピー
+                    // 第3引数の bufferSize は Stride * Height で計算
+                    int bufferSize = data.Stride * height;
+
+                    _previewBitmap.WritePixels(
+                        new Int32Rect(0, 0, width, height),
+                        data.Data,
+                        bufferSize,
+                        data.Stride);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Preview Update Error: {ex.Message}");
+                }
+                finally
+                {
+                    _previewBitmap.Unlock();
+                }
+            }));
         }
 
         private void LogListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

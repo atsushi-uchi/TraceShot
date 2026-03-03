@@ -62,11 +62,15 @@
                     MouseMove="DrawingCanvas_MouseMove"
                     MouseUp="DrawingCanvas_MouseUp" />
         </Grid>
-        
+
         <Grid x:Name="RecordingOverlay" Grid.Row="1" Visibility="Collapsed" Background="Black">
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <TextBlock Text="● Recording" Foreground="Red" FontSize="24" HorizontalAlignment="Center" Margin="10"/>
-                <TextBlock x:Name="RecordingTimerText" Text="00:00:00" Foreground="White" FontSize="72" FontWeight="Bold" HorizontalAlignment="Center"/>
+            <Image x:Name="PreviewImage" Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+
+            <StackPanel VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="20" Background="#80000000">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Text="● Recording" Foreground="Red" FontSize="18" VerticalAlignment="Center" Margin="5"/>
+                    <TextBlock x:Name="RecordingTimerText" Text="00:00:00" Foreground="White" FontSize="32" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                </StackPanel>
             </StackPanel>
         </Grid>
 

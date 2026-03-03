@@ -1,10 +1,7 @@
 ﻿using ClosedXML.Excel;
-using DocumentFormat.OpenXml.Drawing.Charts;
-using DocumentFormat.OpenXml.InkML;
 using PuppeteerSharp;
 using PuppeteerSharp.Media;
 using ScreenRecorderLib;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -16,7 +13,6 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using TraceShot;
 using Brushes = System.Windows.Media.Brushes;
 using MessageBox = System.Windows.MessageBox;
 
@@ -112,7 +108,6 @@ public class RecorderManager
 
         return filePath;
     }
-
 
     public async Task ExportToPdfAsync(string htmlPath, string pdfPath)
     {
@@ -369,6 +364,8 @@ public class RecorderManager
         File.WriteAllText(JsonPath, jsonString);
     }
 
+    public event EventHandler<FrameRecordedEventArgs> OnPreviewFrameReceived;
+
     public void StartFullscreenRecording(string filePath, string targetDeviceName)
     {
         TraceLogs.Clear();
@@ -395,17 +392,24 @@ public class RecorderManager
         {
             SourceOptions = new SourceOptions
             {
-                // RecordingSources プロパティを使用（中括弧 { } で追加）
                 RecordingSources = { screenSource }
             },
             OutputOptions = new OutputOptions
             {
                 RecorderMode = RecorderMode.Video,
-            }
+                IsVideoFramePreviewEnabled = true,
+            },
         };
 
         // 3. インスタンス生成と開始
         _recorder = Recorder.CreateRecorder(options);
+
+        _recorder.OnFrameRecorded += (s, e) =>
+        {
+            // MainWindowへ通知
+            OnPreviewFrameReceived?.Invoke(this, e);
+        };
+
         // ステータス変更イベントを登録
         _recorder.OnStatusChanged += (s, e) =>
         {
@@ -456,8 +460,8 @@ public class RecorderManager
             OutputOptions = new OutputOptions
             {
                 RecorderMode = RecorderMode.Video,
-                // 矩形時は動画サイズを固定
-                OutputFrameSize = new ScreenSize(region.Value.Width, region.Value.Height)
+                IsVideoFramePreviewEnabled = true,
+                OutputFrameSize = new ScreenSize(region.Value.Width, region.Value.Height),
             }
         };
 
@@ -499,9 +503,8 @@ public class RecorderManager
             OutputOptions = new OutputOptions
             {
                 RecorderMode = RecorderMode.Video,
-                // ウィンドウサイズに合わせて自動調整させる場合は null でも可
-                // 固定したい場合はウィンドウの Rect を取得して ScreenSize を作ります
-                OutputFrameSize = null
+                IsVideoFramePreviewEnabled = true,
+                OutputFrameSize = null,
             }
         };
 
