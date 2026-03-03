@@ -2,21 +2,10 @@
 using Microsoft.Win32;
 using PuppeteerSharp;
 using PuppeteerSharp.Media;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Security.Policy;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using MessageBox = System.Windows.MessageBox;
 using Path = System.IO.Path;
 
@@ -70,38 +59,18 @@ namespace TraceShot.Features
 
             try
             {
-                // 元の再生位置を記憶
-                TimeSpan originalPosition = main.VideoPlayer.Position;
-                bool wasPlaying = main.VideoPlayer.CanPause && main.VideoPlayer.Position > TimeSpan.Zero;
-                main.PlayerPause(false);
-                try
+                foreach (var bm in main.RecorderMgr.Evidence.Bookmarks)
                 {
-                    foreach (var bm in main.RecorderMgr.Evidence.Bookmarks)
-                    {
-                        main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
-                        await Task.Delay(500);
+                    main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
+                    await Task.Delay(500);
 
-                        // 画像を保存し、そのパスを bm.ImagePath に格納するようマネージャー側を調整
-                        var scale = GetSelectedScale();
-                        var savedPath = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
-                        bm.ImagePath = savedPath;
-                    }
-                    ExportToExcel();
-                    MessageBox.Show("Excelを出力しました！");
+                    // 画像を保存し、そのパスを bm.ImagePath に格納するようマネージャー側を調整
+                    var scale = GetSelectedScale();
+                    var savedPath = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                    bm.ImagePath = savedPath;
                 }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"出力エラー: {ex.Message}");
-                }
-                finally
-                {
-                    // 元の位置に戻す
-                    main.VideoPlayer.Position = originalPosition;
-                    if (wasPlaying)
-                    {
-                        main.PlayerPause(true);
-                    }
-                }
+                ExportToExcel();
+                MessageBox.Show("Excelを出力しました！");
             }
             catch (Exception ex)
             {
@@ -121,7 +90,7 @@ namespace TraceShot.Features
 
             try
             {
-                foreach (var bm in main.RecorderMgr.Evidence.Bookmarks)
+                foreach (var bm in evidence.Bookmarks)
                 {
                     main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
                     await Task.Delay(500);
@@ -174,18 +143,10 @@ namespace TraceShot.Features
 
                 sb.AppendLine("</table></div></body></html>");
 
-                string fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + "_full.html";
-                string htmlPath = string.Empty;
-                if (string.IsNullOrEmpty(OutputPathBox.Text))
-                {
-                    htmlPath = Path.Combine(main.RecorderMgr.CurrentFolder, fileName);
-                }
-                else
-                {
-                    htmlPath = Path.Combine(OutputPathBox.Text, fileName);
-
-                }
-                File.WriteAllText(htmlPath, sb.ToString());
+                var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + "_full.html";
+                var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
+                    main.RecorderMgr.CurrentFolder : OutputPathBox.Text, fileName);
+                File.WriteAllText(fullPath, sb.ToString());
 
                 MessageBox.Show("HTML出力");
             }
@@ -195,80 +156,15 @@ namespace TraceShot.Features
             }
         }
 
-        private void ExportToExcel()
-        {
-            var main = Owner as MainWindow;
-            var evidence = main.RecorderMgr.Evidence;
-
-            string fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".xlsx";
-            string fullPath = string.Empty;
-            if (string.IsNullOrEmpty(OutputPathBox.Text))
-            {
-                fullPath = Path.Combine(main.RecorderMgr.CurrentFolder, fileName);
-            }
-            else
-            {
-                fullPath = Path.Combine(OutputPathBox.Text, fileName);
-            }
-
-            using (var workbook = new XLWorkbook())
-            {
-                var ws = workbook.Worksheets.Add("録画エビデンス");
-
-                // --- 基本設定 ---
-                int dataStartRow = 10;
-                ws.Cell(dataStartRow, 1).Value = "経過時間";
-                ws.Cell(dataStartRow, 2).Value = "内容・メモ";
-                ws.Cell(dataStartRow, 3).Value = "スクリーンショット";
-
-                // --- ブックマーク一覧のループ内 ---
-                for (int i = 0; i < evidence.Bookmarks.Count; i++)
-                {
-                    var bm = evidence.Bookmarks[i];
-                    int currentRow = dataStartRow + 1 + i;
-
-                    ws.Cell(currentRow, 1).Value = bm.Time;
-                    ws.Cell(currentRow, 2).Value = bm.Note;
-
-                    if (!string.IsNullOrEmpty(bm.ImagePath) && File.Exists(bm.ImagePath))
-                    {
-                        // 1. 画像を追加（この時点ではまだ位置固定しない）
-                        var picture = ws.AddPicture(bm.ImagePath);
-
-                        // 2. 💡 MoveTo メソッドを使って、セル位置と「ズレ（オフセット）」を同時に指定する
-                        // 第1引数：開始セル
-                        // 第2引数：横方向のオフセット（ピクセル）
-                        // 第3引数：縦方向のオフセット（ピクセル） ← ここで 10 指定
-                        picture.MoveTo(ws.Cell(currentRow, 3), 5, 10);
-
-                        // 3. 等倍に設定
-                        picture.Scale(1.0);
-
-                        // 4. 黄金設定の高さ調整
-                        double baseHeight = picture.Height * 0.75;
-                        double safeBuffer = 80; // さらに余裕を持って 80 に増やしました
-                        ws.Row(currentRow).Height = Math.Min(baseHeight + safeBuffer, 409);
-                    }
-                }
-
-                // 💡 仕上げのレイアウト調整
-                ws.Columns(1, 2).AdjustToContents(); // テキストに合わせて幅調整
-                ws.Column(3).Width = 120; // 画像列は十分な幅を確保
-                ws.Rows().Style.Alignment.Vertical = XLAlignmentVerticalValues.Top; // すべて上揃え
-                ws.Rows().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left; // 左揃え
-
-                workbook.SaveAs(fullPath);
-            }
-        }
-
         private async void ExportPdf_Click(object sender, RoutedEventArgs e)
         {
-            var main = Owner as MainWindow;
+            var main = (Owner as MainWindow)!;
             if (main?.RecorderMgr.Evidence == null)
             {
                 MessageBox.Show("エクスポートするデータがありません。");
                 return;
             }
+            var evidence = main.RecorderMgr.Evidence;
 
             try
             {
@@ -280,21 +176,14 @@ namespace TraceShot.Features
                     var savedPath = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
                     bm.ImagePath = savedPath;
                 }
-                var htmlFilePath = ExportToHtml();
-                var pdfFilePath = string.Empty;
-                if (string.IsNullOrEmpty(OutputPathBox.Text))
-                {
-                    pdfFilePath = Path.ChangeExtension(htmlFilePath, ".pdf");
-                }
-                else
-                {
-                    var videoName = main.RecorderMgr.Evidence.VideoFileName;
-                    var fileName = Path.GetFileNameWithoutExtension(videoName) + ".pdf";
-                    pdfFilePath = Path.Combine(OutputPathBox.Text, fileName);
-                }
 
-                await ExportToPdfAsync(htmlFilePath, pdfFilePath);
-                MessageBox.Show("PDFを出力しました！");
+                var htmlPath = ExportToHtml();
+                var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".pdf";
+                var filePath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
+                    main.RecorderMgr.CurrentFolder : OutputPathBox.Text, fileName);
+
+                await ExportToPdfAsync(htmlPath, filePath);
+                MessageBox.Show("PDF出力");
             }
             catch (Exception ex)
             {
@@ -304,10 +193,10 @@ namespace TraceShot.Features
 
         private string ExportToHtml(bool isOriginalSize = false)
         {
-            var main = Owner as MainWindow;
+            var main = (Owner as MainWindow)!;
             var evidence = main.RecorderMgr.Evidence;
 
-            string fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".html";
+            string fileName = Path.GetFileNameWithoutExtension(evidence?.VideoFileName) + ".html";
             string htmlPath = Path.Combine(main.RecorderMgr.CurrentFolder, fileName);
             var sb = new StringBuilder();
 
@@ -408,6 +297,63 @@ namespace TraceShot.Features
             }
         }
 
+        private void ExportToExcel()
+        {
+            var main = (Owner as MainWindow)!;
+            var evidence = main.RecorderMgr.Evidence;
 
+            var fileName = Path.GetFileNameWithoutExtension(evidence?.VideoFileName) + ".xlsx";
+            var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
+                main.RecorderMgr.CurrentFolder : OutputPathBox.Text, fileName);
+
+            using (var workbook = new XLWorkbook())
+            {
+                var ws = workbook.Worksheets.Add("録画エビデンス");
+
+                // --- 基本設定 ---
+                int dataStartRow = 10;
+                ws.Cell(dataStartRow, 1).Value = "経過時間";
+                ws.Cell(dataStartRow, 2).Value = "内容・メモ";
+                ws.Cell(dataStartRow, 3).Value = "スクリーンショット";
+
+                // --- ブックマーク一覧のループ内 ---
+                for (int i = 0; i < evidence.Bookmarks.Count; i++)
+                {
+                    var bm = evidence.Bookmarks[i];
+                    int currentRow = dataStartRow + 1 + i;
+
+                    ws.Cell(currentRow, 1).Value = bm.Time;
+                    ws.Cell(currentRow, 2).Value = bm.Note;
+
+                    if (!string.IsNullOrEmpty(bm.ImagePath) && File.Exists(bm.ImagePath))
+                    {
+                        // 1. 画像を追加（この時点ではまだ位置固定しない）
+                        var picture = ws.AddPicture(bm.ImagePath);
+
+                        // 2. 💡 MoveTo メソッドを使って、セル位置と「ズレ（オフセット）」を同時に指定する
+                        // 第1引数：開始セル
+                        // 第2引数：横方向のオフセット（ピクセル）
+                        // 第3引数：縦方向のオフセット（ピクセル） ← ここで 10 指定
+                        picture.MoveTo(ws.Cell(currentRow, 3), 5, 10);
+
+                        // 3. 等倍に設定
+                        picture.Scale(1.0);
+
+                        // 4. 黄金設定の高さ調整
+                        double baseHeight = picture.Height * 0.75;
+                        double safeBuffer = 80; // さらに余裕を持って 80 に増やしました
+                        ws.Row(currentRow).Height = Math.Min(baseHeight + safeBuffer, 409);
+                    }
+                }
+
+                // 💡 仕上げのレイアウト調整
+                ws.Columns(1, 2).AdjustToContents(); // テキストに合わせて幅調整
+                ws.Column(3).Width = 120; // 画像列は十分な幅を確保
+                ws.Rows().Style.Alignment.Vertical = XLAlignmentVerticalValues.Top; // すべて上揃え
+                ws.Rows().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left; // 左揃え
+
+                workbook.SaveAs(fullPath);
+            }
+        }
     }
 }

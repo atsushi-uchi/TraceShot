@@ -1,9 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using NHotkey;
+using NHotkey.Wpf;
 using System.Windows;
 using System.Windows.Input;
-using NHotkey;
-using NHotkey.Wpf;
 
 namespace TraceShot.Services
 {

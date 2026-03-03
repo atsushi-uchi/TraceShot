@@ -1,10 +1,6 @@
-﻿using ClosedXML.Excel;
-using PuppeteerSharp;
-using PuppeteerSharp.Media;
-using ScreenRecorderLib;
+﻿using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;
@@ -30,6 +26,7 @@ public class RecorderManager
     public string? JsonPath { get; set; }
     private List<Bookmark> _currentBookmarks = [];
     public event EventHandler? OnActualRecordingStarted;
+    public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
 
     public RecorderManager()
     {
@@ -143,6 +140,7 @@ public class RecorderManager
         }
         return null;
     }
+
     public string PrepareEvidence(string modeName, string windowTitle)
     {
         string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
@@ -199,8 +197,6 @@ public class RecorderManager
 
         File.WriteAllText(JsonPath, jsonString);
     }
-
-    public event EventHandler<FrameRecordedEventArgs> OnPreviewFrameReceived;
 
     public void StartFullscreenRecording(string filePath, string targetDeviceName)
     {
