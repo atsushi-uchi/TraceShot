@@ -1,0 +1,46 @@
+﻿<Window x:Class="TraceShot.Features.ExportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TraceShot.Features"
+        mc:Ignorable="d"
+        Title="ExportWindow" Height="320" Width="400">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="20,20,20,10">
+                <TextBlock Text="エクスポート設定" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
+
+            <TextBlock Text="出力倍率:"/>
+            <ComboBox x:Name="ExportScaleComboBox" Margin="0,5,0,15" SelectedIndex="3">
+                <ComboBoxItem Content="25%" Tag="0.25"/>
+                <ComboBoxItem Content="50%" Tag="0.5"/>
+                <ComboBoxItem Content="75%" Tag="0.75"/>
+                <ComboBoxItem Content="100%" Tag="1.0"/>
+                <ComboBoxItem Content="125%" Tag="1.25"/>
+                <ComboBoxItem Content="150%" Tag="1.5"/>
+            </ComboBox>
+
+            <TextBlock Text="出力先フォルダ:"/>
+            <DockPanel Margin="0,5,0,20">
+                <Button Content="参照..." DockPanel.Dock="Right" Width="60" Click="Browse_Click"/>
+                <TextBox x:Name="OutputPathBox" IsReadOnly="True" Margin="0,0,5,0" VerticalContentAlignment="Center"/>
+            </DockPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="1" Background="#F0F0F0" BorderBrush="#CCC" BorderThickness="0,1,0,0" Padding="15">
+            <UniformGrid Columns="3">
+                <Button Content="HTML出力" Margin="5" Padding="5,10" Click="ExportHtml_Click"/>
+                <Button Content="PDF出力" Margin="5" Padding="5,10" Click="ExportPdf_Click"/>
+                <Button Content="Excel出力" Margin="5" Padding="5,10" Click="ExportExcel_Click"/>
+            </UniformGrid>
+        </Border>
+    </Grid>
+</Window>

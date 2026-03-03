@@ -1,6 +1,4 @@
-﻿using DocumentFormat.OpenXml.Drawing.Wordprocessing;
-using NHotkey;
-using NHotkey.Wpf;
+﻿using NHotkey;
 using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
@@ -9,17 +7,15 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
+using TraceShot.Features;
 using TraceShot.Services;
 using Brushes = System.Windows.Media.Brushes;
 using Drawing = System.Drawing;
 using MessageBox = System.Windows.MessageBox;
-using WinForms = System.Windows.Forms;
 using WpfPoint = System.Windows.Point; // WPFの座標
 using WpfRectangle = System.Windows.Shapes.Rectangle;
 
@@ -33,7 +29,7 @@ namespace TraceShot
     {
         private bool _isPlaying = false;
         private bool _isRecording = false;
-        private RecorderManager _recorderManager = new RecorderManager();
+        public RecorderManager RecorderMgr { get; private set; }  = new RecorderManager();
 
         private string _currentVideoPath = "";
         private DispatcherTimer _recordingTimer;
@@ -45,6 +41,7 @@ namespace TraceShot
         private IntPtr _targetWindowHandle;
         private WpfPoint _startPoint;
         private WpfRectangle _currentRectangle = new ();
+        private WriteableBitmap? _previewBitmap;
 
         public MainWindow()
         {
@@ -119,11 +116,11 @@ namespace TraceShot
 
         private void SaveEvidence_Click(object sender, RoutedEventArgs e)
         {
-            if (_recorderManager.Evidence == null) return;
+            if (RecorderMgr.Evidence == null) return;
 
             try
             {
-                _recorderManager.UpdateJson();
+                RecorderMgr.UpdateJson();
 
                 StatusText.Text = $"[保存完了] {DateTime.Now:HH:mm:ss} エビデンスを保存しました。";
                 MessageBox.Show("エビデンスの内容を保存しました。", "保存完了", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -156,16 +153,14 @@ namespace TraceShot
 
                     if (evidence != null)
                     {
-                        _recorderManager.Evidence = evidence;
-                        _recorderManager.JsonPath = openFileDialog.FileName;
-                        ExportPdfButton.IsEnabled = true;
-                        ExportExcelButton.IsEnabled = true;
+                        RecorderMgr.Evidence = evidence;
+                        RecorderMgr.JsonPath = openFileDialog.FileName;
 
                         // 3. JSONと同じフォルダ内にある動画ファイルのフルパスを作成
                         var folderPath = System.IO.Path.GetDirectoryName(openFileDialog.FileName) ?? "";
                         if (!string.IsNullOrEmpty(folderPath))
                         {
-                            _recorderManager.CurrentFolder = folderPath;
+                            RecorderMgr.CurrentFolder = folderPath;
                             string videoPath = System.IO.Path.Combine(folderPath, evidence.VideoFileName);
 
                             if (File.Exists(videoPath))
@@ -187,7 +182,7 @@ namespace TraceShot
                                     foreach (var bm in evidence.Bookmarks)
                                     {
                                         LogListBox.Items.Add(bm);
-                                        _recorderManager.AddBookmark(bm);
+                                        RecorderMgr.AddBookmark(bm);
                                     }
                                 }
                             }
@@ -203,6 +198,18 @@ namespace TraceShot
                     MessageBox.Show($"読み込みエラー: {ex.Message}");
                 }
             }
+        }
+
+        private void OpenExport_Click(object sender, RoutedEventArgs e)
+        {
+            // エクスポート画面を表示
+            var exportWin = new ExportWindow();
+            exportWin.Owner = this; // 親ウィンドウをセットして中央に表示
+
+            // 必要なら現在の録画データなどをコンストラクタやプロパティで渡す
+            // exportWin.TargetData = this._currentData;
+
+            exportWin.ShowDialog();
         }
 
         private void ClearMarkRectangle()
@@ -340,7 +347,7 @@ namespace TraceShot
                 };
 
                 // リストに追加して選択状態にする
-                var sorted =_recorderManager.AddBookmark(bookmark);
+                var sorted =RecorderMgr.AddBookmark(bookmark);
                 LogListBox.Items.Clear();
                 foreach (var b in sorted) LogListBox.Items.Add(b);
                 LogListBox.SelectedItem = bookmark;
@@ -385,7 +392,7 @@ namespace TraceShot
             if (result == MessageBoxResult.Yes)
             {
                 // 3. データソースから削除
-                _recorderManager.Evidence.Bookmarks.Remove(selected);
+                RecorderMgr.Evidence.Bookmarks.Remove(selected);
 
                 // 4. UI（ListBox）から削除
                 // ItemsSourceを使っている場合は自動で消えますが、Items.Add方式の場合は手動で消します
@@ -395,7 +402,7 @@ namespace TraceShot
                 // 基本的にはディスクに残しておき、手動で整理する方が安全です。
 
                 // 6. 保存とステータス更新
-                _recorderManager.SaveEvidenceJson();
+                RecorderMgr.SaveEvidenceJson();
                 StatusText.Text = $"[削除完了] {selected.Time} の項目を削除しました。";
 
                 // メモ入力欄をクリア
@@ -410,14 +417,14 @@ namespace TraceShot
                 return;
             }
 
-            if (_recorderManager is null || _recorderManager.Evidence is null) return;
+            if (RecorderMgr is null || RecorderMgr.Evidence is null) return;
 
             // 1. 現在の再生時間を取得（秒単位などで丸めるのがおすすめ）
             var currentTime = VideoPlayer.Position;
             string timeStr = currentTime.ToString(@"mm\:ss\.fff");
 
             // 2. 💡 すでに同じ時間のブックマークがあるかチェック
-            bool isDuplicate = _recorderManager.Evidence.Bookmarks.Any(b => b.Time == timeStr);
+            bool isDuplicate = RecorderMgr.Evidence.Bookmarks.Any(b => b.Time == timeStr);
 
             if (isDuplicate)
             {
@@ -427,7 +434,7 @@ namespace TraceShot
 
             // 3. スクリーンショットの撮影と保存
             string fileName = $"SS_{DateTime.Now:yyyyMMddHHmmss}.png";
-            string imagePath = System.IO.Path.Combine(_recorderManager.CurrentFolder, "ScreenShot", fileName);
+            string imagePath = System.IO.Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
 
             // 4. ブックマークリストに追加
             var bookmark = new Bookmark
@@ -438,7 +445,7 @@ namespace TraceShot
                 ImagePath = imagePath
             };
 
-            var sorted = _recorderManager.AddBookmark(bookmark);
+            var sorted = RecorderMgr.AddBookmark(bookmark);
             LogListBox.Items.Clear();
             foreach (var b in sorted) LogListBox.Items.Add(b);
             
@@ -447,125 +454,10 @@ namespace TraceShot
             System.Media.SystemSounds.Asterisk.Play();
         }
 
-        private double GetSelectedScale()
-        {
-            if (ScaleComboBox.SelectedItem is ComboBoxItem item &&
-                double.TryParse(item.Tag.ToString(), out double scale))
-            {
-                return scale;
-            }
-            return 1.0; // デフォルト
-        }
-
-        private async void ExportExcelButton_Click(object sender, RoutedEventArgs e)
-        {
-            // 録画直後またはJSON読み込み直後のデータを対象にする
-            if (_recorderManager.Evidence == null)
-            {
-                MessageBox.Show("エクスポートするデータがありません。");
-                return;
-            }
-
-            try
-            {
-                // 元の再生位置を記憶
-                TimeSpan originalPosition = VideoPlayer.Position;
-                bool wasPlaying = VideoPlayer.CanPause && VideoPlayer.Position > TimeSpan.Zero;
-                PlayerPause(false);
-                try
-                {
-                    foreach (var bm in _recorderManager.Evidence.Bookmarks)
-                    {
-                        VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
-                        await Task.Delay(500);
-
-                        // 画像を保存し、そのパスを bm.ImagePath に格納するようマネージャー側を調整
-                        var scale = GetSelectedScale();
-                        var savedPath = _recorderManager.SaveSingleBookmarkImage(bm, VideoPlayer, scale);
-                        bm.ImagePath = savedPath;
-                    }
-                    _recorderManager.ExportToExcel();
-                    MessageBox.Show("Excelを出力しました！");
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"出力エラー: {ex.Message}");
-                }
-                finally
-                {
-                    // 元の位置に戻す
-                    VideoPlayer.Position = originalPosition;
-                    if (wasPlaying)
-                    {
-                        PlayerPause(true);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"エクスポート失敗: {ex.Message}");
-            }
-        }
-
-        private async void ExportPdfButton_Click(object sender, RoutedEventArgs e)
-        {
-            // 録画直後またはJSON読み込み直後のデータを対象にする
-            if (_recorderManager.Evidence == null)
-            {
-                MessageBox.Show("エクスポートするデータがありません。");
-                return;
-            }
-
-            try
-            {
-                // 元の再生位置を記憶
-                TimeSpan originalPosition = VideoPlayer.Position;
-                bool wasPlaying = VideoPlayer.CanPause && VideoPlayer.Position > TimeSpan.Zero;
-                PlayerPause(false);
-
-                try
-                {
-                    foreach (var bm in _recorderManager.Evidence.Bookmarks)
-                    {
-                        VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
-                        await Task.Delay(500);
-
-                        // 画像を保存し、そのパスを bm.ImagePath に格納するようマネージャー側を調整
-                        var scale = GetSelectedScale();
-                        var savedPath = _recorderManager.SaveSingleBookmarkImage(bm, VideoPlayer, scale);
-                        bm.ImagePath = savedPath;
-                    }
-                    var htmlFilePath = _recorderManager.ExportToHtml();
-                    var pdfFilePath = System.IO.Path.ChangeExtension(htmlFilePath, ".pdf");
-                    await _recorderManager.ExportToPdfAsync(htmlFilePath, pdfFilePath);
-                    MessageBox.Show("PDFを出力しました！");
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"出力エラー: {ex.Message}");
-                }
-                finally
-                {
-                    // 元の位置に戻す
-                    VideoPlayer.Position = originalPosition;
-                    if (wasPlaying)
-                    {
-                        PlayerPause(true);
-                    }
-
-
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"エクスポート失敗: {ex.Message}");
-            }
-        }
-
         private void RecordingTimer_Tick(object? sender, EventArgs e)
         {
             // ストップウォッチの経過時間を表示
-            BigRecordingTimerText.Text = _recorderManager.RecordingTime;
+            BigRecordingTimerText.Text = RecorderMgr.RecordingTime;
         }
 
         private void VideoPlayer_MediaOpened(object sender, RoutedEventArgs e)
@@ -687,7 +579,7 @@ namespace TraceShot
             }
         }
 
-        private void PlayerPause(bool withReflash)
+        public void PlayerPause(bool withReflash)
         {
             ClearMarkRectangle(); // 再生が始まったら描画を消す
             if (withReflash) VideoPlayer.Play();
@@ -764,7 +656,7 @@ namespace TraceShot
                 SystemSounds.Beep.Play();
             }
 
-            var bookmark = _recorderManager.AddBookmark();
+            var bookmark = RecorderMgr.AddBookmark();
             if (bookmark is not null)
             {
                 LogListBox.Items.Add(bookmark);
@@ -784,7 +676,7 @@ namespace TraceShot
             _isRecording = true;
 
             // イベント登録
-            _recorderManager.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
+            RecorderMgr.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
 
             // UIの切り替え
             VideoPlayer.Visibility = Visibility.Collapsed;
@@ -807,7 +699,7 @@ namespace TraceShot
             _isRecording = false;
 
             // イベント解除
-            _recorderManager.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
+            RecorderMgr.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
 
             // UIの切り替え
             VideoPlayer.Visibility = Visibility.Visible;
@@ -823,8 +715,6 @@ namespace TraceShot
             VideoPlayer.Source = new Uri(_currentVideoPath);
             PlayerPause(true);
 
-            ExportPdfButton.IsEnabled = true;
-            ExportExcelButton.IsEnabled = true;
 
             StartStopIcon.Foreground = Brushes.Red;
             StartStopIcon.Text = "●";
@@ -843,8 +733,8 @@ namespace TraceShot
                     switch (ModeComboBox.SelectedIndex)
                     {
                         case 0: // 全画面
-                            _currentVideoPath = _recorderManager.PrepareEvidence(modeName, string.Empty);
-                            _recorderManager.StartFullscreenRecording(_currentVideoPath, _selectedDeviceName);
+                            _currentVideoPath = RecorderMgr.PrepareEvidence(modeName, string.Empty);
+                            RecorderMgr.StartFullscreenRecording(_currentVideoPath, _selectedDeviceName);
                             break;
 
                         case 1: // 矩形選択
@@ -853,8 +743,8 @@ namespace TraceShot
                                 StatusText.Text = "エラー：範囲を先に選択してください";
                                 return;
                             }
-                            _currentVideoPath = _recorderManager.PrepareEvidence(modeName, string.Empty);
-                            _recorderManager.StartRectangleRecording(_currentVideoPath, _selectedDeviceName, _selectedRegion);
+                            _currentVideoPath = RecorderMgr.PrepareEvidence(modeName, string.Empty);
+                            RecorderMgr.StartRectangleRecording(_currentVideoPath, _selectedDeviceName, _selectedRegion);
                             break;
 
                         case 2: // ウィンドウ選択
@@ -863,13 +753,13 @@ namespace TraceShot
                                 StatusText.Text = "エラー：ウィンドウを先に選択してください";
                                 return;
                             }
-                            _currentVideoPath = _recorderManager.PrepareEvidence(modeName, "ここにタイトルをいれる");
-                            _recorderManager.StartWindowRecording(_currentVideoPath, _targetWindowHandle);
+                            _currentVideoPath = RecorderMgr.PrepareEvidence(modeName, "ここにタイトルをいれる");
+                            RecorderMgr.StartWindowRecording(_currentVideoPath, _targetWindowHandle);
                             break;
                     }
 
                     // 録画開始ボタンの処理内
-                    _recorderManager.OnActualRecordingStarted += (s, e) =>
+                    RecorderMgr.OnActualRecordingStarted += (s, e) =>
                     {
                         Dispatcher.Invoke(() =>
                         {
@@ -880,7 +770,7 @@ namespace TraceShot
                     OnRecordingStarted();
 
                     RegisterHotkey();
-                    StatusText.Text = $"● 録画中: {_recorderManager.CurrentVideoName}";
+                    StatusText.Text = $"● 録画中: {RecorderMgr.CurrentVideoName}";
 
                     taskbarInfo.ProgressState = TaskbarItemProgressState.Error;
                     taskbarInfo.ProgressValue = 1.0;
@@ -893,13 +783,13 @@ namespace TraceShot
             else
             {
                 // --- 録画停止の処理 ---
-                _recorderManager.StopRecording();
+                RecorderMgr.StopRecording();
                 StatusText.Text = "動画を処理中...";
                 await Task.Delay(1000);
 
                 OnRecordingStopped();
 
-                if (_recorderManager.TraceLogs.Count > 0)
+                if (RecorderMgr.TraceLogs.Count > 0)
                 {
                     taskbarInfo.ProgressState = TaskbarItemProgressState.None;
                     taskbarInfo.ProgressValue = 0;
@@ -908,7 +798,6 @@ namespace TraceShot
                 }
             }
         }
-        private WriteableBitmap? _previewBitmap;
         private void RecorderManager_OnPreviewFrameReceived(object? sender, FrameRecordedEventArgs e)
         {
             // UIスレッドで実行

@@ -33,6 +33,11 @@
                         <TextBlock Text="💾"/>
                     </MenuItem.Icon>
                 </MenuItem>
+                <MenuItem Header="エクスポート(_E)..." Click="OpenExport_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="📊"/>
+                    </MenuItem.Icon>
+                </MenuItem>
                 <Separator />
                 <MenuItem Header="終了(_X)" Click="Exit_Click" />
             </MenuItem>
@@ -149,26 +154,6 @@
                         <ComboBoxItem Content="ウインドウ"/>
                     </ComboBox>
                     <Button x:Name="SelectRegionButton" Content="範囲選択" Click="SelectRegionButton_Click" Margin="5" Padding="5"/>
-
-                    <TextBlock Text=" 出力倍率：" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                    <ComboBox x:Name="ScaleComboBox" Width="60" SelectedIndex="3" Height="30" Padding="5">
-                        <ComboBoxItem Content="25%" Tag="0.25"/>
-                        <ComboBoxItem Content="50%" Tag="0.5"/>
-                        <ComboBoxItem Content="75%" Tag="0.75"/>
-                        <ComboBoxItem Content="100%" Tag="1.0"/>
-                        <ComboBoxItem Content="125%" Tag="1.25"/>
-                        <ComboBoxItem Content="150%" Tag="1.5"/>
-                    </ComboBox>
-                    <Button x:Name="ExportPdfButton" 
-                        Content="📊 PDF出力" 
-                        Click="ExportPdfButton_Click" 
-                        Width="80" Margin="5" Padding="5"
-                        IsEnabled="False"/>
-                    <Button x:Name="ExportExcelButton"
-                        Content="📊 Excel出力" 
-                        Click="ExportExcelButton_Click" 
-                        Width="80" Margin="5" Padding="5"
-                        IsEnabled="False"/>
 
                 </StackPanel>
             </StackPanel>
