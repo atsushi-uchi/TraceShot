@@ -11,9 +11,9 @@
         ShowActivated="False"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
 
-    <Grid x:Name="RootGrid" Background="#4400CCFF">
+    <Grid x:Name="RootGrid" Background="#3300FFFF">
         <Rectangle x:Name="SelectionRect" 
-                   Stroke="Red" 
+                   Stroke="Cyan" 
                    StrokeThickness="8" 
                    VerticalAlignment="Stretch" 
                    HorizontalAlignment="Stretch"

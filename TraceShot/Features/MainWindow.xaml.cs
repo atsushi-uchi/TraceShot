@@ -617,13 +617,11 @@ namespace TraceShot
             // ウインドウ選択モード
             if (ModeComboBox.SelectedIndex == 2)
             {
-                // 2. SelectionWindowを作成して表示
                 var sw = new SelectionWindow();
                 sw.ShowDialog();
 
-                // 3. SelectionWindowが閉じられた後、プロパティから値を取得
                 _targetWindowHandle = sw.SelectedHWnd;
-                StatusText.Text = $"ウィンドウを選択しました {sw.SelectedWindowTitle}";
+                StatusText.Text = $"録画対象：{sw.SelectedTitle}";
             }
 
             // MainWindowを再表示してアクティブにする

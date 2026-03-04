@@ -1,142 +1,169 @@
-﻿using System;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Threading;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 
 namespace TraceShot
 {
     public partial class SelectionWindow : Window
     {
-        // --- Win32 API Definitions ---
         [DllImport("user32.dll")]
         private static extern IntPtr WindowFromPoint(System.Drawing.Point p);
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
         [DllImport("user32.dll")]
         private static extern IntPtr GetParent(IntPtr hWnd);
 
-        // 公開プロパティ
-        public string SelectedWindowTitle { get; private set; } = "";
-        public IntPtr SelectedHWnd { get; private set; } = IntPtr.Zero;
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT { public int Left, Top, Right, Bottom; }
 
-        private DispatcherTimer _timer;
+        public IntPtr SelectedHWnd { get; private set; } = IntPtr.Zero;
+        public string SelectedTitle { get; private set; } = "";
+
+        [DllImport("user32.dll")]
+        static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+        [DllImport("user32.dll")]
+        static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        static extern int GetWindowTextLength(IntPtr hWnd);
+
+        const int GWL_EXSTYLE = -20;
+        const int WS_EX_TRANSPARENT = 0x00000020;
 
         public SelectionWindow()
         {
             InitializeComponent();
 
-            // ウィンドウがフォーカスを失った（＝他の場所をクリックした）時の処理
-            this.Deactivated += OnSelectionWindowDeactivated;
+            // 手動配置モード
+            this.WindowStartupLocation = WindowStartupLocation.Manual;
 
-            _timer = new DispatcherTimer(DispatcherPriority.Render);
-            _timer.Interval = TimeSpan.FromMilliseconds(50);
-            _timer.Tick += OnTimerTick;
-            _timer.Start();
+            // 全モニターを合計した「仮想スクリーン」のサイズを取得
+            this.Left = SystemParameters.VirtualScreenLeft;   // 左サブモニタがあればマイナス値になる
+            this.Top = SystemParameters.VirtualScreenTop;
+            this.Width = SystemParameters.VirtualScreenWidth;
+            this.Height = SystemParameters.VirtualScreenHeight;
         }
-
-        private void OnTimerTick(object? sender, EventArgs e)
+        private IntPtr _myHandle = IntPtr.Zero;
+        protected override void OnSourceInitialized(EventArgs e)
         {
+            base.OnSourceInitialized(e);
+            // 💡 ウィンドウの準備が完全に整ったタイミングでハンドルを確定させる
+            _myHandle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        }
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
             var physPos = System.Windows.Forms.Control.MousePosition;
 
-            // マウス位置のウィンドウ情報を一時的に保持
-            var (title, hWnd) = GetWindowInfoAt(physPos);
+            // 💡 ステップ1: OSレベルで自分をマウス透過状態にする
+            int extendedStyle = GetWindowLong(_myHandle, GWL_EXSTYLE);
+            SetWindowLong(_myHandle, GWL_EXSTYLE, extendedStyle | WS_EX_TRANSPARENT);
 
-            // XAMLの表示更新
-            TxtScreen.Text = $"画面: {title}";
-            TxtHandle.Text = $"hWnd: 0x{hWnd.ToInt64():X}";
+            // 💡 ステップ2: 背面のウィンドウを取得 (これで自分を突き抜ける)
+            IntPtr hWnd = WindowFromPoint(physPos);
+            hWnd = GetTopLevelWindow(hWnd);
 
-            // プロパティを常に最新にしておく（閉じた瞬間の値を確定値とするため）
-            SelectedWindowTitle = title;
-            SelectedHWnd = hWnd;
-            System.Diagnostics.Debug.Print($"title: {SelectedWindowTitle} hWnd: {SelectedHWnd.ToInt64():X}");
+            // 💡 ステップ3: 透過状態を解除して元に戻す (これがないとクリックできなくなる)
+            SetWindowLong(_myHandle, GWL_EXSTYLE, extendedStyle);
 
-            UpdatePosition(physPos);
+            if (hWnd != IntPtr.Zero && hWnd != _myHandle)
+            {
+                // 🔥 ついにここに来ます！
+                if (GetWindowRect(hWnd, out RECT rect))
+                {
+                    if (GetWindowRect(hWnd, out rect))
+                    {
+                        // 💡 追加：デスクトップやタスクバーなど、画面全体を覆う特殊なウィンドウを除外
+                        // 1. 自分のハンドルなら無視
+                        if (hWnd == _myHandle) return;
+
+                        // 2. ウィンドウのクラス名を確認（デスクトップやタスクバーを除外するため）
+                        StringBuilder className = new StringBuilder(256);
+                        GetClassName(hWnd, className, className.Capacity);
+                        string cls = className.ToString();
+
+                        // デスクトップ(Progman/WorkerW)やタスクバー(Shell_TrayWnd)は無視する
+                        if (cls == "Progman" || cls == "WorkerW" || cls == "Shell_TrayWnd")
+                        {
+                            HighlightBorder.Visibility = Visibility.Collapsed;
+                            SelectedHWnd = IntPtr.Zero;
+                            return;
+                        }
+                        // 💡 1. 現在のモニターのDPIスケールを取得
+                        var dpi = VisualTreeHelper.GetDpi(this);
+
+                        // 💡 2. 物理座標を論理座標（WPF単位）に変換し、かつ
+                        // ウィンドウの開始位置（this.Left/Top）を引いて「Canvas内の相対位置」にする
+                        // サブモニタが左にある場合、this.Left は負の値なので、引くことで正しくオフセットされます
+                        double canvasLeft = (rect.Left / dpi.DpiScaleX) - this.Left;
+                        double canvasTop = (rect.Top / dpi.DpiScaleY) - this.Top;
+                        double canvasWidth = (rect.Right - rect.Left) / dpi.DpiScaleX;
+                        double canvasHeight = (rect.Bottom - rect.Top) / dpi.DpiScaleY;
+
+                        // 💡 3. XAMLのBorder（青い枠）を更新
+                        HighlightBorder.Width = Math.Max(0, canvasWidth);
+                        HighlightBorder.Height = Math.Max(0, canvasHeight);
+                        Canvas.SetLeft(HighlightBorder, canvasLeft);
+                        Canvas.SetTop(HighlightBorder, canvasTop);
+
+                        // 💡 4. 表示状態にして、選択中のハンドルを保持
+                        HighlightBorder.Visibility = Visibility.Visible;
+                        SelectedHWnd = hWnd;
+                    }
+                }
+            }
         }
 
-        private void OnSelectionWindowDeactivated(object? sender, EventArgs e)
+
+        protected override void OnMouseDown(MouseButtonEventArgs e)
         {
-            // 他のウィンドウをクリックするなどして、このウィンドウがアクティブでなくなったら閉じる
-            _timer.Stop();
-            this.Close();
+            base.OnMouseDown(e);
+            if (SelectedHWnd != IntPtr.Zero)
+            {
+                // 💡 ウィンドウタイトルの取得
+                int length = GetWindowTextLength(SelectedHWnd);
+                if (length > 0)
+                {
+                    var sb = new System.Text.StringBuilder(length + 1);
+                    GetWindowText(SelectedHWnd, sb, sb.Capacity);
+                    SelectedTitle = sb.ToString();
+                }
+                else
+                {
+                    SelectedTitle = "（タイトルなし）";
+                }
+
+                this.DialogResult = true; // 選択確定
+                this.Close();
+            }
         }
 
-        private (string title, IntPtr hWnd) GetWindowInfoAt(System.Drawing.Point pt)
+        protected override void OnKeyDown(System.Windows.Input.KeyEventArgs e)
         {
-            IntPtr hWnd = WindowFromPoint(pt);
-            if (hWnd == IntPtr.Zero) return ("None", IntPtr.Zero);
-
-            IntPtr parent = GetParent(hWnd);
-            while (parent != IntPtr.Zero)
-            {
-                hWnd = parent;
-                parent = GetParent(hWnd);
-            }
-
-            StringBuilder sb = new StringBuilder(256);
-            GetWindowText(hWnd, sb, sb.Capacity);
-            string title = sb.ToString();
-
-            return (string.IsNullOrEmpty(title) ? "(No Title)" : title, hWnd);
+            if (e.Key == Key.Escape) this.Close(); // キャンセル
         }
 
-        private void UpdatePosition(System.Drawing.Point physPos)
+        private IntPtr GetTopLevelWindow(IntPtr hWnd)
         {
-            var screen = System.Windows.Forms.Screen.FromPoint(physPos);
-            var source = PresentationSource.FromVisual(this);
-            if (source?.CompositionTarget == null) return;
+            if (hWnd == IntPtr.Zero) return IntPtr.Zero;
 
-            // DPIスケーリングの取得
-            double dpiX = source.CompositionTarget.TransformToDevice.M11;
-            double dpiY = source.CompositionTarget.TransformToDevice.M22;
-
-            // 現在の物理座標をWPF座標に変換
-            double wpfMouseX = physPos.X / dpiX;
-            double wpfMouseY = physPos.Y / dpiY;
-
-            // 現在のモニターの有効範囲をWPF座標に変換
-            double screenLeft = screen.Bounds.Left / dpiX;
-            double screenTop = screen.Bounds.Top / dpiY;
-            double screenRight = screen.Bounds.Right / dpiX;
-            double screenBottom = screen.Bounds.Bottom / dpiY;
-
-            // マウスからのオフセット距離
-            double offset = 15;
-
-            // --- 位置計算（基本は右下） ---
-            double targetLeft = wpfMouseX + offset;
-            double targetTop = wpfMouseY + offset;
-
-            // --- 境界チェックと反転ロジック ---
-
-            // 1. 右端からはみ出すなら、マウスの左側に表示
-            if (targetLeft + this.ActualWidth > screenRight)
+            // 💡 修正：親を辿るが、デスクトップ（IntPtr.Zero）の手前で止める
+            IntPtr current = hWnd;
+            while (true)
             {
-                targetLeft = wpfMouseX - this.ActualWidth - offset;
+                IntPtr parent = GetParent(current);
+                if (parent == IntPtr.Zero) break;
+                current = parent;
             }
-            // 2. 左端からはみ出す（またはマウスを左に移動した際）のガード
-            if (targetLeft < screenLeft)
-            {
-                targetLeft = screenLeft; // 画面端に吸着
-            }
-
-            // 3. 下端からはみ出すなら、マウスの上側に表示
-            if (targetTop + this.ActualHeight > screenBottom)
-            {
-                targetTop = wpfMouseY - this.ActualHeight - offset;
-            }
-            // 4. 上端からはみ出す場合のガード
-            if (targetTop < screenTop)
-            {
-                targetTop = screenTop; // 画面端に吸着
-            }
-
-            // 最終的な位置を設定
-            this.Left = targetLeft;
-            this.Top = targetTop;
+            return current;
         }
     }
 }
