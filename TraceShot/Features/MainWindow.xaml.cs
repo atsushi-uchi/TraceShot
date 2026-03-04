@@ -110,9 +110,9 @@ namespace TraceShot
         }
 
         // 表示 -> 履歴ログをクリア
-        private void ClearLog_Click(object sender, RoutedEventArgs e)
+        private void ClearCheckPoint_Click(object sender, RoutedEventArgs e)
         {
-            LogListBox.Items.Clear();
+            CheckPointListBox.Items.Clear();
         }
 
         private void SaveEvidence_Click(object sender, RoutedEventArgs e)
@@ -139,7 +139,7 @@ namespace TraceShot
             {
                 Filter = "JSON files (*.json)|*.json",
                 Title = "保存されたエビデンス（JSON）を選択してください",
-                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos)
             };
 
             if (openFileDialog.ShowDialog() == true)
@@ -177,12 +177,12 @@ namespace TraceShot
                                 StatusText.Text = $"読み込み: {evidence.WindowTitle} ({evidence.Mode})";
 
                                 // リストボックスにブックマーク一覧を表示（オプション）
-                                LogListBox.Items.Clear();
+                                CheckPointListBox.Items.Clear();
                                 if (evidence.Bookmarks != null)
                                 {
                                     foreach (var bm in evidence.Bookmarks)
                                     {
-                                        LogListBox.Items.Add(bm);
+                                        CheckPointListBox.Items.Add(bm);
                                         RecorderMgr.AddBookmark(bm);
                                     }
                                 }
@@ -224,12 +224,49 @@ namespace TraceShot
             UpdateCanvasRects();
         }
 
+        private void SavePathStatusText_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // 現在のパスを取得
+            string folderPath = SavePathStatusText.Text;
+
+            // パスが未設定の場合は MyVideo フォルダをデフォルトにする
+            if (string.IsNullOrEmpty(folderPath) || folderPath == "未設定")
+            {
+                folderPath = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+            }
+
+            try
+            {
+                if (Directory.Exists(folderPath))
+                {
+                    // エクスプローラーで開く
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = folderPath,
+                        UseShellExecute = true, // フォルダを関連付けられたアプリ（エクスプローラー）で開く
+                        Verb = "open"
+                    });
+
+                    StatusText.Text = "📂 フォルダを開きました";
+                }
+                else
+                {
+                    StatusText.Text = "❌ 保存先フォルダが見つかりません";
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "❌ フォルダを開けませんでした";
+                RecorderMgr.TraceLogs.Add($"Explorer Error: {ex.Message}");
+            }
+        }
+
         private void UpdateCanvasRects()
         {
             DrawingCanvas.Children.Clear();
 
             // 現在選択されているブックマークがある場合のみ実行
-            if (LogListBox.SelectedItem is Bookmark selected && selected.MarkRects != null)
+            if (CheckPointListBox.SelectedItem is CheckPoint selected && selected.MarkRects != null)
             {
                 double containerW = DrawingCanvas.ActualWidth;
                 double containerH = DrawingCanvas.ActualHeight;
@@ -322,7 +359,7 @@ namespace TraceShot
 
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            Bookmark? selectedBm = LogListBox.SelectedItem as Bookmark;
+            CheckPoint? selectedBm = CheckPointListBox.SelectedItem as CheckPoint;
 
             WpfPoint endPoint = e.GetPosition(DrawingCanvas);
 
@@ -340,7 +377,7 @@ namespace TraceShot
             if (selectedBm == null || Math.Abs(selectedBm.Seconds - currentTime.TotalSeconds) > 0.1)
             {
                 // 💡 ここで「証跡追加」ボタンと同じ新規作成ロジックを走らせる
-                Bookmark bookmark = new Bookmark
+                CheckPoint bookmark = new CheckPoint
                 {
                     Time = currentTime.ToString(@"mm\:ss\.fff"),
                     Seconds = currentTime.TotalSeconds,
@@ -349,9 +386,9 @@ namespace TraceShot
 
                 // リストに追加して選択状態にする
                 var sorted =RecorderMgr.AddBookmark(bookmark);
-                LogListBox.Items.Clear();
-                foreach (var b in sorted) LogListBox.Items.Add(b);
-                LogListBox.SelectedItem = bookmark;
+                CheckPointListBox.Items.Clear();
+                foreach (var b in sorted) CheckPointListBox.Items.Add(b);
+                CheckPointListBox.SelectedItem = bookmark;
                 selectedBm = bookmark;
             }
 
@@ -379,7 +416,7 @@ namespace TraceShot
         private void DeleteBookmarkButton_Click(object sender, RoutedEventArgs e)
         {
             // 1. 選択されている項目があるかチェック
-            var selected = LogListBox.SelectedItem as Bookmark;
+            var selected = CheckPointListBox.SelectedItem as CheckPoint;
             if (selected == null)
             {
                 MessageBox.Show("削除する項目を選択してください。", "通知");
@@ -397,7 +434,7 @@ namespace TraceShot
 
                 // 4. UI（ListBox）から削除
                 // ItemsSourceを使っている場合は自動で消えますが、Items.Add方式の場合は手動で消します
-                LogListBox.Items.Remove(selected);
+                CheckPointListBox.Items.Remove(selected);
 
                 // 5. 💡 画像ファイルも削除するかは運用によりますが、
                 // 基本的にはディスクに残しておき、手動で整理する方が安全です。
@@ -438,7 +475,7 @@ namespace TraceShot
             string imagePath = System.IO.Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
 
             // 4. ブックマークリストに追加
-            var bookmark = new Bookmark
+            var bookmark = new CheckPoint
             {
                 Time = timeStr,
                 Seconds = currentTime.TotalSeconds,
@@ -447,10 +484,10 @@ namespace TraceShot
             };
 
             var sorted = RecorderMgr.AddBookmark(bookmark);
-            LogListBox.Items.Clear();
-            foreach (var b in sorted) LogListBox.Items.Add(b);
+            CheckPointListBox.Items.Clear();
+            foreach (var b in sorted) CheckPointListBox.Items.Add(b);
             
-            LogListBox.ScrollIntoView(bookmark);
+            CheckPointListBox.ScrollIntoView(bookmark);
             StatusText.Text = $"★ 追加 {bookmark.Time} {bookmark.Note}";
             System.Media.SystemSounds.Asterisk.Play();
         }
@@ -477,6 +514,25 @@ namespace TraceShot
             // 2. 💡 ここでタイマーを起動！
             StartPlaybackTimer();
         }
+
+        private void VideoPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
+        {
+            // 1. ステータスバーにエラーを表示
+            StatusText.Text = "❌ 再生エラー";
+
+            // 2. ログに詳細を記録（以前の画像で見られた TraceLogs や CheckPointListBox を活用）
+            string errorMessage = $"再生に失敗しました: {e.ErrorException.Message}";
+            RecorderMgr.TraceLogs.Add(errorMessage);
+
+            // 3. ユーザーへの通知
+            MessageBox.Show(errorMessage, "再生エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+
+            // 4. UIの状態をリセット
+            VideoPlayer.Visibility = Visibility.Collapsed;
+            // 必要に応じて代替のプレビュー画像などを表示
+            PreviewImage.Source = null;
+        }
+
 
         private void SelectRegionButton_Click(object sender, RoutedEventArgs e)
         {
@@ -659,8 +715,8 @@ namespace TraceShot
             var bookmark = RecorderMgr.AddBookmark();
             if (bookmark is not null)
             {
-                LogListBox.Items.Add(bookmark);
-                LogListBox.ScrollIntoView(bookmark);
+                CheckPointListBox.Items.Add(bookmark);
+                CheckPointListBox.ScrollIntoView(bookmark);
                 StatusText.Text = $"★ 記録 {bookmark.Time} {bookmark.Note}";
             }
         }
@@ -670,7 +726,7 @@ namespace TraceShot
         private void OnRecordingStarted()
         {
             // ブックマーク削除
-            LogListBox.Items.Clear();
+            CheckPointListBox.Items.Clear();
 
             // フラグ更新
             _isRecording = true;
@@ -844,11 +900,11 @@ namespace TraceShot
             }));
         }
 
-        private void LogListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void CheckPointListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             try
             {
-                if (LogListBox.SelectedItem is Bookmark selected)
+                if (CheckPointListBox.SelectedItem is CheckPoint selected)
                 {
                     VideoPlayer.Position = TimeSpan.FromSeconds(selected.Seconds);
                     PlayerPause(true);
@@ -869,19 +925,13 @@ namespace TraceShot
 
         private void NoteEditBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (LogListBox.SelectedItem is Bookmark selected)
+            if (CheckPointListBox.SelectedItem is CheckPoint selected)
             {
                 selected.Note = NoteEditBox.Text;
 
                 // 💡 画面上のリスト表示をリアルタイムに更新（Refresh）
-                LogListBox.Items.Refresh();
+                CheckPointListBox.Items.Refresh();
             }
-        }
-
-        private void VideoPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
-        {
-            MessageBox.Show($"動画の読み込みに失敗しました:\n{e.ErrorException.Message}",
-                    "再生エラー", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 }

@@ -24,7 +24,7 @@ public class RecorderManager
     public string CurrentFolder { get; set; }  = "";
     public RecordingEvidence? Evidence { get; set; }
     public string? JsonPath { get; set; }
-    private List<Bookmark> _currentBookmarks = [];
+    private List<CheckPoint> _currentBookmarks = [];
     public event EventHandler? OnActualRecordingStarted;
     public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
 
@@ -39,7 +39,7 @@ public class RecorderManager
     }
 
     // 引数に double scale を追加 (例: 0.5 = 50%, 1.0 = 100%)
-    public string? SaveSingleBookmarkImage(Bookmark bm, MediaElement videoPlayer, double scale = 0.5)
+    public string? SaveSingleBookmarkImage(CheckPoint bm, MediaElement videoPlayer, double scale = 0.5)
     {
         if (string.IsNullOrEmpty(CurrentFolder)) return null;
 
@@ -107,7 +107,7 @@ public class RecorderManager
     }
 
 
-    public List<Bookmark> AddBookmark(Bookmark bookmark)
+    public List<CheckPoint> AddBookmark(CheckPoint bookmark)
     {
         _currentBookmarks.Add(bookmark);
         var sorted = _currentBookmarks.OrderBy(b => b.Seconds).ToList();
@@ -120,13 +120,13 @@ public class RecorderManager
         return _currentBookmarks;
     }
 
-    public Bookmark? AddBookmark(string note = " - Screenshot")
+    public CheckPoint? AddBookmark(string note = " - Screenshot")
     {
         if (_stopwatch.IsRunning)
         {
             var elapsed = _stopwatch.Elapsed;
             string timestamp = elapsed.ToString(@"mm\:ss\.fff");
-            var bm = new Bookmark
+            var bm = new CheckPoint
             {
                 Time = timestamp,
                 Seconds = elapsed.TotalSeconds,

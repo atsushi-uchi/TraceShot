@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TraceShot"
         mc:Ignorable="d"
-        Title="TraceShot" Height="450" Width="800">
+        Title="TraceShot" Height="500" Width="850">
     <Window.TaskbarItemInfo>
         <TaskbarItemInfo x:Name="taskbarInfo" />
     </Window.TaskbarItemInfo>
@@ -19,9 +19,10 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Menu Grid.Row="0" Background="White">
+        <Menu Grid.Row="0" Grid.ColumnSpan="2" Background="White">
             <MenuItem Header="ファイル(_F)">
                 <MenuItem Header="開く(_O)..." Click="OpenEvidence_Click">
                     <MenuItem.Icon>
@@ -41,15 +42,11 @@
                 <Separator />
                 <MenuItem Header="終了(_X)" Click="Exit_Click" />
             </MenuItem>
-            <MenuItem Header="履歴クリア" Click="ClearLog_Click">
-            </MenuItem>
-            <MenuItem x:Name="DebugMenuItem" 
-          Header="デバッグ ON" 
-          IsCheckable="True" 
-          Click="DebugButton_Click" />
+            <MenuItem Header="チェックポイントクリア" Click="ClearCheckPoint_Click" />
+            <MenuItem x:Name="DebugMenuItem" Header="デバッグ ON" IsCheckable="True" Click="DebugButton_Click" />
         </Menu>
-        
-        <Grid Grid.Row = "1">
+
+        <Grid Grid.Row="1">
             <MediaElement x:Name="VideoPlayer" 
                           MediaOpened="VideoPlayer_MediaOpened"
                           MediaFailed="VideoPlayer_MediaFailed"
@@ -58,9 +55,7 @@
                           UnloadedBehavior="Stop"
                           ScrubbingEnabled="True"
                           Visibility="Collapsed" 
-                          Stretch="Uniform" 
-                          HorizontalAlignment="Stretch" 
-                          VerticalAlignment="Stretch" />
+                          Stretch="Uniform" />
 
             <Canvas x:Name="DrawingCanvas" Background="Transparent" 
                     MouseDown="DrawingCanvas_MouseDown"
@@ -69,35 +64,37 @@
         </Grid>
 
         <Grid x:Name="RecordingOverlay" Grid.Row="1" Visibility="Collapsed" Background="Black">
-            <Image x:Name="PreviewImage" Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+            <Image x:Name="PreviewImage" Stretch="Uniform" />
         </Grid>
 
-        <ListBox x:Name="LogListBox" 
-             Grid.Column="1" Grid.Row="1"
-             Margin="1" 
-             SelectionChanged="LogListBox_SelectionChanged">
-        </ListBox>
-        <StackPanel Orientation="Vertical" Grid.Column="1" Grid.Row="2">
-            <TextBlock Text="コメント:" Margin="10,0,0,0"/>
-            <TextBox x:Name="NoteEditBox" Width="200" Height="150" TextWrapping="Wrap" AcceptsReturn="True" 
+        <ListBox x:Name="CheckPointListBox" Grid.Column="1" Grid.Row="1" Margin="1" SelectionChanged="CheckPointListBox_SelectionChanged" />
+
+        <Grid Grid.Column="1" Grid.Row="2" Margin="5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="コメント:" Margin="5,0,0,2"/>
+
+            <TextBox x:Name="NoteEditBox" 
+             Grid.Row="1"
+             TextWrapping="Wrap" 
+             AcceptsReturn="True" 
+             VerticalContentAlignment="Top"
+             VerticalAlignment="Stretch"
              TextChanged="NoteEditBox_TextChanged"/>
-        </StackPanel>
+        </Grid>
 
-        <Border Grid.Row="2" Background="#F0F0F0" Padding="10">
+        <Border Grid.Row="2" Background="#F0F0F0" Padding="10" BorderBrush="#DDD" BorderThickness="0,1,0,0">
             <StackPanel>
-
                 <Grid Margin="0,5">
                     <StackPanel x:Name="PlaybackControlsArea" Visibility="Visible">
-                        <TextBlock x:Name="TimeText" 
-                           Text="00:00 / 00:00" 
-                           HorizontalAlignment="Right" 
-                           Margin="0,0,10,0"/>
-                        <Slider x:Name="TimelineSlider" 
-                        Minimum="0" 
-                        Thumb.DragStarted="Slider_DragStarted" 
-                        Thumb.DragCompleted="Slider_DragCompleted" 
-                        ValueChanged="Slider_ValueChanged" 
-                        Margin="0,5"/>
+                        <TextBlock x:Name="TimeText" Text="00:00 / 00:00" HorizontalAlignment="Right" Margin="0,0,10,0"/>
+                        <Slider x:Name="TimelineSlider" Minimum="0" 
+                                Thumb.DragStarted="Slider_DragStarted" 
+                                Thumb.DragCompleted="Slider_DragCompleted" 
+                                ValueChanged="Slider_ValueChanged" Margin="0,5"/>
                     </StackPanel>
 
                     <Grid x:Name="RecordingTimerArea" Visibility="Collapsed" Height="60" Background="#E0E0E0">
@@ -117,12 +114,7 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock x:Name="BigRecordingTimerText" 
-                               Text="00:00:00" 
-                               FontFamily="Consolas" 
-                               FontSize="36" 
-                               FontWeight="Bold" 
-                               VerticalAlignment="Center"/>
+                            <TextBlock x:Name="BigRecordingTimerText" Text="00:00:00" FontFamily="Consolas" FontSize="36" FontWeight="Bold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Grid>
                 </Grid>
@@ -144,8 +136,6 @@
                     <Button x:Name="DeleteBookmarkButton" Content="🗑️ 証跡削除" Click="DeleteBookmarkButton_Click" Width="100" Margin="5" />
                 </StackPanel>
 
-                <TextBlock x:Name="StatusText" Margin="5" HorizontalAlignment="Center" Foreground="Red"/>
-
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
                     <TextBlock Text="録画範囲：" VerticalAlignment="Center"/>
                     <ComboBox x:Name="ModeComboBox" Width="90" SelectedIndex="0" Height="30" Padding="5">
@@ -154,9 +144,45 @@
                         <ComboBoxItem Content="ウインドウ"/>
                     </ComboBox>
                     <Button x:Name="SelectRegionButton" Content="範囲選択" Click="SelectRegionButton_Click" Margin="5" Padding="5"/>
-
                 </StackPanel>
             </StackPanel>
         </Border>
+
+        <StatusBar Grid.Row="3" Grid.ColumnSpan="2" Background="#F0F0F0" BorderBrush="#CCC" BorderThickness="0,1,0,0">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusText" Foreground="Red" FontWeight="Bold"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="📁 保存先: " Foreground="#555"/>
+                    <TextBlock x:Name="SavePathStatusText" 
+                   Text="未設定" 
+                   MaxWidth="350" 
+                   TextTrimming="CharacterEllipsis"
+                   Foreground="Blue" 
+                   Cursor="Hand"
+                   PreviewMouseLeftButtonDown="SavePathStatusText_PreviewMouseLeftButtonDown">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="TextBlock.TextDecorations" Value="Underline" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                        <TextBlock.ToolTip>クリックしてフォルダを開く</TextBlock.ToolTip>
+                    </TextBlock>
+                </StackPanel>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🖥️ 解像度: " Foreground="#555"/>
+                    <TextBlock x:Name="ResolutionStatusText" Text="--- x ---"/>
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
     </Grid>
 </Window>

@@ -7,5 +7,5 @@ public class RecordingEvidence
     public string? WindowTitle { get; set; }
     public Rect SelectedRegion { get; set; }
     public string? Mode { get; set; } // 画面全体、矩形、ウィンドウなど
-    public List<Bookmark> Bookmarks { get; set; } = new List<Bookmark>();
+    public List<CheckPoint> Bookmarks { get; set; } = new List<CheckPoint>();
 }
