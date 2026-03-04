@@ -41,6 +41,10 @@ namespace TraceShot
 
         private IntPtr _targetWindowHandle;
         private WpfPoint _startPoint;
+        private WpfPoint _endPoint;
+        private WpfPoint _currentBalloonStart;
+        private WpfPoint _currentBalloonEnd;
+        
         private WpfRectangle _currentRectangle = new ();
         private WriteableBitmap? _previewBitmap;
         string _fullDeviceName = string.Empty;
@@ -425,11 +429,33 @@ namespace TraceShot
 
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            // 💡 Ctrlキーが押されている場合は吹き出しモード
-            if (Keyboard.Modifiers == ModifierKeys.Control && e.LeftButton == MouseButtonState.Pressed)
+            if (e.ChangedButton == MouseButton.Right)
             {
-                _startPoint = e.GetPosition(DrawingCanvas); // ここが「指し示す点」
-                return;
+                // ⭐ 最優先：入力中（TextBoxがある）なら、キャンセルして即座に抜ける
+                if (_activeBalloonInput != null)
+                {
+                    CancelBalloonInput();
+                    e.Handled = true;
+                    return; // 💡 これより下の「削除ロジック」には行かせない！
+                }
+
+                // --- 既存の削除ロジック（ここからは入力中でない時だけ実行される） ---
+                _isDrawing = false;
+                // ... (以下、selectedBm.Balloons から RemoveAt するループなど) ...
+            }
+            // 💡 吹き出し入力中に、TextBox以外を左クリックしたら確定
+            if (_activeBalloonInput != null)
+            {
+                // クリックされたのが TextBox 本人でないことを確認
+                if (!Equals(e.OriginalSource, _activeBalloonInput) && e.LeftButton == MouseButtonState.Pressed)
+                {
+                    // 保存しておいた座標を使って確定！
+                    ConfirmBalloon(_startPoint, _endPoint, _activeBalloonInput.Text);
+
+                    // 💡 確定後は TextBox を消すので、ここでの処理は終了
+                    e.Handled = true;
+                    return;
+                }
             }
             // 💡 1. 右クリック：削除処理
             if (e.ChangedButton == MouseButton.Right)
@@ -494,33 +520,80 @@ namespace TraceShot
                 return;
             }
 
-            // 💡 2. 左クリック：描画開始
+            // 💡 2. 左クリック時の共通準備
             if (e.ChangedButton == MouseButton.Left)
             {
-                _isDrawing = true; // 💡 左クリックの時だけ描画フラグを
+                _isDrawing = true;
+                _startPoint = e.GetPosition(DrawingCanvas);
 
                 if (_isPlaying) PlayPauseButton_Click(null, null);
 
-                _startPoint = e.GetPosition(DrawingCanvas);
-
-                // 新しい矩形を作成
-                _currentRectangle = new WpfRectangle
+                // 前回のドラッグ線がもし残っていたら掃除 (2回目以降対策)
+                if (_dragLine != null)
                 {
-                    Stroke = System.Windows.Media.Brushes.Red,
-                    StrokeThickness = 2,
-                    Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 255, 0, 0)),
-                    IsHitTestVisible = false
-                };
+                    DrawingCanvas.Children.Remove(_dragLine);
+                    _dragLine = null;
+                }
 
-                Canvas.SetLeft(_currentRectangle, _startPoint.X);
-                Canvas.SetTop(_currentRectangle, _startPoint.Y);
-                DrawingCanvas.Children.Add(_currentRectangle);
+                // --- モード分岐 ---
+
+                if (Keyboard.Modifiers == ModifierKeys.Control)
+                {
+                    // A. バルーンモード：ここでは「始点」を決めるだけでOK
+                    // MouseMove側で _dragLine を作成します
+                    return;
+                }
+                else
+                {
+                    // B. 通常の矩形描画モード
+                    _currentRectangle = new WpfRectangle
+                    {
+                        Stroke = System.Windows.Media.Brushes.Red,
+                        StrokeThickness = 2,
+                        Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 255, 0, 0)),
+                        IsHitTestVisible = false
+                    };
+
+                    Canvas.SetLeft(_currentRectangle, _startPoint.X);
+                    Canvas.SetTop(_currentRectangle, _startPoint.Y);
+                    DrawingCanvas.Children.Add(_currentRectangle);
+                }
             }
         }
 
         // 2. マウスが移動中：矩形のサイズを更新
         private void DrawingCanvas_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            if (_activeBalloonInput != null && e.RightButton == MouseButtonState.Pressed)
+            {
+                CancelBalloonInput();
+                e.Handled = true;
+                return;
+            }
+            if (_isDrawing && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                var currentPoint = e.GetPosition(DrawingCanvas);
+
+                // 💡 ブックマークの有無に関わらず、ガイド用の線を作成・更新する
+                if (_dragLine == null)
+                {
+                    _dragLine = new Line
+                    {
+                        Stroke = Brushes.Red,
+                        StrokeThickness = 1,
+                        StrokeDashArray = new DoubleCollection { 4, 2 },
+                        IsHitTestVisible = false
+                    };
+                    DrawingCanvas.Children.Add(_dragLine);
+                }
+
+                _dragLine.X1 = _startPoint.X;
+                _dragLine.Y1 = _startPoint.Y;
+                _dragLine.X2 = currentPoint.X;
+                _dragLine.Y2 = currentPoint.Y;
+
+                return; // バルーン描画中は矩形処理をスキップ
+            }
             // 💡 Ctrlキーが押されており、かつ左ボタンが押されている場合（吹き出しドラッグ中）
             if (Keyboard.Modifiers == ModifierKeys.Control && e.LeftButton == MouseButtonState.Pressed)
             {
@@ -606,7 +679,7 @@ namespace TraceShot
 
             if (!found) _hoverHighlightRect.Visibility = Visibility.Collapsed;
         }
-        private void ShowBalloonInput(WpfPoint start, WpfPoint end)
+        private void ShowBalloonInput()
         {
             _activeBalloonInput = new System.Windows.Controls.TextBox
             {
@@ -617,21 +690,54 @@ namespace TraceShot
                 BorderThickness = new Thickness(2)
             };
 
-            Canvas.SetLeft(_activeBalloonInput, end.X);
-            Canvas.SetTop(_activeBalloonInput, end.Y);
+            Canvas.SetLeft(_activeBalloonInput, _endPoint.X);
+            Canvas.SetTop(_activeBalloonInput, _endPoint.Y);
             DrawingCanvas.Children.Add(_activeBalloonInput);
             _activeBalloonInput.Focus();
 
+            // 💡 追加：右クリックでキャンセル
+            _activeBalloonInput.PreviewMouseRightButtonDown += (s, e) =>
+            {
+                CancelBalloonInput();
+                e.Handled = true; // 右クリックメニューを出さない
+            };
             // Enterキーで確定
             _activeBalloonInput.KeyDown += (s, e) =>
             {
                 if (e.Key == Key.Enter)
                 {
-                    ConfirmBalloon(start, end, _activeBalloonInput.Text);
+                    ConfirmBalloon(_startPoint, _endPoint, _activeBalloonInput.Text);
+                }
+                else if (e.Key == Key.Escape)
+                {
+                    // キャンセル時も仮線を消す
+                    CleanupDragLine();
                 }
             };
         }
+        private void CancelBalloonInput()
+        {
+            // 💡 1. 入力中の TextBox を消す
+            if (_activeBalloonInput != null)
+            {
+                DrawingCanvas.Children.Remove(_activeBalloonInput);
+                _activeBalloonInput = null;
+            }
 
+            // 💡 2. ガイド用の赤い点線を消す
+            CleanupDragLine();
+
+            // 💡 3. _isDrawing フラグを折って、変な残像が出ないようにする
+            _isDrawing = false;
+        }
+        private void CleanupDragLine()
+        {
+            if (_dragLine != null)
+            {
+                DrawingCanvas.Children.Remove(_dragLine);
+                _dragLine = null;
+            }
+        }
         private void ConfirmBalloon(WpfPoint start, WpfPoint end, string text)
         {
             var selectedBm = BookmarkListBox.SelectedItem as BookMark;
@@ -657,44 +763,35 @@ namespace TraceShot
                 };
                 selectedBm?.Balloons.Add(note);
             }
-            DrawingCanvas.Children.Remove(_activeBalloonInput);
-            _activeBalloonInput = null;
+
+            // 2. 💡 後始末
+            if (_activeBalloonInput != null)
+            {
+                DrawingCanvas.Children.Remove(_activeBalloonInput);
+                _activeBalloonInput = null; // nullに戻すことで「入力中ではない」と判定させる
+            }
+            CleanupDragLine(); // ガイド線を消す
             UpdateCanvasRects(); // 再描画
         }
+
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            WpfPoint endPoint = e.GetPosition(DrawingCanvas);
-            if (Keyboard.Modifiers == ModifierKeys.Control)
-            {
-                ShowBalloonInput(_startPoint, endPoint);
-                return;
-            }
-            // 💡 描画フラグが立っていない（右クリック後など）場合は、何もしない
-            if (!_isDrawing || _currentRectangle == null)
-            {
-                _isDrawing = false;
-                return;
-            }
+            // 1. 描画フラグのチェック（バルーン・矩形共通）
+            if (!_isDrawing) return;
 
-            _isDrawing = false; // 描画終了
+            _endPoint = e.GetPosition(DrawingCanvas);
+            _isDrawing = false; // 描画終了フラグを立てる
 
-            BookMark? selectedBm = BookmarkListBox.SelectedItem as BookMark;
-
-
-            // 💡 基準をすべて DrawingCanvas のサイズに統一する
-            double containerW = DrawingCanvas.ActualWidth;
-            double containerH = DrawingCanvas.ActualHeight;
-
-            // 1. 動画がロードされていない場合は何もしない
+            // 2. 動画がロードされていない場合は何もしない
             if (VideoPlayer.NaturalVideoWidth == 0) return;
 
-            // 2. 現在の再生時間のブックマークを探す、または作成する
-            // ※ 現在選択中のブックマークが今の再生時間と一致しない、または未選択の場合
+            // --- 3. 【共通】ブックマークを探す、または自動作成する ---
+            BookMark? selectedBm = BookmarkListBox.SelectedItem as BookMark;
             TimeSpan currentTime = VideoPlayer.Position;
 
+            // 現在選択中のブックマークがない、または再生時間とズレている場合に新規作成
             if (selectedBm == null || Math.Abs(selectedBm.Seconds - currentTime.TotalSeconds) > 0.1)
             {
-                // 💡 ここで「証跡追加」ボタンと同じ新規作成ロジックを走らせる
                 BookMark bookmark = new BookMark
                 {
                     Time = currentTime.ToString(@"mm\:ss\.fff"),
@@ -703,28 +800,50 @@ namespace TraceShot
                 };
 
                 // リストに追加して選択状態にする
-                var sorted =RecorderMgr.AddBookmark(bookmark);
+                var sorted = RecorderMgr.AddBookmark(bookmark);
                 BookmarkListBox.Items.Clear();
                 foreach (var b in sorted) BookmarkListBox.Items.Add(b);
                 BookmarkListBox.SelectedItem = bookmark;
                 selectedBm = bookmark;
             }
 
+            // --- 4. モード分岐：バルーン（Ctrl）か 矩形か ---
+
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                _currentBalloonStart = _startPoint;
+                _currentBalloonEnd = _endPoint;
+
+                // 💡 対策：もし UpdateCanvasRects で線が消えていたら、Canvas に戻す
+                if (_dragLine != null && !DrawingCanvas.Children.Contains(_dragLine))
+                {
+                    DrawingCanvas.Children.Add(_dragLine);
+                }
+
+                ShowBalloonInput();
+                return;
+            }
+
+            // --- 5. 従来の矩形 (MarkRects) の保存処理 ---
+            if (_currentRectangle == null) return;
+
+            double containerW = DrawingCanvas.ActualWidth;
+            double containerH = DrawingCanvas.ActualHeight;
+
             // 動画の表示比率と領域を算出
             double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
             double dispW = VideoPlayer.NaturalVideoWidth * ratio;
             double dispH = VideoPlayer.NaturalVideoHeight * ratio;
 
-            // キャンバス内での動画の左端・上端（余白）を算出
             double offsetX = (containerW - dispW) / 2.0;
             double offsetY = (containerH - dispH) / 2.0;
 
             // 比率座標（0.0〜1.0）へ変換して保存
             Rect relativeRect = new Rect(
-                (Math.Min(_startPoint.X, endPoint.X) - offsetX) / dispW,
-                (Math.Min(_startPoint.Y, endPoint.Y) - offsetY) / dispH,
-                Math.Abs(endPoint.X - _startPoint.X) / dispW,
-                Math.Abs(endPoint.Y - _startPoint.Y) / dispH
+                (Math.Min(_startPoint.X, _endPoint.X) - offsetX) / dispW,
+                (Math.Min(_startPoint.Y, _endPoint.Y) - offsetY) / dispH,
+                Math.Abs(_endPoint.X - _startPoint.X) / dispW,
+                Math.Abs(_endPoint.Y - _startPoint.Y) / dispH
             );
 
             selectedBm.MarkRects.Add(relativeRect);
