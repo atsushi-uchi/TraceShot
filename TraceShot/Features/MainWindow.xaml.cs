@@ -113,6 +113,8 @@ namespace TraceShot
             {
                 Properties.Settings.Default.Save();
             }
+            // ホットキー登録
+            RegisterHotkey();
         }
 
         private DebugWindow? _debugWindow;
@@ -1107,26 +1109,22 @@ namespace TraceShot
         // 録画開始の処理の中に追記
         private void RegisterHotkey()
         {
-            try
-            {
-                var hotkey = HotkeyRegister.RegisterBookmark(OnBookmark);
-                StatusText.Text = $"証跡追加のホットキーを割り当てました {hotkey}";
-                AddBookmarkButton.Content += "\n" + hotkey;
-            }
-            catch (HotkeyAlreadyRegisteredException)
-            {
-                MessageBox.Show("RegisterHotkey Error");
-            }
+            // 設定からロード
+            Key key = (Key)Properties.Settings.Default.HotkeyKey;
+            ModifierKeys mod = (ModifierKeys)Properties.Settings.Default.HotkeyMod;
+
+            // NHotkeyの AddOrReplace を呼び出す（前述の HotkeyRegister を利用）
+            var hotkeyStr = HotkeyRegister.RegisterBookmark(key, mod, OnBookmark);
+            StatusText.Text = $"ホットキー: {hotkeyStr}";
         }
 
         // ホットキーが押された時の動作
         private void OnBookmark(object? sender, HotkeyEventArgs e)
         {
-            if (_isRecording)
-            {
-                TakeBookmark(); // 前に準備したログ保存メソッドを呼ぶ
-                e.Handled = true; // 他のアプリにこのキー入力を流さない場合
-            }
+            if (_isRecording && !_isPlaying) return; 
+
+            TakeBookmark(); // 前に準備したログ保存メソッドを呼ぶ
+            e.Handled = true; // 他のアプリにこのキー入力を流さない場合
         }
 
         private void TakeBookmark()
@@ -1261,7 +1259,6 @@ namespace TraceShot
 
                     OnRecordingStarted();
 
-                    RegisterHotkey();
                     StatusText.Text = $"● 録画中: {RecorderMgr.CurrentVideoName}";
 
                     taskbarInfo.ProgressState = TaskbarItemProgressState.Error;

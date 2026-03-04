@@ -37,7 +37,7 @@ namespace TraceShot.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        [global::System.Configuration.DefaultSettingValueAttribute("30")]
         public int FrameRate {
             get {
                 return ((int)(this["FrameRate"]));
@@ -49,13 +49,37 @@ namespace TraceShot.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool UseHardwareAccel {
             get {
                 return ((bool)(this["UseHardwareAccel"]));
             }
             set {
                 this["UseHardwareAccel"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("114")]
+        public int HotkeyKey {
+            get {
+                return ((int)(this["HotkeyKey"]));
+            }
+            set {
+                this["HotkeyKey"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int HotkeyMod {
+            get {
+                return ((int)(this["HotkeyMod"]));
+            }
+            set {
+                this["HotkeyMod"] = value;
             }
         }
     }

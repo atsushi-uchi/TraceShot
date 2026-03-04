@@ -9,14 +9,12 @@ namespace TraceShot.Services
     {
         private const string Name = "Bookmark";
 
-        public static string RegisterBookmark(EventHandler<HotkeyEventArgs> handler)
+
+        public static string RegisterBookmark(Key key, ModifierKeys mod, EventHandler<HotkeyEventArgs> handler)
         {
-            foreach (var (key, mod) in Candidates())
+            if (TryRegister(key, mod, handler))
             {
-                if (TryRegister(key, mod, handler))
-                {
-                    return Format(key, mod);
-                }
+                return Format(key, mod);
             }
 
             System.Windows.MessageBox.Show("ホットキーを登録できませんでした（すべて使用中の可能性があります）。",
@@ -24,16 +22,16 @@ namespace TraceShot.Services
             return "";
         }
 
-        private static IEnumerable<(Key key, ModifierKeys mod)> Candidates()
-        {
-            //yield return (Key.Snapshot, ModifierKeys.None);  // PrintScreen
-            yield return (Key.F12, ModifierKeys.None);         // F12
-            yield return (Key.F12, ModifierKeys.Control);      // Ctrl+F12
-            yield return (Key.Snapshot, ModifierKeys.Control); // Ctrl+PrintScreen
+        //private static IEnumerable<(Key key, ModifierKeys mod)> Candidates()
+        //{
+        //    //yield return (Key.Snapshot, ModifierKeys.None);  // PrintScreen
+        //    yield return (Key.F12, ModifierKeys.None);         // F12
+        //    yield return (Key.F12, ModifierKeys.Control);      // Ctrl+F12
+        //    yield return (Key.Snapshot, ModifierKeys.Control); // Ctrl+PrintScreen
 
-            for (var k = Key.F11; k >= Key.F1; k--)            // F11→F1
-                yield return (k, ModifierKeys.None);
-        }
+        //    for (var k = Key.F11; k >= Key.F1; k--)            // F11→F1
+        //        yield return (k, ModifierKeys.None);
+        //}
 
         private static bool TryRegister(Key key, ModifierKeys mod, EventHandler<HotkeyEventArgs> handler)
         {
@@ -52,7 +50,7 @@ namespace TraceShot.Services
             }
         }
 
-        private static string Format(Key key, ModifierKeys mod)
+        public static string Format(Key key, ModifierKeys mod)
         {
             var p = new List<string>();
             if (mod.HasFlag(ModifierKeys.Control)) p.Add("Ctrl");
