@@ -116,7 +116,7 @@ public class RecorderManager
         {
             _currentBookmarks.Add(b);
         }
-        if (Evidence is not null) Evidence.Bookmarks = _currentBookmarks;
+        if (Evidence is not null) Evidence.CheckPoints = _currentBookmarks;
         return _currentBookmarks;
     }
 
@@ -134,7 +134,7 @@ public class RecorderManager
             };
             _currentBookmarks.Add(bm);
 
-            if (Evidence is not null) Evidence.Bookmarks = _currentBookmarks;
+            if (Evidence is not null) Evidence.CheckPoints = _currentBookmarks;
 
             return bm;
         }
@@ -160,7 +160,7 @@ public class RecorderManager
 
     public void UpdateJson()
     {
-        Evidence.Bookmarks = _currentBookmarks;
+        Evidence.CheckPoints = _currentBookmarks;
         SaveEvidenceJson();
     }
 
@@ -173,7 +173,7 @@ public class RecorderManager
             RecordingDate = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"),
             WindowTitle = title,
             Mode = mode,
-            Bookmarks = _currentBookmarks,
+            CheckPoints = _currentBookmarks,
         };
 
         JsonPath = Path.Combine(CurrentFolder, $"TraceShot_{timestamp}.json");

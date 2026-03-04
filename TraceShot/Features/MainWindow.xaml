@@ -67,7 +67,9 @@
             <Image x:Name="PreviewImage" Stretch="Uniform" />
         </Grid>
 
-        <ListBox x:Name="CheckPointListBox" Grid.Column="1" Grid.Row="1" Margin="1" SelectionChanged="CheckPointListBox_SelectionChanged" />
+        <ListBox x:Name="CheckPointListBox" Grid.Column="1" Grid.Row="1" Margin="1" 
+                 SelectionMode="Extended"
+                 SelectionChanged="CheckPointListBox_SelectionChanged" />
 
         <Grid Grid.Column="1" Grid.Row="2" Margin="5">
             <Grid.RowDefinitions>
@@ -132,8 +134,8 @@
                             <TextBlock x:Name="PlayPauseText" Text="再生"/>
                         </StackPanel>
                     </Button>
-                    <Button x:Name="AddBookmarkButton" Content="📌 証跡追加" Click="AddBookmarkButton_Click" Width="100" Height="40" Margin="5"/>
-                    <Button x:Name="DeleteBookmarkButton" Content="🗑️ 証跡削除" Click="DeleteBookmarkButton_Click" Width="100" Margin="5" />
+                    <Button x:Name="AddBookmarkButton" Content="📌 チェックポイント&#x0a;　　追加" Click="AddBookmarkButton_Click" Width="100" Height="40" Margin="5"/>
+                    <Button x:Name="DeleteBookmarkButton" Content="🗑️ チェックポイント&#x0a;　　削除" Click="DeleteBookmarkButton_Click" Width="100" Margin="5" />
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">

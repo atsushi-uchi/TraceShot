@@ -178,9 +178,9 @@ namespace TraceShot
 
                                 // リストボックスにブックマーク一覧を表示（オプション）
                                 CheckPointListBox.Items.Clear();
-                                if (evidence.Bookmarks != null)
+                                if (evidence.CheckPoints != null)
                                 {
-                                    foreach (var bm in evidence.Bookmarks)
+                                    foreach (var bm in evidence.CheckPoints)
                                     {
                                         CheckPointListBox.Items.Add(bm);
                                         RecorderMgr.AddBookmark(bm);
@@ -416,37 +416,39 @@ namespace TraceShot
         private void DeleteBookmarkButton_Click(object sender, RoutedEventArgs e)
         {
             // 1. 選択されている項目があるかチェック
-            var selected = CheckPointListBox.SelectedItem as CheckPoint;
-            if (selected == null)
+            if (CheckPointListBox.SelectedItems.Count == 0)
             {
-                MessageBox.Show("削除する項目を選択してください。", "通知");
+                StatusText.Text = "ℹ️ 削除する項目を選択してください";
                 return;
             }
 
-            // 2. 確認ダイアログを表示（誤操作防止）
-            var result = MessageBox.Show($"{selected.Time} のブックマークを削除しますか？",
-                                         "削除確認", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            // 確認メッセージ（任意）
+            var result = MessageBox.Show(
+                $"{CheckPointListBox.SelectedItems.Count} 件のチェックポイントを削除しますか？",
+                "削除の確認",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
 
             if (result == MessageBoxResult.Yes)
             {
-                // 3. データソースから削除
-                RecorderMgr.Evidence?.Bookmarks.Remove(selected);
+                // 2. 選択された項目を一度別リストにコピーする
+                // (列挙中に元のコレクションを変更するとエラーになるため)
+                var checkPoints = CheckPointListBox.SelectedItems.Cast<CheckPoint>().ToList();
 
-                // 4. UI（ListBox）から削除
-                // ItemsSourceを使っている場合は自動で消えますが、Items.Add方式の場合は手動で消します
-                CheckPointListBox.Items.Remove(selected);
+                foreach (var cp in checkPoints)
+                {
+                    // 3. データソースから削除
+                    RecorderMgr.Evidence?.CheckPoints.Remove(cp);
 
-                // 5. 💡 画像ファイルも削除するかは運用によりますが、
-                // 基本的にはディスクに残しておき、手動で整理する方が安全です。
+                    CheckPointListBox.Items.Remove(cp);
+                }
 
-                // 6. 保存とステータス更新
-                RecorderMgr.SaveEvidenceJson();
-                StatusText.Text = $"[削除完了] {selected.Time} の項目を削除しました。";
-
-                // メモ入力欄をクリア
+                // 4. 保存とステータス更新
                 NoteEditBox.Text = "";
+                StatusText.Text = $"🗑️ {checkPoints.Count} 件削除しました";
             }
         }
+
         private void AddBookmarkButton_Click(object sender, RoutedEventArgs e)
         {
             if (_isRecording)
@@ -462,7 +464,7 @@ namespace TraceShot
             string timeStr = currentTime.ToString(@"mm\:ss\.fff");
 
             // 2. 💡 すでに同じ時間のブックマークがあるかチェック
-            bool isDuplicate = RecorderMgr.Evidence.Bookmarks.Any(b => b.Time == timeStr);
+            bool isDuplicate = RecorderMgr.Evidence.CheckPoints.Any(b => b.Time == timeStr);
 
             if (isDuplicate)
             {
