@@ -42,7 +42,8 @@ namespace TraceShot
         private WpfPoint _startPoint;
         private WpfRectangle _currentRectangle = new ();
         private WriteableBitmap? _previewBitmap;
-        string _selectedDeviceName = string.Empty;
+        string _fullDeviceName = string.Empty;
+        string _rectDeviceName = string.Empty;
 
         public MainWindow()
         {
@@ -590,7 +591,7 @@ namespace TraceShot
                 var sm = new SelectionMoniter();
                 if (sm.ShowDialog() == true)
                 {
-                    _selectedDeviceName = sm.DeviceName;
+                    _fullDeviceName = sm.DeviceName;
                     StatusText.Text = $"{sm.MoniterName}を選択しました ";
                 }
             }
@@ -609,7 +610,7 @@ namespace TraceShot
                         (int)rect.Width,
                         (int)rect.Height
                     );
-                    _selectedDeviceName = selectionRect.TargetDeviceName;
+                    _rectDeviceName = selectionRect.TargetDeviceName;
                     StatusText.Text = $"矩形確定: {selectionRect.TargetDeviceName} x:{rect.X} y:{rect.Y} w:{rect.Width} h:{rect.Height}";
                 }
             }
@@ -835,8 +836,7 @@ namespace TraceShot
                     switch (ModeComboBox.SelectedIndex)
                     {
                         case 0: // 全画面
-                            //_currentVideoPath = RecorderMgr.PrepareEvidence(Properties.Settings.Default.SavePath, modeName, string.Empty);
-                            RecorderMgr.StartFullscreenRecording(_currentVideoPath, _selectedDeviceName);
+                            RecorderMgr.StartFullscreenRecording(_currentVideoPath, _fullDeviceName);
                             break;
 
                         case 1: // 矩形選択
@@ -845,8 +845,7 @@ namespace TraceShot
                                 StatusText.Text = "エラー：範囲を先に選択してください";
                                 return;
                             }
-                            //_currentVideoPath = RecorderMgr.PrepareEvidence(Properties.Settings.Default.SavePath, modeName, string.Empty);
-                            RecorderMgr.StartRectangleRecording(_currentVideoPath, _selectedDeviceName, _selectedRegion);
+                            RecorderMgr.StartRectangleRecording(_currentVideoPath, _rectDeviceName, _selectedRegion);
                             break;
 
                         case 2: // ウィンドウ選択
@@ -855,7 +854,6 @@ namespace TraceShot
                                 StatusText.Text = "エラー：ウィンドウを先に選択してください";
                                 return;
                             }
-                            //_currentVideoPath = RecorderMgr.PrepareEvidence(Properties.Settings.Default.SavePath, modeName, "ここにタイトルをいれる");
                             RecorderMgr.StartWindowRecording(_currentVideoPath, _targetWindowHandle);
                             break;
                     }
