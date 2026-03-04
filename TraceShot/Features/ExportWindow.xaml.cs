@@ -19,6 +19,7 @@ namespace TraceShot.Features
         public ExportWindow()
         {
             InitializeComponent();
+            OutputPathBox.Text = Properties.Settings.Default.SavePath;
         }
 
         private double GetSelectedScale()
