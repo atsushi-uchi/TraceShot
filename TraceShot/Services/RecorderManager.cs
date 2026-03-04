@@ -141,21 +141,20 @@ public class RecorderManager
         return null;
     }
 
-    public string PrepareEvidence(string modeName, string windowTitle)
+    public string PrepareEvidence(string path, string modeName)
     {
         string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
         string folderName = $"TraceShot_{timestamp}";
-        CurrentFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), folderName);
+        CurrentFolder = Path.Combine(path, folderName);
 
         Directory.CreateDirectory(CurrentFolder);
 
         CurrentVideoName = $"TraceShot_{timestamp}.mp4";
         string videoPath = Path.Combine(CurrentFolder, CurrentVideoName);
 
-        // JSONもこのタイミングで下書きするか、終了時に保存
-        SaveJson(modeName, windowTitle, timestamp);
+        SaveJson(modeName, timestamp);
 
-        return videoPath; // 録画メソッドに渡す用
+        return videoPath;
     }
 
     public void UpdateJson()
@@ -165,13 +164,12 @@ public class RecorderManager
     }
 
     // 録画完了イベントなどで呼び出す
-    private void SaveJson(string mode, string title, string timestamp)
+    private void SaveJson(string mode, string timestamp)
     {
         Evidence = new RecordingEvidence
         {
             VideoFileName = CurrentVideoName,
             RecordingDate = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"),
-            WindowTitle = title,
             Mode = mode,
             Bookmarks = _currentBookmarks,
         };

@@ -42,6 +42,7 @@
                 <Separator />
                 <MenuItem Header="終了(_X)" Click="Exit_Click" />
             </MenuItem>
+            <MenuItem Header="設定(_P)" Click="OpenSettings_Click" />
             <MenuItem Header="証跡クリア" Click="ClearBookmark_Click" />
             <MenuItem x:Name="DebugMenuItem" Header="デバッグ ON" IsCheckable="True" Click="DebugButton_Click" />
         </Menu>

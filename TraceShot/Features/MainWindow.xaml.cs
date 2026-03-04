@@ -47,6 +47,9 @@ namespace TraceShot
         public MainWindow()
         {
             InitializeComponent();
+
+            ApplyCurrentSettings();
+
             this.KeyDown += (s, e) => {
                 // Ctrl + S で保存を実行する
                 if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.S)
@@ -69,8 +72,32 @@ namespace TraceShot
             _recordingTimer.Interval = TimeSpan.FromMilliseconds(500); // 0.5秒ごとに更新
             _recordingTimer.Tick += RecordingTimer_Tick;
         }
+        private void ApplyCurrentSettings()
+        {
+            string savedPath = Properties.Settings.Default.SavePath;
+            if (string.IsNullOrEmpty(savedPath))
+            {
+                // デフォルトの保存先をMYVideosに設定
+                savedPath = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+                Properties.Settings.Default.SavePath = savedPath;
+                Properties.Settings.Default.Save();
+            }
+            SavePathStatusText.Text = savedPath;
+        }
 
         private DebugWindow? _debugWindow;
+
+        private void OpenSettings_Click(object sender, RoutedEventArgs e)
+        {
+            var settingsWin = new SettingsWindow();
+            settingsWin.Owner = this; // 親ウィンドウをセット
+            if (settingsWin.ShowDialog() == true)
+            {
+                // 設定が保存されたらメイン画面のステータスバーなどを更新
+                SavePathStatusText.Text = settingsWin.SelectedPath;
+                StatusText.Text = "⚙️ 設定を更新しました";
+            }
+        }
 
         private void DebugButton_Click(object sender, RoutedEventArgs e)
         {
@@ -109,7 +136,7 @@ namespace TraceShot
             System.Windows.Application.Current.Shutdown();
         }
 
-        // 表示 -> 履歴ログをクリア
+        // ブックマークをクリア
         private void ClearBookmark_Click(object sender, RoutedEventArgs e)
         {
             BookmarkListBox.Items.Clear();
@@ -139,7 +166,7 @@ namespace TraceShot
             {
                 Filter = "JSON files (*.json)|*.json",
                 Title = "保存されたエビデンス（JSON）を選択してください",
-                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos)
+                InitialDirectory = Properties.Settings.Default.SavePath
             };
 
             if (openFileDialog.ShowDialog() == true)
@@ -174,7 +201,7 @@ namespace TraceShot
                                 PlayerPause(true);
 
                                 // 5. UIに情報を反映
-                                StatusText.Text = $"読み込み: {evidence.WindowTitle} ({evidence.Mode})";
+                                StatusText.Text = $"読み込み: {evidence.Mode} {evidence.VideoFileName}";
 
                                 // リストボックスにブックマーク一覧を表示（オプション）
                                 BookmarkListBox.Items.Clear();
@@ -232,7 +259,7 @@ namespace TraceShot
             // パスが未設定の場合は MyVideo フォルダをデフォルトにする
             if (string.IsNullOrEmpty(folderPath) || folderPath == "未設定")
             {
-                folderPath = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+                folderPath = Properties.Settings.Default.SavePath;
             }
 
             try
@@ -788,10 +815,11 @@ namespace TraceShot
                 try
                 {
                     string modeName = (ModeComboBox.SelectionBoxItem as string) ?? ModeComboBox.Text;
+                    _currentVideoPath = RecorderMgr.PrepareEvidence(Properties.Settings.Default.SavePath, modeName);
                     switch (ModeComboBox.SelectedIndex)
                     {
                         case 0: // 全画面
-                            _currentVideoPath = RecorderMgr.PrepareEvidence(modeName, string.Empty);
+                            //_currentVideoPath = RecorderMgr.PrepareEvidence(Properties.Settings.Default.SavePath, modeName, string.Empty);
                             RecorderMgr.StartFullscreenRecording(_currentVideoPath, _selectedDeviceName);
                             break;
 
@@ -801,7 +829,7 @@ namespace TraceShot
                                 StatusText.Text = "エラー：範囲を先に選択してください";
                                 return;
                             }
-                            _currentVideoPath = RecorderMgr.PrepareEvidence(modeName, string.Empty);
+                            //_currentVideoPath = RecorderMgr.PrepareEvidence(Properties.Settings.Default.SavePath, modeName, string.Empty);
                             RecorderMgr.StartRectangleRecording(_currentVideoPath, _selectedDeviceName, _selectedRegion);
                             break;
 
@@ -811,7 +839,7 @@ namespace TraceShot
                                 StatusText.Text = "エラー：ウィンドウを先に選択してください";
                                 return;
                             }
-                            _currentVideoPath = RecorderMgr.PrepareEvidence(modeName, "ここにタイトルをいれる");
+                            //_currentVideoPath = RecorderMgr.PrepareEvidence(Properties.Settings.Default.SavePath, modeName, "ここにタイトルをいれる");
                             RecorderMgr.StartWindowRecording(_currentVideoPath, _targetWindowHandle);
                             break;
                     }
