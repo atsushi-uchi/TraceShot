@@ -154,10 +154,6 @@
 
         <StatusBar Grid.Row="3" Grid.ColumnSpan="2" Background="#F0F0F0" BorderBrush="#CCC" BorderThickness="0,1,0,0">
             <StatusBarItem>
-                <TextBlock x:Name="StatusText" Foreground="Red" FontWeight="Bold"/>
-            </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="📁 保存先: " Foreground="#555"/>
                     <TextBlock x:Name="SavePathStatusText" 
@@ -183,9 +179,13 @@
             <Separator/>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="🖥️ 解像度: " Foreground="#555"/>
-                    <TextBlock x:Name="ResolutionStatusText" Text="--- x ---"/>
+                    <TextBlock Text="🖥️ FPS: " Foreground="#555"/>
+                    <TextBlock x:Name="FrameRateText" Text="--"/>
                 </StackPanel>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock x:Name="StatusText" Foreground="Red" FontWeight="Bold"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

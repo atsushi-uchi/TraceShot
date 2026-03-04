@@ -1,6 +1,7 @@
 ﻿using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
+using System.Security.RightsManagement;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;
@@ -16,15 +17,16 @@ public class RecorderManager
 {
     private Stopwatch _stopwatch = new Stopwatch();
     private DispatcherTimer _timer;
-    public string RecordingTime { get; private set; } = "00:00:00";
-
     private Recorder? _recorder;
+    private List<BookMark> _currentBookmarks = [];
+    public string RecordingTime { get; private set; } = "00:00:00";
     public List<string> TraceLogs { get; private set; } = new List<string>();
     public string CurrentVideoName { get; private set; } = "";
     public string CurrentFolder { get; set; }  = "";
     public RecordingEvidence? Evidence { get; set; }
     public string? JsonPath { get; set; }
-    private List<BookMark> _currentBookmarks = [];
+    public int FrameRate { get; set; }
+    public bool UseHardwareAccel { get; set; }
     public event EventHandler? OnActualRecordingStarted;
     public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
 
@@ -229,6 +231,11 @@ public class RecorderManager
                 RecorderMode = RecorderMode.Video,
                 IsVideoFramePreviewEnabled = true,
             },
+            VideoEncoderOptions = new VideoEncoderOptions
+            {
+                Framerate = FrameRate,
+                IsHardwareEncodingEnabled = UseHardwareAccel,
+            },
         };
 
         // 3. インスタンス生成と開始
@@ -287,7 +294,12 @@ public class RecorderManager
                 RecorderMode = RecorderMode.Video,
                 IsVideoFramePreviewEnabled = true,
                 OutputFrameSize = new ScreenSize(region.Value.Width, region.Value.Height),
-            }
+            },
+            VideoEncoderOptions = new VideoEncoderOptions
+            {
+                Framerate = FrameRate,
+                IsHardwareEncodingEnabled = UseHardwareAccel,
+            },
         };
 
         // 3. インスタンス生成と開始
@@ -332,7 +344,12 @@ public class RecorderManager
                 RecorderMode = RecorderMode.Video,
                 IsVideoFramePreviewEnabled = true,
                 OutputFrameSize = null,
-            }
+            },
+            VideoEncoderOptions = new VideoEncoderOptions
+            {
+                Framerate = FrameRate,
+                IsHardwareEncodingEnabled = UseHardwareAccel,
+            },
         };
 
         // 3. インスタンス生成と開始

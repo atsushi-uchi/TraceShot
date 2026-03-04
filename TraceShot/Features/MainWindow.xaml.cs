@@ -74,15 +74,31 @@ namespace TraceShot
         }
         private void ApplyCurrentSettings()
         {
+            bool update = false;
             string savedPath = Properties.Settings.Default.SavePath;
-            if (string.IsNullOrEmpty(savedPath))
+            if (string.IsNullOrEmpty(savedPath) || !Directory.Exists(savedPath))
             {
-                // デフォルトの保存先をMYVideosに設定
+                // デフォルトの保存先が未設定の場合、MYVideosに設定
                 savedPath = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
                 Properties.Settings.Default.SavePath = savedPath;
-                Properties.Settings.Default.Save();
+                update = true;
             }
             SavePathStatusText.Text = savedPath;
+            int fps = Properties.Settings.Default.FrameRate;
+            if (fps == 0) {
+                // フレームレートが未設定の場合、30に設定
+                fps = 30;
+                Properties.Settings.Default.FrameRate = fps;
+                update = true;
+            }
+
+            FrameRateText.Text = fps.ToString();
+            RecorderMgr.FrameRate = fps;
+
+            if (update)
+            {
+                Properties.Settings.Default.Save();
+            }
         }
 
         private DebugWindow? _debugWindow;
@@ -90,11 +106,10 @@ namespace TraceShot
         private void OpenSettings_Click(object sender, RoutedEventArgs e)
         {
             var settingsWin = new SettingsWindow();
-            settingsWin.Owner = this; // 親ウィンドウをセット
+            settingsWin.Owner = this;
             if (settingsWin.ShowDialog() == true)
             {
-                // 設定が保存されたらメイン画面のステータスバーなどを更新
-                SavePathStatusText.Text = settingsWin.SelectedPath;
+                ApplyCurrentSettings();
                 StatusText.Text = "⚙️ 設定を更新しました";
             }
         }
@@ -575,7 +590,7 @@ namespace TraceShot
                 var sm = new SelectionMoniter();
                 if (sm.ShowDialog() == true)
                 {
-                    _selectedDeviceName = sm.SelectedDeviceName;
+                    _selectedDeviceName = sm.DeviceName;
                     StatusText.Text = $"{sm.MoniterName}を選択しました ";
                 }
             }
@@ -594,7 +609,6 @@ namespace TraceShot
                         (int)rect.Width,
                         (int)rect.Height
                     );
-                    //_targetWindowHandle = IntPtr.Zero;
                     _selectedDeviceName = selectionRect.TargetDeviceName;
                     StatusText.Text = $"矩形確定: {selectionRect.TargetDeviceName} x:{rect.X} y:{rect.Y} w:{rect.Width} h:{rect.Height}";
                 }
@@ -814,6 +828,8 @@ namespace TraceShot
             {
                 try
                 {
+                    // 1. 保存されている設定を読み込む
+
                     string modeName = (ModeComboBox.SelectionBoxItem as string) ?? ModeComboBox.Text;
                     _currentVideoPath = RecorderMgr.PrepareEvidence(Properties.Settings.Default.SavePath, modeName);
                     switch (ModeComboBox.SelectedIndex)

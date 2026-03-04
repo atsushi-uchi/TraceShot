@@ -7,9 +7,8 @@ namespace TraceShot
 {
     public partial class SelectionMoniter : Window
     {
-        public string SelectedDeviceName { get; private set; }
+        public string DeviceName { get; private set; }
         public string MoniterName { get; private set; }
-
 
         private DispatcherTimer _timer;
         private System.Drawing.Rectangle _currentScreenBounds;
@@ -69,11 +68,10 @@ namespace TraceShot
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            var physPos = System.Windows.Forms.Control.MousePosition;
-            var screen = System.Windows.Forms.Screen.FromPoint(physPos);
+            var physPos = Control.MousePosition;
+            var screen = Screen.FromPoint(physPos);
 
-            // 💡 Windowsが認識しているデバイス名（例: "\\.\DISPLAY2"）を取得
-            SelectedDeviceName = screen.DeviceName;
+            DeviceName = screen.DeviceName;
             MoniterName = screen.Primary ? "メインモニター" : "サブモニター";
 
             DialogResult = true;

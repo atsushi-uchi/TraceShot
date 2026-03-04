@@ -34,5 +34,29 @@ namespace TraceShot.Properties {
                 this["SavePath"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int FrameRate {
+            get {
+                return ((int)(this["FrameRate"]));
+            }
+            set {
+                this["FrameRate"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool UseHardwareAccel {
+            get {
+                return ((bool)(this["UseHardwareAccel"]));
+            }
+            set {
+                this["UseHardwareAccel"] = value;
+            }
+        }
     }
 }

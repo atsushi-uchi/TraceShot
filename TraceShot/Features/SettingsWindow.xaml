@@ -33,9 +33,9 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="フレームレート:" VerticalAlignment="Center"/>
                     <ComboBox x:Name="FpsComboBox" Grid.Column="1">
-                        <ComboBoxItem Content="15 fps (軽量)"/>
-                        <ComboBoxItem Content="30 fps (標準)" IsSelected="True"/>
-                        <ComboBoxItem Content="60 fps (滑らか)"/>
+                        <ComboBoxItem Content="15 fps (軽量)" Tag="15"/>
+                        <ComboBoxItem Content="30 fps (標準)" Tag="30"/>
+                        <ComboBoxItem Content="60 fps (滑らか)" Tag="60"/>
                     </ComboBox>
                 </Grid>
                 <CheckBox x:Name="HardwareAccelCheckBox" Content="ハードウェアアクセラレーションを使用する" Margin="0,10,0,0" IsChecked="True"/>

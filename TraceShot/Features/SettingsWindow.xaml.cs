@@ -1,18 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Microsoft.Win32; // OpenFolderDialog のために必要
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
-using System.Windows;
-using Microsoft.Win32; // OpenFolderDialog のために必要
 
 
 namespace TraceShot
@@ -25,8 +13,22 @@ namespace TraceShot
         {
             InitializeComponent();
 
-            // 初期値として現在の設定を表示（Properties.Settingsなどから）
+            // 1. 保存されたパスを反映
             SaveFolderTextBox.Text = Properties.Settings.Default.SavePath;
+
+            // 2. 保存されたフレームレートを反映
+            int savedFps = Properties.Settings.Default.FrameRate;
+            foreach (ComboBoxItem item in FpsComboBox.Items)
+            {
+                if (int.Parse(item.Tag.ToString()) == savedFps)
+                {
+                    item.IsSelected = true;
+                    break;
+                }
+            }
+
+            // 3.ハードウェアアクセル
+            HardwareAccelCheckBox.IsChecked = Properties.Settings.Default.UseHardwareAccel;
         }
 
         // 「参照...」ボタンの処理
@@ -50,12 +52,19 @@ namespace TraceShot
         // 「保存」ボタンの処理
         private void SaveSettings_Click(object sender, RoutedEventArgs e)
         {
-            // 設定を永続化保存
+            // デフォルト保存先
             Properties.Settings.Default.SavePath = SaveFolderTextBox.Text;
-            Properties.Settings.Default.Save();
 
-            // プロパティにセットしてウィンドウを閉じる
-            SelectedPath = SaveFolderTextBox.Text;
+            // フレームレート
+            if (FpsComboBox.SelectedItem is ComboBoxItem selectedItem)
+            {
+                Properties.Settings.Default.FrameRate = int.Parse(selectedItem.Tag.ToString());
+            }
+
+            // ハードウェアアクセル
+            Properties.Settings.Default.UseHardwareAccel = HardwareAccelCheckBox.IsChecked ?? true;
+
+            Properties.Settings.Default.Save();
             this.DialogResult = true;
             this.Close();
         }
