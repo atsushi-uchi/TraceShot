@@ -92,50 +92,59 @@ public class RecorderManager
             // -------------------------------------------------------
 
             // --- バルーンノート (Balloons) の合成 ---
-            if (bm.Balloons != null && bm.Balloons.Count > 0)
+            foreach (var note in bm.Balloons)
             {
-                foreach (var note in bm.Balloons)
+                // --- 1. すべての計算を最初に行う ---
+                double outW = originalWidth * scale;
+                double outH = originalHeight * scale;
+                var outputStartPt = new System.Windows.Point(note.TargetPoint.X * outW, note.TargetPoint.Y * outH);
+                var outputEndPt = new System.Windows.Point(note.TextPoint.X * outW, note.TextPoint.Y * outH);
+
+                double dynamicFontSize = Math.Max(16.0, outH * 0.03);
+                double padding = dynamicFontSize * 0.3;
+                double thickness = Math.Max(2.0, outW / 500.0);
+
+                // FormattedText を作ってサイズを確定させる
+                FormattedText ft = new FormattedText(
+                    note.Text,
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    System.Windows.FlowDirection.LeftToRight,
+                    new Typeface("Verdana"),
+                    dynamicFontSize,
+                    System.Windows.Media.Brushes.White,
+                    VisualTreeHelper.GetDpi(videoPlayer).PixelsPerDip);
+
+                // 背景矩形のサイズを確定させる
+                Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
+
+                // --- 2. 下地（線・丸・背景箱）を描画する ---
+                // 線と丸
+                var linePen = new System.Windows.Media.Pen(System.Windows.Media.Brushes.Red, thickness);
+                linePen.DashStyle = new System.Windows.Media.DashStyle(new double[] { 4, 2 }, 0);
+                drawingContext.DrawLine(linePen, outputStartPt, outputEndPt);
+                drawingContext.DrawEllipse(System.Windows.Media.Brushes.Red, null, outputStartPt, thickness * 2, thickness * 2);
+
+                // 赤い背景箱
+                drawingContext.DrawRoundedRectangle(
+                    new SolidColorBrush(System.Windows.Media.Color.FromArgb(220, 255, 0, 0)),
+                    null, textRect, padding * 0.5, padding * 0.5);
+
+                // --- 3. 最前面に袋文字を描画する ---
+                var textPos = new System.Windows.Point(textRect.X + padding, textRect.Y + padding);
+                Geometry textGeometry = ft.BuildGeometry(textPos);
+
+                // 黒い縁取り
+                double outlineThickness = dynamicFontSize * 0.15;
+                var outlinePen = new System.Windows.Media.Pen(System.Windows.Media.Brushes.Black, outlineThickness)
                 {
-                    // 1. 出力画像（scale適用後）のピクセル座標を計算
-                    double outW = originalWidth * scale;
-                    double outH = originalHeight * scale;
-                    var outputStartPt = new System.Windows.Point(note.TargetPoint.X * outW, note.TargetPoint.Y * outH);
-                    var outputEndPt = new System.Windows.Point(note.TextPoint.X * outW, note.TextPoint.Y * outH);
+                    LineJoin = PenLineJoin.Round
+                };
+                drawingContext.DrawGeometry(null, outlinePen, textGeometry);
 
-                    // 💡 2. 文字サイズを出力画像の高さ(outH)に合わせて計算 (例: 高さの 3%)
-                    // これにより、解像度が変わっても常に「読みやすい大きさ」に固定されます
-                    double dynamicFontSize = Math.Max(16.0, outH * 0.03);
-                    double thickness = Math.Max(2.0, outW / 500.0);
+                // 白い中身
+                drawingContext.DrawGeometry(System.Windows.Media.Brushes.White, null, textGeometry);
 
-                    // 3. 線と丸の描画
-                    var linePen = new System.Windows.Media.Pen(Brushes.Red, thickness);
-                    linePen.DashStyle = new DashStyle(new double[] { 4, 2 }, 0);
-                    drawingContext.DrawLine(linePen, outputStartPt, outputEndPt);
-                    drawingContext.DrawEllipse(Brushes.Red, null, outputStartPt, thickness * 2, thickness * 2);
-
-                    // 4. FormattedText の作成
-                    FormattedText ft = new FormattedText(
-                        note.Text,
-                        System.Globalization.CultureInfo.CurrentCulture,
-                        System.Windows.FlowDirection.LeftToRight,
-                        new Typeface("Verdana"),
-                        dynamicFontSize, // 💡 計算したフォントサイズを適用
-                        Brushes.White,
-                        VisualTreeHelper.GetDpi(videoPlayer).PixelsPerDip);
-
-                    // 5. 背景とテキストの描画
-                    // パディングを少し多めに取る (fontSizeに合わせて調整)
-                    double padding = dynamicFontSize * 0.3;
-                    Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
-
-                    drawingContext.DrawRoundedRectangle(
-                        new SolidColorBrush(System.Windows.Media.Color.FromArgb(220, 255, 0, 0)), // 少し濃くして視認性アップ
-                        null,
-                        textRect,
-                        padding * 0.5, padding * 0.5);
-
-                    drawingContext.DrawText(ft, new System.Windows.Point(textRect.X + padding, textRect.Y + padding));
-                }
+                // ※
             }
         }
 

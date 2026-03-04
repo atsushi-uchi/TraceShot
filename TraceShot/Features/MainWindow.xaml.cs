@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using TraceShot.Features;
@@ -417,6 +418,7 @@ namespace TraceShot
                 DrawingCanvas.Children.Add(_hoverHighlightRect);
             }
         }
+        private Line _dragLine; // 💡 追加：ドラッグ中の臨時線
         private System.Windows.Controls.TextBox _activeBalloonInput;
         private bool _isDrawing = false; // 💡 描画中かどうかを管理
         private WpfRectangle _hoverHighlightRect; // 💡 ホバー用の矩形
@@ -519,6 +521,33 @@ namespace TraceShot
         // 2. マウスが移動中：矩形のサイズを更新
         private void DrawingCanvas_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            // 💡 Ctrlキーが押されており、かつ左ボタンが押されている場合（吹き出しドラッグ中）
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.LeftButton == MouseButtonState.Pressed)
+            {
+                // 始点は MouseDown で保存した _startPoint を使用
+                var currentPoint = e.GetPosition(DrawingCanvas);
+
+                // まだ線が作成されていない場合は作成してキャンバスに追加
+                if (_dragLine == null)
+                {
+                    _dragLine = new Line
+                    {
+                        Stroke = Brushes.Red,
+                        StrokeThickness = 1,
+                        StrokeDashArray = new DoubleCollection { 4, 2 } // 吹き出しと同じ点線にする
+                    };
+                    DrawingCanvas.Children.Add(_dragLine);
+                }
+
+                // 線の始点と終点を更新
+                _dragLine.X1 = _startPoint.X;
+                _dragLine.Y1 = _startPoint.Y;
+                _dragLine.X2 = currentPoint.X;
+                _dragLine.Y2 = currentPoint.Y;
+
+                return; // 吹き出し処理時は矩形処理をスキップ
+            }
+
             if (e.LeftButton == MouseButtonState.Pressed && _currentRectangle != null)
             {
                 var pos = e.GetPosition(DrawingCanvas);
