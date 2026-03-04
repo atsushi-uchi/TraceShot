@@ -60,15 +60,14 @@ public class RecorderManager
         DrawingVisual drawingVisual = new DrawingVisual();
         using (DrawingContext drawingContext = drawingVisual.RenderOpen())
         {
-            // ⭐ ポイント：全体にスケーリングを適用
-            // これ以降の DrawRectangle 命令はすべて自動的に scale 倍されます
+            // ⭐ ポイント1：全体スケーリングを適用開始
             drawingContext.PushTransform(new ScaleTransform(scale, scale));
 
-            // 背景の描画 (サイズは元の解像度を指定)
+            // 배경의描画
             VisualBrush visualBrush = new VisualBrush(videoPlayer) { Stretch = Stretch.Uniform };
             drawingContext.DrawRectangle(visualBrush, null, new Rect(0, 0, originalWidth, originalHeight));
 
-            // 矩形の合成
+            // 矩形の合成 (ここまでは自動スケーリングでOK)
             if (bm.MarkRects != null && bm.MarkRects.Count > 0)
             {
                 foreach (var relRect in bm.MarkRects)
@@ -85,15 +84,66 @@ public class RecorderManager
                 }
             }
 
-            // PushTransform を閉じます
+            // ⭐ ポイント2：ここでスケーリングを解除
             drawingContext.Pop();
+
+            // -------------------------------------------------------
+            // ⭐ ここから下はスケーリングの『外側』＝出力画像の実際のピクセルサイズで描画
+            // -------------------------------------------------------
+
+            // --- バルーンノート (Balloons) の合成 ---
+            if (bm.Balloons != null && bm.Balloons.Count > 0)
+            {
+                foreach (var note in bm.Balloons)
+                {
+                    // 1. 出力画像（scale適用後）のピクセル座標を計算
+                    double outW = originalWidth * scale;
+                    double outH = originalHeight * scale;
+                    var outputStartPt = new System.Windows.Point(note.TargetPoint.X * outW, note.TargetPoint.Y * outH);
+                    var outputEndPt = new System.Windows.Point(note.TextPoint.X * outW, note.TextPoint.Y * outH);
+
+                    // 💡 2. 文字サイズを出力画像の高さ(outH)に合わせて計算 (例: 高さの 3%)
+                    // これにより、解像度が変わっても常に「読みやすい大きさ」に固定されます
+                    double dynamicFontSize = Math.Max(16.0, outH * 0.03);
+                    double thickness = Math.Max(2.0, outW / 500.0);
+
+                    // 3. 線と丸の描画
+                    var linePen = new System.Windows.Media.Pen(Brushes.Red, thickness);
+                    linePen.DashStyle = new DashStyle(new double[] { 4, 2 }, 0);
+                    drawingContext.DrawLine(linePen, outputStartPt, outputEndPt);
+                    drawingContext.DrawEllipse(Brushes.Red, null, outputStartPt, thickness * 2, thickness * 2);
+
+                    // 4. FormattedText の作成
+                    FormattedText ft = new FormattedText(
+                        note.Text,
+                        System.Globalization.CultureInfo.CurrentCulture,
+                        System.Windows.FlowDirection.LeftToRight,
+                        new Typeface("Verdana"),
+                        dynamicFontSize, // 💡 計算したフォントサイズを適用
+                        Brushes.White,
+                        VisualTreeHelper.GetDpi(videoPlayer).PixelsPerDip);
+
+                    // 5. 背景とテキストの描画
+                    // パディングを少し多めに取る (fontSizeに合わせて調整)
+                    double padding = dynamicFontSize * 0.3;
+                    Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
+
+                    drawingContext.DrawRoundedRectangle(
+                        new SolidColorBrush(System.Windows.Media.Color.FromArgb(220, 255, 0, 0)), // 少し濃くして視認性アップ
+                        null,
+                        textRect,
+                        padding * 0.5, padding * 0.5);
+
+                    drawingContext.DrawText(ft, new System.Windows.Point(textRect.X + padding, textRect.Y + padding));
+                }
+            }
         }
 
         // 3. RenderTargetBitmap のサイズを「計算後のサイズ」にする
         RenderTargetBitmap bmp = new RenderTargetBitmap(renderWidth, renderHeight, 96, 96, PixelFormats.Pbgra32);
         bmp.Render(drawingVisual);
 
-        // --- 以下、保存処理は同じ ---
+        // --- 保存処理 ---
         string timeStr = bm.Time.Replace(":", "");
         string fileName = $"SS_{timeStr}.png";
         string filePath = Path.Combine(screenshotFolder, fileName);
