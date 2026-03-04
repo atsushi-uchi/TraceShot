@@ -72,6 +72,14 @@ namespace TraceShot
             _recordingTimer = new DispatcherTimer();
             _recordingTimer.Interval = TimeSpan.FromMilliseconds(500); // 0.5秒ごとに更新
             _recordingTimer.Tick += RecordingTimer_Tick;
+
+            _hoverHighlightRect = new WpfRectangle
+            {
+                Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(80, 255, 0, 0)), // 💡 半透明の赤
+                IsHitTestVisible = false, // マウスイベントを透過
+                Visibility = Visibility.Collapsed
+            };
+            DrawingCanvas.Children.Add(_hoverHighlightRect);
         }
         private void ApplyCurrentSettings()
         {
@@ -308,7 +316,7 @@ namespace TraceShot
         {
             DrawingCanvas.Children.Clear();
 
-            // 現在選択されているブックマークがある場合のみ実行
+            // 1. 現在選択されているブックマークがある場合のみ実行
             if (BookmarkListBox.SelectedItem is BookMark selected && selected.MarkRects != null)
             {
                 double containerW = DrawingCanvas.ActualWidth;
@@ -316,7 +324,6 @@ namespace TraceShot
 
                 if (containerW == 0 || containerH == 0 || VideoPlayer.NaturalVideoWidth == 0) return;
 
-                // 現在のサイズにおける動画の表示領域を算出
                 double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
                 double dispW = VideoPlayer.NaturalVideoWidth * ratio;
                 double dispH = VideoPlayer.NaturalVideoHeight * ratio;
@@ -331,25 +338,9 @@ namespace TraceShot
                         StrokeThickness = 2,
                         Width = rect.Width * dispW,
                         Height = rect.Height * dispH,
-                        Fill = System.Windows.Media.Brushes.Transparent, // 💡 中を透明にしてクリックしやすくする
-                        Tag = rect // 💡 重要：元の相対座標データをTagに紐付けておく
+                        Fill = System.Windows.Media.Brushes.Transparent,
+                        Tag = rect
                     };
-
-                    // --- 右クリックメニューの設定 ---
-                    ContextMenu menu = new ContextMenu();
-                    MenuItem deleteItem = new MenuItem { Header = "この矩形を削除" };
-
-                    // 削除イベントの中身
-                    deleteItem.Click += (s, e) => {
-                        // 保存リストからこのデータを削除
-                        selected.MarkRects.Remove((Rect)visualRect.Tag);
-                        // 画面を再描画
-                        UpdateCanvasRects();
-                    };
-
-                    menu.Items.Add(deleteItem);
-                    visualRect.ContextMenu = menu;
-                    // ------------------------------
 
                     Canvas.SetLeft(visualRect, (rect.X * dispW) + offsetX);
                     Canvas.SetTop(visualRect, (rect.Y * dispH) + offsetY);
@@ -357,8 +348,18 @@ namespace TraceShot
                     DrawingCanvas.Children.Add(visualRect);
                 }
             }
+
+            // 💡 2. ハイライト用矩形を最前面に復活させる
+            if (_hoverHighlightRect != null)
+            {
+                // 他の矩形より後に追加することで、必ず一番手前に表示されます
+                DrawingCanvas.Children.Add(_hoverHighlightRect);
+            }
         }
+
         private bool _isDrawing = false; // 💡 描画中かどうかを管理
+        private WpfRectangle _hoverHighlightRect; // 💡 ホバー用の矩形
+
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
             // 💡 1. 右クリック：削除処理
@@ -441,7 +442,49 @@ namespace TraceShot
                 Canvas.SetTop(_currentRectangle, y);
                 _currentRectangle.Width = width;
                 _currentRectangle.Height = height;
+
+                return;
             }
+
+            // --- 💡 追加：ホバーハイライト処理 ---
+            BookMark? selectedBm = BookmarkListBox.SelectedItem as BookMark;
+            if (selectedBm == null || selectedBm.MarkRects.Count == 0)
+            {
+                _hoverHighlightRect.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            System.Windows.Point mousePos = e.GetPosition(DrawingCanvas);
+
+            // 削除ロジックと同じ計算式でヒットテスト
+            double containerW = DrawingCanvas.ActualWidth;
+            double containerH = DrawingCanvas.ActualHeight;
+            double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
+            double dispW = VideoPlayer.NaturalVideoWidth * ratio;
+            double dispH = VideoPlayer.NaturalVideoHeight * ratio;
+            double offsetX = (containerW - dispW) / 2.0;
+            double offsetY = (containerH - dispH) / 2.0;
+
+            bool found = false;
+            for (int i = selectedBm.MarkRects.Count - 1; i >= 0; i--)
+            {
+                Rect r = selectedBm.MarkRects[i];
+                Rect absRect = new Rect(r.X * dispW + offsetX, r.Y * dispH + offsetY, r.Width * dispW, r.Height * dispH);
+
+                if (absRect.Contains(mousePos))
+                {
+                    // 💡 マウスの下に矩形を発見：ハイライトを重ねる
+                    _hoverHighlightRect.Width = absRect.Width;
+                    _hoverHighlightRect.Height = absRect.Height;
+                    Canvas.SetLeft(_hoverHighlightRect, absRect.Left);
+                    Canvas.SetTop(_hoverHighlightRect, absRect.Top);
+                    _hoverHighlightRect.Visibility = Visibility.Visible;
+                    found = true;
+                    break; // 一番上のものだけハイライト
+                }
+            }
+
+            if (!found) _hoverHighlightRect.Visibility = Visibility.Collapsed;
         }
 
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
