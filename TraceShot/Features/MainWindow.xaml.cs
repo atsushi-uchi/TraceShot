@@ -358,26 +358,70 @@ namespace TraceShot
                 }
             }
         }
-
-        // 1. マウスが押された：描画開始（始点を記録）
+        private bool _isDrawing = false; // 💡 描画中かどうかを管理
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            // 一時停止してから描画するのがおすすめ
-            if (_isPlaying) PlayPauseButton_Click(null, null);
-
-            _startPoint = e.GetPosition(DrawingCanvas);
-
-            // 新しい矩形を作成
-            _currentRectangle = new WpfRectangle
+            // 💡 1. 右クリック：削除処理
+            if (e.ChangedButton == MouseButton.Right)
             {
-                Stroke = System.Windows.Media.Brushes.Red,
-                StrokeThickness = 2,
-                Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 255, 0, 0)) // 塗りつぶし（半透明）
-            };
+                _isDrawing = false; // 💡 右クリック時は描画を認めない
 
-            Canvas.SetLeft(_currentRectangle, _startPoint.X);
-            Canvas.SetTop(_currentRectangle, _startPoint.Y);
-            DrawingCanvas.Children.Add(_currentRectangle);
+                BookMark? selectedBm = BookmarkListBox.SelectedItem as BookMark;
+                if (selectedBm == null || selectedBm.MarkRects.Count == 0) return;
+
+                System.Windows.Point clickPoint = e.GetPosition(DrawingCanvas);
+
+                // 動画の表示領域計算（ヒットテスト用）
+                double containerW = DrawingCanvas.ActualWidth;
+                double containerH = DrawingCanvas.ActualHeight;
+                if (VideoPlayer.NaturalVideoWidth == 0) return;
+
+                double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
+                double dispW = VideoPlayer.NaturalVideoWidth * ratio;
+                double dispH = VideoPlayer.NaturalVideoHeight * ratio;
+                double offsetX = (containerW - dispW) / 2.0;
+                double offsetY = (containerH - dispH) / 2.0;
+
+                // 重なり順を考慮して逆順ループ
+                for (int i = selectedBm.MarkRects.Count - 1; i >= 0; i--)
+                {
+                    Rect r = selectedBm.MarkRects[i];
+                    Rect absRect = new Rect(r.X * dispW + offsetX, r.Y * dispH + offsetY, r.Width * dispW, r.Height * dispH);
+
+                    if (absRect.Contains(clickPoint))
+                    {
+                        selectedBm.MarkRects.RemoveAt(i);
+                        UpdateCanvasRects();
+                        e.Handled = true; // 💡 イベントをここで完了させる
+                        return;
+                    }
+                }
+                e.Handled = true;
+                return;
+            }
+
+            // 💡 2. 左クリック：描画開始
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                _isDrawing = true; // 💡 左クリックの時だけ描画フラグを
+
+                if (_isPlaying) PlayPauseButton_Click(null, null);
+
+                _startPoint = e.GetPosition(DrawingCanvas);
+
+                // 新しい矩形を作成
+                _currentRectangle = new WpfRectangle
+                {
+                    Stroke = System.Windows.Media.Brushes.Red,
+                    StrokeThickness = 2,
+                    Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 255, 0, 0)),
+                    IsHitTestVisible = false
+                };
+
+                Canvas.SetLeft(_currentRectangle, _startPoint.X);
+                Canvas.SetTop(_currentRectangle, _startPoint.Y);
+                DrawingCanvas.Children.Add(_currentRectangle);
+            }
         }
 
         // 2. マウスが移動中：矩形のサイズを更新
@@ -402,6 +446,15 @@ namespace TraceShot
 
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
+            // 💡 描画フラグが立っていない（右クリック後など）場合は、何もしない
+            if (!_isDrawing || _currentRectangle == null)
+            {
+                _isDrawing = false;
+                return;
+            }
+
+            _isDrawing = false; // 描画終了
+
             BookMark? selectedBm = BookmarkListBox.SelectedItem as BookMark;
 
             WpfPoint endPoint = e.GetPosition(DrawingCanvas);
@@ -496,7 +549,7 @@ namespace TraceShot
         {
             if (_isRecording)
             {
-                TakeTraceLog(); // 前に準備したログ保存メソッドを呼ぶ
+                TakeBookmark(); // 前に準備したログ保存メソッドを呼ぶ
                 return;
             }
 
@@ -730,12 +783,12 @@ namespace TraceShot
         {
             if (_isRecording)
             {
-                TakeTraceLog(); // 前に準備したログ保存メソッドを呼ぶ
+                TakeBookmark(); // 前に準備したログ保存メソッドを呼ぶ
                 e.Handled = true; // 他のアプリにこのキー入力を流さない場合
             }
         }
 
-        private void TakeTraceLog()
+        private void TakeBookmark()
         {
             try
             {
@@ -759,7 +812,7 @@ namespace TraceShot
             {
                 BookmarkListBox.Items.Add(bookmark);
                 BookmarkListBox.ScrollIntoView(bookmark);
-                StatusText.Text = $"★ 記録 {bookmark.Time} {bookmark.Note}";
+                StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note}";
             }
         }
 
