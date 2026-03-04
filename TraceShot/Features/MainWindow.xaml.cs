@@ -316,12 +316,12 @@ namespace TraceShot
         {
             DrawingCanvas.Children.Clear();
 
-            // 1. 現在選択されているブックマークがある場合のみ実行
-            if (BookmarkListBox.SelectedItem is BookMark selected && selected.MarkRects != null)
+            if (BookmarkListBox.SelectedItem is BookMark selected)
             {
                 double containerW = DrawingCanvas.ActualWidth;
                 double containerH = DrawingCanvas.ActualHeight;
 
+                // 動画が読み込まれていない、またはキャンバスにサイズがない場合は抜ける
                 if (containerW == 0 || containerH == 0 || VideoPlayer.NaturalVideoWidth == 0) return;
 
                 double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
@@ -330,74 +330,165 @@ namespace TraceShot
                 double offsetX = (containerW - dispW) / 2.0;
                 double offsetY = (containerH - dispH) / 2.0;
 
-                foreach (var rect in selected.MarkRects)
+                // --- 1. 矩形 (MarkRects) の描画 ---
+                if (selected.MarkRects != null)
                 {
-                    System.Windows.Shapes.Rectangle visualRect = new System.Windows.Shapes.Rectangle
+                    foreach (var rect in selected.MarkRects)
                     {
-                        Stroke = System.Windows.Media.Brushes.Red,
-                        StrokeThickness = 2,
-                        Width = rect.Width * dispW,
-                        Height = rect.Height * dispH,
-                        Fill = System.Windows.Media.Brushes.Transparent,
-                        Tag = rect
-                    };
+                        System.Windows.Shapes.Rectangle visualRect = new System.Windows.Shapes.Rectangle
+                        {
+                            Stroke = Brushes.Red,
+                            StrokeThickness = 2,
+                            Width = rect.Width * dispW,
+                            Height = rect.Height * dispH,
+                            Fill = Brushes.Transparent,
+                            Tag = rect
+                        };
+                        Canvas.SetLeft(visualRect, (rect.X * dispW) + offsetX);
+                        Canvas.SetTop(visualRect, (rect.Y * dispH) + offsetY);
+                        DrawingCanvas.Children.Add(visualRect);
+                    }
+                }
 
-                    Canvas.SetLeft(visualRect, (rect.X * dispW) + offsetX);
-                    Canvas.SetTop(visualRect, (rect.Y * dispH) + offsetY);
+                // --- 2. 吹き出し (Balloons) の描画 ---
+                if (selected.Balloons != null)
+                {
+                    foreach (var note in selected.Balloons)
+                    {
+                        // 💡 比率座標 (0.0~1.0) から現在の表示サイズに合わせて復元
+                        double startX = (note.TargetPoint.X * dispW) + offsetX;
+                        double startY = (note.TargetPoint.Y * dispH) + offsetY;
+                        double endX = (note.TextPoint.X * dispW) + offsetX;
+                        double endY = (note.TextPoint.Y * dispH) + offsetY;
 
-                    DrawingCanvas.Children.Add(visualRect);
+                        // (A) 指し示す線（点線）
+                        System.Windows.Shapes.Line line = new System.Windows.Shapes.Line
+                        {
+                            X1 = startX,
+                            Y1 = startY,
+                            X2 = endX,
+                            Y2 = endY,
+                            Stroke = Brushes.Red,
+                            StrokeThickness = 1,
+                            // DoubleCollection の初期化を確実に
+                            StrokeDashArray = new System.Windows.Media.DoubleCollection { 4, 2 }
+                        };
+                        DrawingCanvas.Children.Add(line);
+
+                        // (B) 始点のポインター（小さな丸）
+                        System.Windows.Shapes.Ellipse dot = new System.Windows.Shapes.Ellipse
+                        {
+                            Width = 6,
+                            Height = 6,
+                            Fill = Brushes.Red
+                        };
+                        Canvas.SetLeft(dot, startX - 3);
+                        Canvas.SetTop(dot, startY - 3);
+                        DrawingCanvas.Children.Add(dot);
+
+                        // (C) テキストラベル（Border + TextBlock）
+                        Border textBorder = new Border
+                        {
+                            // 💡 Color.FromArgb を使う場合は明示的に指定
+                            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(200, 255, 0, 0)),
+                            CornerRadius = new CornerRadius(4),
+                            Padding = new Thickness(6, 4, 6, 4),
+                            Child = new TextBlock
+                            {
+                                Text = note.Text,
+                                Foreground = Brushes.White,
+                                FontSize = 12,
+                                FontWeight = FontWeights.Bold,
+                                TextWrapping = TextWrapping.Wrap, // 💡 長いテキスト対策
+                                MaxWidth = 200 // 💡 横に広がりすぎないように制限
+                            },
+                            Tag = note
+                        };
+                        Canvas.SetLeft(textBorder, endX);
+                        Canvas.SetTop(textBorder, endY);
+                        DrawingCanvas.Children.Add(textBorder);
+                    }
                 }
             }
 
-            // 💡 2. ハイライト用矩形を最前面に復活させる
-            if (_hoverHighlightRect != null)
+            // 💡 最後にハイライト用矩形を手前に追加
+            if (_hoverHighlightRect != null && DrawingCanvas.Children.Contains(_hoverHighlightRect) == false)
             {
-                // 他の矩形より後に追加することで、必ず一番手前に表示されます
                 DrawingCanvas.Children.Add(_hoverHighlightRect);
             }
         }
-
+        private System.Windows.Controls.TextBox _activeBalloonInput;
         private bool _isDrawing = false; // 💡 描画中かどうかを管理
         private WpfRectangle _hoverHighlightRect; // 💡 ホバー用の矩形
 
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
+            // 💡 Ctrlキーが押されている場合は吹き出しモード
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.LeftButton == MouseButtonState.Pressed)
+            {
+                _startPoint = e.GetPosition(DrawingCanvas); // ここが「指し示す点」
+                return;
+            }
             // 💡 1. 右クリック：削除処理
             if (e.ChangedButton == MouseButton.Right)
             {
-                _isDrawing = false; // 💡 右クリック時は描画を認めない
+                _isDrawing = false;
+                _currentRectangle = null;
 
                 BookMark? selectedBm = BookmarkListBox.SelectedItem as BookMark;
-                if (selectedBm == null || selectedBm.MarkRects.Count == 0) return;
+                if (selectedBm == null) return;
 
-                System.Windows.Point clickPoint = e.GetPosition(DrawingCanvas);
+                var mousePos = e.GetPosition(DrawingCanvas);
 
-                // 動画の表示領域計算（ヒットテスト用）
+                // 表示領域の計算（比率座標からの復元用）
                 double containerW = DrawingCanvas.ActualWidth;
                 double containerH = DrawingCanvas.ActualHeight;
-                if (VideoPlayer.NaturalVideoWidth == 0) return;
-
                 double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
                 double dispW = VideoPlayer.NaturalVideoWidth * ratio;
                 double dispH = VideoPlayer.NaturalVideoHeight * ratio;
                 double offsetX = (containerW - dispW) / 2.0;
                 double offsetY = (containerH - dispH) / 2.0;
 
-                // 重なり順を考慮して逆順ループ
+                // --- 1. 💡 吹き出し (Balloons) の当たり判定 ---
+                if (selectedBm.Balloons != null)
+                {
+                    for (int i = selectedBm.Balloons.Count - 1; i >= 0; i--)
+                    {
+                        var note = selectedBm.Balloons[i];
+                        // テキストラベルの位置とサイズを計算
+                        // (UpdateCanvasRects で描画している位置と同じ)
+                        double textX = (note.TextPoint.X * dispW) + offsetX;
+                        double textY = (note.TextPoint.Y * dispH) + offsetY;
+
+                        // テキストのサイズは動的ですが、判定用におおよそのサイズ（例: 幅100x高さ30）
+                        // もしくは厳密にやるなら描画された Border の ActualWidth を使いますが、
+                        // ここでは簡易的に「ラベルの開始点から一定範囲」で判定します。
+                        Rect textRect = new Rect(textX, textY, 100, 30);
+
+                        if (textRect.Contains(mousePos))
+                        {
+                            selectedBm.Balloons.RemoveAt(i);
+                            UpdateCanvasRects();
+                            e.Handled = true;
+                            return;
+                        }
+                    }
+                }
+
+                // --- 2. 従来の矩形 (MarkRects) の当たり判定 ---
                 for (int i = selectedBm.MarkRects.Count - 1; i >= 0; i--)
                 {
                     Rect r = selectedBm.MarkRects[i];
                     Rect absRect = new Rect(r.X * dispW + offsetX, r.Y * dispH + offsetY, r.Width * dispW, r.Height * dispH);
 
-                    if (absRect.Contains(clickPoint))
+                    if (absRect.Contains(mousePos))
                     {
                         selectedBm.MarkRects.RemoveAt(i);
                         UpdateCanvasRects();
-                        e.Handled = true; // 💡 イベントをここで完了させる
+                        e.Handled = true;
                         return;
                     }
                 }
-                e.Handled = true;
                 return;
             }
 
@@ -486,9 +577,69 @@ namespace TraceShot
 
             if (!found) _hoverHighlightRect.Visibility = Visibility.Collapsed;
         }
+        private void ShowBalloonInput(WpfPoint start, WpfPoint end)
+        {
+            _activeBalloonInput = new System.Windows.Controls.TextBox
+            {
+                Width = 120,
+                AcceptsReturn = false,
+                FontSize = 14,
+                BorderBrush = Brushes.Red,
+                BorderThickness = new Thickness(2)
+            };
 
+            Canvas.SetLeft(_activeBalloonInput, end.X);
+            Canvas.SetTop(_activeBalloonInput, end.Y);
+            DrawingCanvas.Children.Add(_activeBalloonInput);
+            _activeBalloonInput.Focus();
+
+            // Enterキーで確定
+            _activeBalloonInput.KeyDown += (s, e) =>
+            {
+                if (e.Key == Key.Enter)
+                {
+                    ConfirmBalloon(start, end, _activeBalloonInput.Text);
+                }
+            };
+        }
+
+        private void ConfirmBalloon(WpfPoint start, WpfPoint end, string text)
+        {
+            var selectedBm = BookmarkListBox.SelectedItem as BookMark;
+
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                // 💡 ここで比率座標に変換してBookMarkに保存するロジックを呼ぶ
+                // (矩形と同じように ratio と offset を使って保存)
+                // ConfirmBalloon 内の例
+                double containerW = DrawingCanvas.ActualWidth;
+                double containerH = DrawingCanvas.ActualHeight;
+                double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
+                double dispW = VideoPlayer.NaturalVideoWidth * ratio;
+                double dispH = VideoPlayer.NaturalVideoHeight * ratio;
+                double offsetX = (containerW - dispW) / 2.0;
+                double offsetY = (containerH - dispH) / 2.0;
+
+                var note = new BalloonNote
+                {
+                    TargetPoint = new WpfPoint((start.X - offsetX) / dispW, (start.Y - offsetY) / dispH),
+                    TextPoint = new WpfPoint((end.X - offsetX) / dispW, (end.Y - offsetY) / dispH),
+                    Text = text
+                };
+                selectedBm?.Balloons.Add(note);
+            }
+            DrawingCanvas.Children.Remove(_activeBalloonInput);
+            _activeBalloonInput = null;
+            UpdateCanvasRects(); // 再描画
+        }
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
+            WpfPoint endPoint = e.GetPosition(DrawingCanvas);
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                ShowBalloonInput(_startPoint, endPoint);
+                return;
+            }
             // 💡 描画フラグが立っていない（右クリック後など）場合は、何もしない
             if (!_isDrawing || _currentRectangle == null)
             {
@@ -500,7 +651,6 @@ namespace TraceShot
 
             BookMark? selectedBm = BookmarkListBox.SelectedItem as BookMark;
 
-            WpfPoint endPoint = e.GetPosition(DrawingCanvas);
 
             // 💡 基準をすべて DrawingCanvas のサイズに統一する
             double containerW = DrawingCanvas.ActualWidth;
