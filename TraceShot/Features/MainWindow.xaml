@@ -42,7 +42,7 @@
                 <Separator />
                 <MenuItem Header="終了(_X)" Click="Exit_Click" />
             </MenuItem>
-            <MenuItem Header="チェックポイントクリア" Click="ClearCheckPoint_Click" />
+            <MenuItem Header="証跡クリア" Click="ClearBookmark_Click" />
             <MenuItem x:Name="DebugMenuItem" Header="デバッグ ON" IsCheckable="True" Click="DebugButton_Click" />
         </Menu>
 
@@ -67,9 +67,9 @@
             <Image x:Name="PreviewImage" Stretch="Uniform" />
         </Grid>
 
-        <ListBox x:Name="CheckPointListBox" Grid.Column="1" Grid.Row="1" Margin="1" 
+        <ListBox x:Name="BookmarkListBox" Grid.Column="1" Grid.Row="1" Margin="1" 
                  SelectionMode="Extended"
-                 SelectionChanged="CheckPointListBox_SelectionChanged" />
+                 SelectionChanged="BookmarkListBox_SelectionChanged" />
 
         <Grid Grid.Column="1" Grid.Row="2" Margin="5">
             <Grid.RowDefinitions>
@@ -134,13 +134,14 @@
                             <TextBlock x:Name="PlayPauseText" Text="再生"/>
                         </StackPanel>
                     </Button>
-                    <Button x:Name="AddBookmarkButton" Content="📌 チェックポイント&#x0a;　　追加" Click="AddBookmarkButton_Click" Width="100" Height="40" Margin="5"/>
-                    <Button x:Name="DeleteBookmarkButton" Content="🗑️ チェックポイント&#x0a;　　削除" Click="DeleteBookmarkButton_Click" Width="100" Margin="5" />
+                    <Button x:Name="AddBookmarkButton" Content="📌 証跡追加" Click="AddBookmarkButton_Click" Width="100" Height="40" Margin="5"/>
+                    <Button x:Name="DeleteBookmarkButton" Content="🗑️ 証跡削除" Click="DeleteBookmarkButton_Click" Width="100" Margin="5" />
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
                     <TextBlock Text="録画範囲：" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="ModeComboBox" Width="90" SelectedIndex="0" Height="30" Padding="5">
+                    <ComboBox x:Name="ModeComboBox" Width="90" SelectedIndex="0" Height="30" Padding="5"
+                              VerticalContentAlignment="Center">
                         <ComboBoxItem Content="画面全体"/>
                         <ComboBoxItem Content="矩形選択"/>
                         <ComboBoxItem Content="ウインドウ"/>

@@ -1,6 +1,6 @@
 ﻿using System.Windows;
 
-public class CheckPoint
+public class BookMark
 {
     public string? Time { get; set; }    // "00:12" などの形式
     public double Seconds { get; set; } // 再生ジャンプ用の数値

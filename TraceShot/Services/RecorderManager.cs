@@ -24,7 +24,7 @@ public class RecorderManager
     public string CurrentFolder { get; set; }  = "";
     public RecordingEvidence? Evidence { get; set; }
     public string? JsonPath { get; set; }
-    private List<CheckPoint> _currentBookmarks = [];
+    private List<BookMark> _currentBookmarks = [];
     public event EventHandler? OnActualRecordingStarted;
     public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
 
@@ -39,7 +39,7 @@ public class RecorderManager
     }
 
     // 引数に double scale を追加 (例: 0.5 = 50%, 1.0 = 100%)
-    public string? SaveSingleBookmarkImage(CheckPoint bm, MediaElement videoPlayer, double scale = 0.5)
+    public string? SaveSingleBookmarkImage(BookMark bm, MediaElement videoPlayer, double scale = 0.5)
     {
         if (string.IsNullOrEmpty(CurrentFolder)) return null;
 
@@ -107,7 +107,7 @@ public class RecorderManager
     }
 
 
-    public List<CheckPoint> AddBookmark(CheckPoint bookmark)
+    public List<BookMark> AddBookmark(BookMark bookmark)
     {
         _currentBookmarks.Add(bookmark);
         var sorted = _currentBookmarks.OrderBy(b => b.Seconds).ToList();
@@ -116,17 +116,17 @@ public class RecorderManager
         {
             _currentBookmarks.Add(b);
         }
-        if (Evidence is not null) Evidence.CheckPoints = _currentBookmarks;
+        if (Evidence is not null) Evidence.Bookmarks = _currentBookmarks;
         return _currentBookmarks;
     }
 
-    public CheckPoint? AddBookmark(string note = " - Screenshot")
+    public BookMark? AddBookmark(string note = " - Screenshot")
     {
         if (_stopwatch.IsRunning)
         {
             var elapsed = _stopwatch.Elapsed;
             string timestamp = elapsed.ToString(@"mm\:ss\.fff");
-            var bm = new CheckPoint
+            var bm = new BookMark
             {
                 Time = timestamp,
                 Seconds = elapsed.TotalSeconds,
@@ -134,7 +134,7 @@ public class RecorderManager
             };
             _currentBookmarks.Add(bm);
 
-            if (Evidence is not null) Evidence.CheckPoints = _currentBookmarks;
+            if (Evidence is not null) Evidence.Bookmarks = _currentBookmarks;
 
             return bm;
         }
@@ -160,7 +160,7 @@ public class RecorderManager
 
     public void UpdateJson()
     {
-        Evidence.CheckPoints = _currentBookmarks;
+        Evidence.Bookmarks = _currentBookmarks;
         SaveEvidenceJson();
     }
 
@@ -173,7 +173,7 @@ public class RecorderManager
             RecordingDate = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"),
             WindowTitle = title,
             Mode = mode,
-            CheckPoints = _currentBookmarks,
+            Bookmarks = _currentBookmarks,
         };
 
         JsonPath = Path.Combine(CurrentFolder, $"TraceShot_{timestamp}.json");

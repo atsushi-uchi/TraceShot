@@ -59,7 +59,7 @@ namespace TraceShot.Features
 
             try
             {
-                foreach (var bm in main.RecorderMgr.Evidence.CheckPoints)
+                foreach (var bm in main.RecorderMgr.Evidence.Bookmarks)
                 {
                     main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
                     await Task.Delay(500);
@@ -90,7 +90,7 @@ namespace TraceShot.Features
 
             try
             {
-                foreach (var bm in evidence.CheckPoints)
+                foreach (var bm in evidence.Bookmarks)
                 {
                     main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
                     await Task.Delay(500);
@@ -120,7 +120,7 @@ namespace TraceShot.Features
                 sb.AppendLine("<tr><th class='col-time'>経過時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr>");
 
                 // --- データ行部分の修正：ここがポイント ---
-                foreach (var bm in evidence.CheckPoints)
+                foreach (var bm in evidence.Bookmarks)
                 {
                     sb.AppendLine("<tr>");
                     sb.AppendLine($"<td class='col-time'>{bm.Time}</td>");
@@ -168,7 +168,7 @@ namespace TraceShot.Features
 
             try
             {
-                foreach (var bm in main.RecorderMgr.Evidence.CheckPoints)
+                foreach (var bm in main.RecorderMgr.Evidence.Bookmarks)
                 {
                     main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
                     await Task.Delay(500);
@@ -237,7 +237,7 @@ namespace TraceShot.Features
             sb.AppendLine("<tr><th class='col-time'>経過時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr>");
 
             // --- データ行部分の修正 ---
-            foreach (var bm in evidence.CheckPoints)
+            foreach (var bm in evidence.Bookmarks)
             {
                 sb.AppendLine("<tr>");
                 sb.AppendLine($"<td class='col-time'>{bm.Time}</td>");
@@ -317,9 +317,9 @@ namespace TraceShot.Features
                 ws.Cell(dataStartRow, 3).Value = "スクリーンショット";
 
                 // --- ブックマーク一覧のループ内 ---
-                for (int i = 0; i < evidence.CheckPoints.Count; i++)
+                for (int i = 0; i < evidence.Bookmarks.Count; i++)
                 {
-                    var bm = evidence.CheckPoints[i];
+                    var bm = evidence.Bookmarks[i];
                     int currentRow = dataStartRow + 1 + i;
 
                     ws.Cell(currentRow, 1).Value = bm.Time;

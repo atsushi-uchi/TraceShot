@@ -110,9 +110,9 @@ namespace TraceShot
         }
 
         // 表示 -> 履歴ログをクリア
-        private void ClearCheckPoint_Click(object sender, RoutedEventArgs e)
+        private void ClearBookmark_Click(object sender, RoutedEventArgs e)
         {
-            CheckPointListBox.Items.Clear();
+            BookmarkListBox.Items.Clear();
         }
 
         private void SaveEvidence_Click(object sender, RoutedEventArgs e)
@@ -177,12 +177,12 @@ namespace TraceShot
                                 StatusText.Text = $"読み込み: {evidence.WindowTitle} ({evidence.Mode})";
 
                                 // リストボックスにブックマーク一覧を表示（オプション）
-                                CheckPointListBox.Items.Clear();
-                                if (evidence.CheckPoints != null)
+                                BookmarkListBox.Items.Clear();
+                                if (evidence.Bookmarks != null)
                                 {
-                                    foreach (var bm in evidence.CheckPoints)
+                                    foreach (var bm in evidence.Bookmarks)
                                     {
-                                        CheckPointListBox.Items.Add(bm);
+                                        BookmarkListBox.Items.Add(bm);
                                         RecorderMgr.AddBookmark(bm);
                                     }
                                 }
@@ -266,7 +266,7 @@ namespace TraceShot
             DrawingCanvas.Children.Clear();
 
             // 現在選択されているブックマークがある場合のみ実行
-            if (CheckPointListBox.SelectedItem is CheckPoint selected && selected.MarkRects != null)
+            if (BookmarkListBox.SelectedItem is BookMark selected && selected.MarkRects != null)
             {
                 double containerW = DrawingCanvas.ActualWidth;
                 double containerH = DrawingCanvas.ActualHeight;
@@ -359,7 +359,7 @@ namespace TraceShot
 
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            CheckPoint? selectedBm = CheckPointListBox.SelectedItem as CheckPoint;
+            BookMark? selectedBm = BookmarkListBox.SelectedItem as BookMark;
 
             WpfPoint endPoint = e.GetPosition(DrawingCanvas);
 
@@ -377,7 +377,7 @@ namespace TraceShot
             if (selectedBm == null || Math.Abs(selectedBm.Seconds - currentTime.TotalSeconds) > 0.1)
             {
                 // 💡 ここで「証跡追加」ボタンと同じ新規作成ロジックを走らせる
-                CheckPoint bookmark = new CheckPoint
+                BookMark bookmark = new BookMark
                 {
                     Time = currentTime.ToString(@"mm\:ss\.fff"),
                     Seconds = currentTime.TotalSeconds,
@@ -386,9 +386,9 @@ namespace TraceShot
 
                 // リストに追加して選択状態にする
                 var sorted =RecorderMgr.AddBookmark(bookmark);
-                CheckPointListBox.Items.Clear();
-                foreach (var b in sorted) CheckPointListBox.Items.Add(b);
-                CheckPointListBox.SelectedItem = bookmark;
+                BookmarkListBox.Items.Clear();
+                foreach (var b in sorted) BookmarkListBox.Items.Add(b);
+                BookmarkListBox.SelectedItem = bookmark;
                 selectedBm = bookmark;
             }
 
@@ -416,7 +416,7 @@ namespace TraceShot
         private void DeleteBookmarkButton_Click(object sender, RoutedEventArgs e)
         {
             // 1. 選択されている項目があるかチェック
-            if (CheckPointListBox.SelectedItems.Count == 0)
+            if (BookmarkListBox.SelectedItems.Count == 0)
             {
                 StatusText.Text = "ℹ️ 削除する項目を選択してください";
                 return;
@@ -424,7 +424,7 @@ namespace TraceShot
 
             // 確認メッセージ（任意）
             var result = MessageBox.Show(
-                $"{CheckPointListBox.SelectedItems.Count} 件のチェックポイントを削除しますか？",
+                $"{BookmarkListBox.SelectedItems.Count} 件のチェックポイントを削除しますか？",
                 "削除の確認",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
@@ -433,19 +433,19 @@ namespace TraceShot
             {
                 // 2. 選択された項目を一度別リストにコピーする
                 // (列挙中に元のコレクションを変更するとエラーになるため)
-                var checkPoints = CheckPointListBox.SelectedItems.Cast<CheckPoint>().ToList();
+                var bookmarks = BookmarkListBox.SelectedItems.Cast<BookMark>().ToList();
 
-                foreach (var cp in checkPoints)
+                foreach (var cp in bookmarks)
                 {
                     // 3. データソースから削除
-                    RecorderMgr.Evidence?.CheckPoints.Remove(cp);
+                    RecorderMgr.Evidence?.Bookmarks.Remove(cp);
 
-                    CheckPointListBox.Items.Remove(cp);
+                    BookmarkListBox.Items.Remove(cp);
                 }
 
                 // 4. 保存とステータス更新
                 NoteEditBox.Text = "";
-                StatusText.Text = $"🗑️ {checkPoints.Count} 件削除しました";
+                StatusText.Text = $"🗑️ {bookmarks.Count} 件削除しました";
             }
         }
 
@@ -464,7 +464,7 @@ namespace TraceShot
             string timeStr = currentTime.ToString(@"mm\:ss\.fff");
 
             // 2. 💡 すでに同じ時間のブックマークがあるかチェック
-            bool isDuplicate = RecorderMgr.Evidence.CheckPoints.Any(b => b.Time == timeStr);
+            bool isDuplicate = RecorderMgr.Evidence.Bookmarks.Any(b => b.Time == timeStr);
 
             if (isDuplicate)
             {
@@ -477,7 +477,7 @@ namespace TraceShot
             string imagePath = System.IO.Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
 
             // 4. ブックマークリストに追加
-            var bookmark = new CheckPoint
+            var bookmark = new BookMark
             {
                 Time = timeStr,
                 Seconds = currentTime.TotalSeconds,
@@ -486,10 +486,10 @@ namespace TraceShot
             };
 
             var sorted = RecorderMgr.AddBookmark(bookmark);
-            CheckPointListBox.Items.Clear();
-            foreach (var b in sorted) CheckPointListBox.Items.Add(b);
+            BookmarkListBox.Items.Clear();
+            foreach (var b in sorted) BookmarkListBox.Items.Add(b);
             
-            CheckPointListBox.ScrollIntoView(bookmark);
+            BookmarkListBox.ScrollIntoView(bookmark);
             StatusText.Text = $"★ 追加 {bookmark.Time} {bookmark.Note}";
             System.Media.SystemSounds.Asterisk.Play();
         }
@@ -522,7 +522,7 @@ namespace TraceShot
             // 1. ステータスバーにエラーを表示
             StatusText.Text = "❌ 再生エラー";
 
-            // 2. ログに詳細を記録（以前の画像で見られた TraceLogs や CheckPointListBox を活用）
+            // 2. ログに詳細を記録（以前の画像で見られた TraceLogs や BookmarkListBox を活用）
             string errorMessage = $"再生に失敗しました: {e.ErrorException.Message}";
             RecorderMgr.TraceLogs.Add(errorMessage);
 
@@ -717,8 +717,8 @@ namespace TraceShot
             var bookmark = RecorderMgr.AddBookmark();
             if (bookmark is not null)
             {
-                CheckPointListBox.Items.Add(bookmark);
-                CheckPointListBox.ScrollIntoView(bookmark);
+                BookmarkListBox.Items.Add(bookmark);
+                BookmarkListBox.ScrollIntoView(bookmark);
                 StatusText.Text = $"★ 記録 {bookmark.Time} {bookmark.Note}";
             }
         }
@@ -728,7 +728,7 @@ namespace TraceShot
         private void OnRecordingStarted()
         {
             // ブックマーク削除
-            CheckPointListBox.Items.Clear();
+            BookmarkListBox.Items.Clear();
 
             // フラグ更新
             _isRecording = true;
@@ -902,11 +902,11 @@ namespace TraceShot
             }));
         }
 
-        private void CheckPointListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void BookmarkListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             try
             {
-                if (CheckPointListBox.SelectedItem is CheckPoint selected)
+                if (BookmarkListBox.SelectedItem is BookMark selected)
                 {
                     VideoPlayer.Position = TimeSpan.FromSeconds(selected.Seconds);
                     PlayerPause(true);
@@ -927,12 +927,12 @@ namespace TraceShot
 
         private void NoteEditBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (CheckPointListBox.SelectedItem is CheckPoint selected)
+            if (BookmarkListBox.SelectedItem is BookMark selected)
             {
                 selected.Note = NoteEditBox.Text;
 
                 // 💡 画面上のリスト表示をリアルタイムに更新（Refresh）
-                CheckPointListBox.Items.Refresh();
+                BookmarkListBox.Items.Refresh();
             }
         }
     }
