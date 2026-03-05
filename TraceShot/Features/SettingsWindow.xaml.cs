@@ -43,6 +43,19 @@ namespace TraceShot
             _tempKey = (Key)Properties.Settings.Default.HotkeyKey;
             _tempMod = (ModifierKeys)Properties.Settings.Default.HotkeyMod;
             HotkeySettingButton.Content = HotkeyRegister.Format(_tempKey, _tempMod);
+
+            // 色リストの準備 (主要な色をピックアップ)
+            var colorList = new[] { "White", "Black", "Red", "Blue", "Green", "Orange", "Purple", "DeepPink", "Aqua", "Gold" };
+            MainColorComboBox.ItemsSource = colorList;
+            HighlightColorComboBox.ItemsSource = colorList;
+            MainTextColorComboBox.ItemsSource = colorList;
+            HighlightTextColorComboBox.ItemsSource = colorList;
+
+            // 保存されている色を反映
+            MainColorComboBox.SelectedItem = Properties.Settings.Default.MainColorName;
+            HighlightColorComboBox.SelectedItem = Properties.Settings.Default.HighlightColorName;
+            MainTextColorComboBox.SelectedItem = Properties.Settings.Default.MainTextColorName;
+            HighlightTextColorComboBox.SelectedItem = Properties.Settings.Default.HighlightTextColorName;
         }
 
         private void HotkeySettingButton_Click(object sender, RoutedEventArgs e)
@@ -75,26 +88,6 @@ namespace TraceShot
             HotkeySettingButton.Content = HotkeyRegister.Format(_tempKey, _tempMod);
             HotkeySettingButton.ClearValue(BackgroundProperty);
         }
-
-        //private void SettingsWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-        //{
-        //    if (!_isWaitingForKey) return;
-
-        //    // 修飾キー単体は無視
-        //    if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl || e.Key == Key.LeftAlt ||
-        //        e.Key == Key.RightAlt || e.Key == Key.LeftShift || e.Key == Key.RightShift || e.Key == Key.LWin || e.Key == Key.RWin)
-        //        return;
-
-        //    e.Handled = true;
-        //    _isWaitingForKey = false;
-        //    this.PreviewKeyDown -= SettingsWindow_PreviewKeyDown;
-
-        //    _tempKey = (e.Key == Key.System) ? e.SystemKey : e.Key;
-        //    _tempMod = Keyboard.Modifiers;
-
-        //    HotkeySettingButton.Content = HotkeyRegister.Format(_tempKey, _tempMod);
-        //    HotkeySettingButton.ClearValue(BackgroundProperty);
-        //}
 
         // 「参照...」ボタンの処理
         private void BrowseFolder_Click(object sender, RoutedEventArgs e)
@@ -132,6 +125,12 @@ namespace TraceShot
             // 証跡追加ホットキー
             Properties.Settings.Default.HotkeyKey = (int)_tempKey;
             Properties.Settings.Default.HotkeyMod = (int)_tempMod;
+
+            // 表示色の保存
+            Properties.Settings.Default.MainColorName = MainColorComboBox.SelectedItem.ToString();
+            Properties.Settings.Default.HighlightColorName = HighlightColorComboBox.SelectedItem.ToString();
+            Properties.Settings.Default.MainTextColorName = MainTextColorComboBox.SelectedItem.ToString();
+            Properties.Settings.Default.HighlightTextColorName = MainTextColorComboBox.SelectedItem.ToString();
 
             Properties.Settings.Default.Save();
             this.DialogResult = true;

@@ -14,6 +14,7 @@ using System.Windows.Shell;
 using System.Windows.Threading;
 using TraceShot.Features;
 using TraceShot.Services;
+using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
 using Cursors = System.Windows.Input.Cursors;
@@ -44,8 +45,6 @@ namespace TraceShot
         private IntPtr _targetWindowHandle;
         private WpfPoint _startPoint;
         private WpfPoint _endPoint;
-        private WpfPoint _currentBalloonStart;
-        private WpfPoint _currentBalloonEnd;
         
         private WpfRectangle _currentRectangle = new ();
         private WriteableBitmap? _previewBitmap;
@@ -88,15 +87,6 @@ namespace TraceShot
                     _recordingTimer.Start();
                 });
             };
-
-            // ブックマークの矩形用
-            _hoverHighlightRect = new WpfRectangle
-            {
-                Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(80, 255, 0, 0)), // 💡 半透明の赤
-                IsHitTestVisible = false, // マウスイベントを透過
-                Visibility = Visibility.Collapsed
-            };
-            DrawingCanvas.Children.Add(_hoverHighlightRect);
         }
 
         private void ApplyCurrentSettings()
@@ -277,10 +267,6 @@ namespace TraceShot
             // エクスポート画面を表示
             var exportWin = new ExportWindow();
             exportWin.Owner = this; // 親ウィンドウをセットして中央に表示
-
-            // 必要なら現在の録画データなどをコンストラクタやプロパティで渡す
-            // exportWin.TargetData = this._currentData;
-
             exportWin.ShowDialog();
         }
 
@@ -332,6 +318,19 @@ namespace TraceShot
             }
         }
 
+        // 文字列から Brush を作る便利なヘルパー
+        private Brush GetBrushFromName(string colorName)
+        {
+            try
+            {
+                return (Brush)new BrushConverter().ConvertFromString(colorName)!;
+            }
+            catch
+            {
+                return Brushes.Red; // 失敗時のフォールバック
+            }
+        }
+
         private void UpdateCanvasRects()
         {
             DrawingCanvas.Children.Clear();
@@ -350,20 +349,42 @@ namespace TraceShot
                 double offsetX = (containerW - dispW) / 2.0;
                 double offsetY = (containerH - dispH) / 2.0;
 
+                var mainTextBrush = GetBrushFromName(Properties.Settings.Default.MainTextColorName);
+                var overTextBrush = GetBrushFromName(Properties.Settings.Default.HighlightTextColorName);
+                var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
+                var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
+                var overColor = ((SolidColorBrush)overBrush).Color;
+                var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
+                var mainColor = ((SolidColorBrush)mainBrush).Color;
+                var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
+
                 // --- 1. 矩形 (MarkRects) の描画 ---
                 if (selected.MarkRects != null)
                 {
                     foreach (var rect in selected.MarkRects)
                     {
-                        System.Windows.Shapes.Rectangle visualRect = new System.Windows.Shapes.Rectangle
+                        var visualRect = new WpfRectangle
                         {
-                            Stroke = Brushes.Red,
+                            Stroke = mainBrush,
                             StrokeThickness = 2,
                             Width = rect.Width * dispW,
                             Height = rect.Height * dispH,
                             Fill = Brushes.Transparent,
                             Tag = rect
                         };
+
+                        visualRect.MouseEnter += (s, e) => {
+                            visualRect.Stroke = overBrush; // ✅ overBrush を使用
+                            visualRect.StrokeThickness = 2;
+                            visualRect.Fill = overFill;
+                        };
+
+                        visualRect.MouseLeave += (s, e) => {
+                            visualRect.Stroke = mainBrush; // ✅ mainBrush を使用
+                            visualRect.StrokeThickness = 2;
+                            visualRect.Fill = Brushes.Transparent;
+                        };
+                        
                         Canvas.SetLeft(visualRect, (rect.X * dispW) + offsetX);
                         Canvas.SetTop(visualRect, (rect.Y * dispH) + offsetY);
                         DrawingCanvas.Children.Add(visualRect);
@@ -373,61 +394,6 @@ namespace TraceShot
                 // --- 2. 吹き出し (Balloons) の描画 ---
                 if (selected.Balloons != null)
                 {
-                    //foreach (var note in selected.Balloons)
-                    //{
-                    //    // 💡 比率座標 (0.0~1.0) から現在の表示サイズに合わせて復元
-                    //    double startX = (note.TargetPoint.X * dispW) + offsetX;
-                    //    double startY = (note.TargetPoint.Y * dispH) + offsetY;
-                    //    double endX = (note.TextPoint.X * dispW) + offsetX;
-                    //    double endY = (note.TextPoint.Y * dispH) + offsetY;
-
-                    //    // (A) 指し示す線（点線）
-                    //    System.Windows.Shapes.Line line = new System.Windows.Shapes.Line
-                    //    {
-                    //        X1 = startX,
-                    //        Y1 = startY,
-                    //        X2 = endX,
-                    //        Y2 = endY,
-                    //        Stroke = Brushes.Red,
-                    //        StrokeThickness = 1,
-                    //        // DoubleCollection の初期化を確実に
-                    //        StrokeDashArray = new System.Windows.Media.DoubleCollection { 4, 2 }
-                    //    };
-                    //    DrawingCanvas.Children.Add(line);
-
-                    //    // (B) 始点のポインター（小さな丸）
-                    //    System.Windows.Shapes.Ellipse dot = new System.Windows.Shapes.Ellipse
-                    //    {
-                    //        Width = 6,
-                    //        Height = 6,
-                    //        Fill = Brushes.Red
-                    //    };
-                    //    Canvas.SetLeft(dot, startX - 3);
-                    //    Canvas.SetTop(dot, startY - 3);
-                    //    DrawingCanvas.Children.Add(dot);
-
-                    //    // (C) テキストラベル（Border + TextBlock）
-                    //    Border textBorder = new Border
-                    //    {
-                    //        // 💡 Color.FromArgb を使う場合は明示的に指定
-                    //        Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(200, 255, 0, 0)),
-                    //        CornerRadius = new CornerRadius(4),
-                    //        Padding = new Thickness(6, 4, 6, 4),
-                    //        Child = new TextBlock
-                    //        {
-                    //            Text = note.Text,
-                    //            Foreground = Brushes.White,
-                    //            FontSize = 12,
-                    //            FontWeight = FontWeights.Bold,
-                    //            TextWrapping = TextWrapping.Wrap, // 💡 長いテキスト対策
-                    //            MaxWidth = 200 // 💡 横に広がりすぎないように制限
-                    //        },
-                    //        Tag = note
-                    //    };
-                    //    Canvas.SetLeft(textBorder, endX);
-                    //    Canvas.SetTop(textBorder, endY);
-                    //    DrawingCanvas.Children.Add(textBorder);
-                    //}
                     foreach (var note in selected.Balloons)
                     {
                         // 座標復元
@@ -443,7 +409,7 @@ namespace TraceShot
                             Y1 = startY,
                             X2 = endX,
                             Y2 = endY,
-                            Stroke = Brushes.Red,
+                            Stroke = mainBrush,
                             StrokeThickness = 1,
                             StrokeDashArray = new System.Windows.Media.DoubleCollection { 4, 2 },
                             IsHitTestVisible = false // マウス反応を無効化してテキストの操作を邪魔しない
@@ -454,7 +420,7 @@ namespace TraceShot
                         {
                             Width = 6,
                             Height = 6,
-                            Fill = Brushes.Red,
+                            Fill = mainBrush,
                             IsHitTestVisible = false
                         };
                         Canvas.SetLeft(dot, startX - 3);
@@ -463,13 +429,13 @@ namespace TraceShot
                         // --- (C) テキストラベル（ここがマウス反応の主役） ---
                         var textBorder = new Border
                         {
-                            Background = new SolidColorBrush(Color.FromArgb(200, 255, 0, 0)),
+                            Background = mainFill,
                             CornerRadius = new CornerRadius(4),
                             Padding = new Thickness(6, 4, 6, 4),
                             Child = new TextBlock
                             {
                                 Text = note.Text,
-                                Foreground = Brushes.White,
+                                Foreground = mainTextBrush,
                                 FontSize = 12,
                                 FontWeight = FontWeights.Bold,
                                 TextWrapping = TextWrapping.Wrap,
@@ -482,25 +448,25 @@ namespace TraceShot
                         // 💡 ハイライトイベント（textBorder にマウスが乗ったら line も変える）
                         textBorder.MouseEnter += (s, e) =>
                         {
-                            textBorder.Background = Brushes.Gold;
-                            ((TextBlock)textBorder.Child).Foreground = Brushes.Black;
-                            line.Stroke = Brushes.Gold;
+                            textBorder.Background = overBrush;
+                            ((TextBlock)textBorder.Child).Foreground = overTextBrush;
+                            line.Stroke = overBrush;
                             line.StrokeThickness = 2;
                             textBorder.Cursor = Cursors.Hand;
 
-                            dot.Fill = Brushes.Gold;
+                            dot.Fill = overBrush;
 
                             textBorder.Cursor = Cursors.Hand;
                         };
 
                         textBorder.MouseLeave += (s, e) =>
                         {
-                            textBorder.Background = new SolidColorBrush(Color.FromArgb(200, 255, 0, 0));
-                            ((TextBlock)textBorder.Child).Foreground = Brushes.White;
-                            line.Stroke = Brushes.Red;
+                            textBorder.Background = mainFill;
+                            ((TextBlock)textBorder.Child).Foreground = mainTextBrush;
+                            line.Stroke = mainBrush;
                             line.StrokeThickness = 1;
 
-                            dot.Fill = Brushes.Red;
+                            dot.Fill = mainBrush;
                         };
 
                         // 💡 描画順：線を先に描くことで、テキストの下に線が潜り込むようにする
@@ -508,20 +474,12 @@ namespace TraceShot
                         DrawingCanvas.Children.Add(dot);
                         DrawingCanvas.Children.Add(textBorder);
                     }
-
                 }
-            }
-
-            // 💡 最後にハイライト用矩形を手前に追加
-            if (_hoverHighlightRect != null && DrawingCanvas.Children.Contains(_hoverHighlightRect) == false)
-            {
-                DrawingCanvas.Children.Add(_hoverHighlightRect);
             }
         }
         private Line _dragLine; // 💡 追加：ドラッグ中の臨時線
         private System.Windows.Controls.TextBox _activeBalloonInput;
         private bool _isDrawing = false; // 💡 描画中かどうかを管理
-        private WpfRectangle _hoverHighlightRect; // 💡 ホバー用の矩形
 
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -641,12 +599,16 @@ namespace TraceShot
                 }
                 else
                 {
+                    var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
+                    var overColor = ((SolidColorBrush)overBrush).Color;
+                    var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
+
                     // B. 通常の矩形描画モード
                     _currentRectangle = new WpfRectangle
                     {
-                        Stroke = System.Windows.Media.Brushes.Red,
+                        Stroke = overBrush,
                         StrokeThickness = 2,
-                        Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 255, 0, 0)),
+                        Fill = overFill,
                         IsHitTestVisible = false
                     };
 
@@ -666,6 +628,7 @@ namespace TraceShot
                 e.Handled = true;
                 return;
             }
+            var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
             if (_isDrawing && Keyboard.Modifiers == ModifierKeys.Control)
             {
                 var currentPoint = e.GetPosition(DrawingCanvas);
@@ -675,7 +638,7 @@ namespace TraceShot
                 {
                     _dragLine = new Line
                     {
-                        Stroke = Brushes.Red,
+                        Stroke = overBrush,
                         StrokeThickness = 1,
                         StrokeDashArray = new DoubleCollection { 4, 2 },
                         IsHitTestVisible = false
@@ -690,6 +653,7 @@ namespace TraceShot
 
                 return; // バルーン描画中は矩形処理をスキップ
             }
+
             // 💡 Ctrlキーが押されており、かつ左ボタンが押されている場合（吹き出しドラッグ中）
             if (Keyboard.Modifiers == ModifierKeys.Control && e.LeftButton == MouseButtonState.Pressed)
             {
@@ -701,7 +665,7 @@ namespace TraceShot
                 {
                     _dragLine = new Line
                     {
-                        Stroke = Brushes.Red,
+                        Stroke = overBrush,
                         StrokeThickness = 1,
                         StrokeDashArray = new DoubleCollection { 4, 2 } // 吹き出しと同じ点線にする
                     };
@@ -736,14 +700,8 @@ namespace TraceShot
             }
 
             // --- 💡 追加：ホバーハイライト処理 ---
-            BookMark? selectedBm = BookmarkListBox.SelectedItem as BookMark;
-            if (selectedBm == null || selectedBm.MarkRects.Count == 0)
-            {
-                _hoverHighlightRect.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            System.Windows.Point mousePos = e.GetPosition(DrawingCanvas);
+            var selectedBm = BookmarkListBox.SelectedItem as BookMark;
+            var mousePos = e.GetPosition(DrawingCanvas);
 
             // 削除ロジックと同じ計算式でヒットテスト
             double containerW = DrawingCanvas.ActualWidth;
@@ -753,28 +711,8 @@ namespace TraceShot
             double dispH = VideoPlayer.NaturalVideoHeight * ratio;
             double offsetX = (containerW - dispW) / 2.0;
             double offsetY = (containerH - dispH) / 2.0;
-
-            bool found = false;
-            for (int i = selectedBm.MarkRects.Count - 1; i >= 0; i--)
-            {
-                Rect r = selectedBm.MarkRects[i];
-                Rect absRect = new Rect(r.X * dispW + offsetX, r.Y * dispH + offsetY, r.Width * dispW, r.Height * dispH);
-
-                if (absRect.Contains(mousePos))
-                {
-                    // 💡 マウスの下に矩形を発見：ハイライトを重ねる
-                    _hoverHighlightRect.Width = absRect.Width;
-                    _hoverHighlightRect.Height = absRect.Height;
-                    Canvas.SetLeft(_hoverHighlightRect, absRect.Left);
-                    Canvas.SetTop(_hoverHighlightRect, absRect.Top);
-                    _hoverHighlightRect.Visibility = Visibility.Visible;
-                    found = true;
-                    break; // 一番上のものだけハイライト
-                }
-            }
-
-            if (!found) _hoverHighlightRect.Visibility = Visibility.Collapsed;
         }
+
         private void ShowBalloonInput()
         {
             _activeBalloonInput = new System.Windows.Controls.TextBox
@@ -847,6 +785,7 @@ namespace TraceShot
             // 💡 3. _isDrawing フラグを折って、変な残像が出ないようにする
             _isDrawing = false;
         }
+
         private void CleanupDragLine()
         {
             if (_dragLine != null)
@@ -855,6 +794,7 @@ namespace TraceShot
                 _dragLine = null;
             }
         }
+
         private void ConfirmBalloon(WpfPoint start, WpfPoint end, string text)
         {
             var selectedBm = BookmarkListBox.SelectedItem as BookMark;
@@ -928,9 +868,6 @@ namespace TraceShot
 
             if (Keyboard.Modifiers == ModifierKeys.Control)
             {
-                _currentBalloonStart = _startPoint;
-                _currentBalloonEnd = _endPoint;
-
                 // 💡 対策：もし UpdateCanvasRects で線が消えていたら、Canvas に戻す
                 if (_dragLine != null && !DrawingCanvas.Children.Contains(_dragLine))
                 {

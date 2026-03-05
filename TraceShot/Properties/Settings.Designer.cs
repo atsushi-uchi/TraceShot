@@ -82,5 +82,53 @@ namespace TraceShot.Properties {
                 this["HotkeyMod"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Red")]
+        public string MainColorName {
+            get {
+                return ((string)(this["MainColorName"]));
+            }
+            set {
+                this["MainColorName"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Gold")]
+        public string HighlightColorName {
+            get {
+                return ((string)(this["HighlightColorName"]));
+            }
+            set {
+                this["HighlightColorName"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("White")]
+        public string MainTextColorName {
+            get {
+                return ((string)(this["MainTextColorName"]));
+            }
+            set {
+                this["MainTextColorName"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Black")]
+        public string HighlightTextColorName {
+            get {
+                return ((string)(this["HighlightTextColorName"]));
+            }
+            set {
+                this["HighlightTextColorName"] = value;
+            }
+        }
     }
 }
