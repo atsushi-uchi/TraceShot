@@ -114,7 +114,7 @@ namespace TraceShot
                 Properties.Settings.Default.Save();
             }
             // ホットキー登録
-            RegisterHotkey();
+            RefreshHotkey();
         }
 
         private DebugWindow? _debugWindow;
@@ -1107,23 +1107,24 @@ namespace TraceShot
 
 
         // 録画開始の処理の中に追記
-        private void RegisterHotkey()
+        private void RefreshHotkey()
         {
-            // 設定からロード
-            Key key = (Key)Properties.Settings.Default.HotkeyKey;
-            ModifierKeys mod = (ModifierKeys)Properties.Settings.Default.HotkeyMod;
+            try
+            {
+                // 設定値を取得
+                Key key = (Key)Properties.Settings.Default.HotkeyKey;
+                ModifierKeys mod = (ModifierKeys)Properties.Settings.Default.HotkeyMod;
 
-            // NHotkeyの AddOrReplace を呼び出す（前述の HotkeyRegister を利用）
-            var hotkeyStr = HotkeyRegister.RegisterBookmark(key, mod, OnBookmark);
-            StatusText.Text = $"ホットキー: {hotkeyStr}";
+                // 再登録（内部で AddOrReplace が走るので古いものは上書きされる）
+                HotkeyRegister.RegisterBookmark(key, mod, OnBookmark);
+            }
+            catch { /* エラー処理 */ }
         }
 
         // ホットキーが押された時の動作
         private void OnBookmark(object? sender, HotkeyEventArgs e)
         {
-            if (_isRecording && !_isPlaying) return; 
-
-            TakeBookmark(); // 前に準備したログ保存メソッドを呼ぶ
+            AddBookmarkButton_Click(null, null);
             e.Handled = true; // 他のアプリにこのキー入力を流さない場合
         }
 
