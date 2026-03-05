@@ -520,7 +520,8 @@ namespace TraceShot
             var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
             var mainColor = ((SolidColorBrush)mainBrush).Color;
             var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
-            // --- 1. Borderのサイズを先に計算 ---
+
+            // --- 1. Border の生成 ---
             var textBlock = new TextBlock
             {
                 Text = note.Text,
@@ -536,56 +537,71 @@ namespace TraceShot
             {
                 Background = mainFill,
                 CornerRadius = new CornerRadius(4),
-                //Padding = new Thickness(6, 4, 6, 4),
-                Padding = new Thickness(10), // 💡 判定エリアを広げる
-                IsHitTestVisible = true,    // 💡 明示的にTrueにする
+                Padding = new Thickness(10),
+                IsHitTestVisible = true,
                 Child = textBlock,
                 Tag = note,
                 Uid = "Text"
             };
 
-            textBorder.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            double w = textBorder.DesiredSize.Width;
-            double h = textBorder.DesiredSize.Height;
+            Canvas.SetZIndex(textBorder, 100);
 
-            // --- 2. 💡 ラインの終点を「バルーンの外側」にオフセットする ---
+            // 💡 左上を end に合わせる (半分引かない)
+            Canvas.SetLeft(textBorder, end.X);
+            Canvas.SetTop(textBorder, end.Y);
+
+            // --- 2. ラインの終点計算 ---
+            // 💡 左上に合わせる場合、ラインが Border の角に刺さるように見えるため
+            // わずかに内側に食い込ませる(隙間を作らない)ために offset を小さくします
             double dx = end.X - start.X;
             double dy = end.Y - start.Y;
             double distance = Math.Sqrt(dx * dx + dy * dy);
 
-            // Borderの半径（w/2）に、さらに安全圏として 5px の隙間（Gap）を作る
-            double gap = 5;
-            double margin = (w / 2) + gap;
+            double offset = 2; // 角にピッタリ合わせるための微調整
+            double adjustedX2 = end.X;
+            double adjustedY2 = end.Y;
 
-            // ラインの長さを調整（短くする）
-            double ratio = (distance > margin) ? (distance - margin) / distance : 0;
-            double adjustedX2 = start.X + dx * ratio;
-            double adjustedY2 = start.Y + dy * ratio;
+            if (distance > offset)
+            {
+                double ratio = (distance - offset) / distance;
+                adjustedX2 = start.X + dx * ratio;
+                adjustedY2 = start.Y + dy * ratio;
+            }
 
             // --- 3. 要素の描画 ---
-
-            // (A) ライン（終点をバルーンの外に設定）
-            var line = new System.Windows.Shapes.Line
+            var line = new Line
             {
                 X1 = start.X,
                 Y1 = start.Y,
                 X2 = adjustedX2,
-                Y2 = adjustedY2, // 💡 ここがポイント
+                Y2 = adjustedY2,
                 Stroke = mainBrush,
                 StrokeThickness = 1,
                 StrokeDashArray = new DoubleCollection { 4, 2 },
                 IsHitTestVisible = false
             };
+            Canvas.SetZIndex(line, 0);
 
-            // (B) 始点の丸
             var dot = new Ellipse { Width = 6, Height = 6, Fill = mainBrush, IsHitTestVisible = false };
             Canvas.SetLeft(dot, start.X - 3);
             Canvas.SetTop(dot, start.Y - 3);
+            Canvas.SetZIndex(dot, 1);
 
-            // (C) Borderの配置（中心は end のまま）
-            Canvas.SetLeft(textBorder, end.X - (w / 2));
-            Canvas.SetTop(textBorder, end.Y - (h / 2));
-
+            // --- 4. イベント登録 ---
+            textBorder.MouseLeftButtonDown += (s, e) => {
+                if (e.ClickCount == 2)
+                {
+                    // 💡 再編集時はこのバルーンを隠す
+                    HideBalloonUI(note);
+                    ShowBalloonInput(note);
+                    e.Handled = true;
+                    return;
+                }
+                _draggingRect = textBorder;
+                _lastMousePosition = e.GetPosition(DrawingCanvas);
+                textBorder.CaptureMouse();
+                e.Handled = true;
+            };
             // --- 4. イベント登録 ---
             // (マウスが入った時に色を変える処理などは以前と同じ)
             textBorder.MouseEnter += (s, e) =>
@@ -601,14 +617,6 @@ namespace TraceShot
                 line.Stroke = mainBrush;
                 line.StrokeThickness = 1;
             };
-            textBorder.MouseLeftButtonDown += (s, e) =>
-            {
-                if (e.ClickCount == 2) { ShowBalloonInput(note); e.Handled = true; return; }
-                _draggingRect = textBorder;
-                _lastMousePosition = e.GetPosition(DrawingCanvas);
-                textBorder.CaptureMouse();
-                e.Handled = true;
-            };
             textBorder.MouseLeftButtonUp += EndDrag;
 
             // --- 5. 追加 ---
@@ -617,7 +625,18 @@ namespace TraceShot
             DrawingCanvas.Children.Add(textBorder);
         }
 
+        private void HideBalloonUI(BalloonNote note)
+        {
+            // Canvasから、このノートに関連する要素をすべて探して削除する
+            var targets = DrawingCanvas.Children.OfType<FrameworkElement>()
+                            .Where(x => x.Tag == note)
+                            .ToList();
 
+            foreach (var target in targets)
+            {
+                DrawingCanvas.Children.Remove(target);
+            }
+        }
         // アンカー生成ヘルパー
         Ellipse CreateAnchor(BalloonNote data, bool isTarget)
         {
@@ -1094,8 +1113,6 @@ namespace TraceShot
 
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("MouseUp fired!");
-
             // --- 追加：既存の矩形をドラッグ・リサイズしていた場合の終了処理 ---
             if (_draggingRect != null)
             {
