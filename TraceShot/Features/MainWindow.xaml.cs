@@ -469,6 +469,15 @@ namespace TraceShot
                             dot.Fill = mainBrush;
                         };
 
+                        textBorder.MouseLeftButtonDown += (s, e) =>
+                        {
+                            if (e.ClickCount == 2) // ダブルクリック判定
+                            {
+                                ShowBalloonInput(note);
+                                e.Handled = true;
+                            }
+                        };
+
                         // 💡 描画順：線を先に描くことで、テキストの下に線が潜り込むようにする
                         DrawingCanvas.Children.Add(line);
                         DrawingCanvas.Children.Add(dot);
@@ -477,6 +486,8 @@ namespace TraceShot
                 }
             }
         }
+
+
         private Line _dragLine; // 💡 追加：ドラッグ中の臨時線
         private System.Windows.Controls.TextBox _activeBalloonInput;
         private bool _isDrawing = false; // 💡 描画中かどうかを管理
@@ -713,59 +724,90 @@ namespace TraceShot
             double offsetY = (containerH - dispH) / 2.0;
         }
 
-        private void ShowBalloonInput()
+        private void ShowBalloonInput(BalloonNote targetNote = null)
         {
+            // 設定から色を取得
+            var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
+
+            double targetX, targetY;
+
+            if (targetNote != null)
+            {
+                // --- 💡 再編集モード：UpdateCanvasRects の計算ロジックと同期させる ---
+                double containerW = DrawingCanvas.ActualWidth;
+                double containerH = DrawingCanvas.ActualHeight;
+
+                // 動画が読み込まれていない、またはサイズがない場合のフォールバック
+                if (VideoPlayer.NaturalVideoWidth == 0 || containerW == 0) return;
+
+                double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
+                double dispW = VideoPlayer.NaturalVideoWidth * ratio;
+                double dispH = VideoPlayer.NaturalVideoHeight * ratio;
+                double offsetX = (containerW - dispW) / 2.0;
+                double offsetY = (containerH - dispH) / 2.0;
+
+                // 保存されている正規化座標(0.0~1.0)を表示座標に変換
+                targetX = (targetNote.TextPoint.X * dispW) + offsetX;
+                targetY = (targetNote.TextPoint.Y * dispH) + offsetY;
+            }
+            else
+            {
+                // 新規作成モード：マウスを離した座標（_endPoint）を使用
+                targetX = _endPoint.X;
+                targetY = _endPoint.Y;
+            }
+
             _activeBalloonInput = new System.Windows.Controls.TextBox
             {
                 Width = 150,
-                AcceptsReturn = true,      // ✅ 改行自体は許可しておく
+                AcceptsReturn = true,
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 14,
-                BorderBrush = Brushes.Red,
-                BorderThickness = new Thickness(2)
+                BorderBrush = mainBrush,
+                BorderThickness = new Thickness(2),
+                Background = new SolidColorBrush(Color.FromArgb(230, 255, 255, 255)), // 少し透ける白
+                Text = targetNote?.Text ?? ""
             };
 
-            Canvas.SetLeft(_activeBalloonInput, _endPoint.X);
-            Canvas.SetTop(_activeBalloonInput, _endPoint.Y);
+            Canvas.SetLeft(_activeBalloonInput, targetX);
+            Canvas.SetTop(_activeBalloonInput, targetY);
             DrawingCanvas.Children.Add(_activeBalloonInput);
+
             _activeBalloonInput.Focus();
+            if (targetNote != null) _activeBalloonInput.SelectAll();
 
-            // 右クリックでキャンセル（テキストボックス内）
-            _activeBalloonInput.PreviewMouseRightButtonDown += (s, e) =>
+            // 確定処理
+            void FinalizeInput()
             {
-                CancelBalloonInput();
-                e.Handled = true;
-            };
+                if (_activeBalloonInput == null) return;
+                string newText = _activeBalloonInput.Text;
 
-            // 💡 フォーカスが外れたら確定する
-            _activeBalloonInput.LostFocus += (s, e) =>
-            {
-                // 既に破棄（確定済み）されていないか確認して実行
-                if (_activeBalloonInput != null)
+                if (targetNote != null)
                 {
-                    ConfirmBalloon(_startPoint, _endPoint, _activeBalloonInput.Text);
+                    targetNote.Text = newText;
+                    CancelBalloonInput();
+                    UpdateCanvasRects();
                 }
-            };
+                else
+                {
+                    ConfirmBalloon(_startPoint, _endPoint, newText);
+                }
+            }
 
-            // キー操作のロジックを変更
+            _activeBalloonInput.LostFocus += (s, e) => FinalizeInput();
+
             _activeBalloonInput.PreviewKeyDown += (s, e) =>
             {
-                if (e.Key == Key.Enter)
+                if (e.Key == Key.Enter && Keyboard.Modifiers != ModifierKeys.Shift)
                 {
-                    // 💡 Shiftが押されている時は「改行」として扱い、何もしない（TextBox標準の挙動に任せる）
-                    if (Keyboard.Modifiers == ModifierKeys.Shift)
-                    {
-                        return;
-                    }
-
-                    // 💡 ShiftなしのEnterなら「確定」
-                    ConfirmBalloon(_startPoint, _endPoint, _activeBalloonInput.Text);
-                    e.Handled = true; // EnterキーがTextBoxに伝わるのを防ぐ
+                    FinalizeInput();
+                    e.Handled = true;
                 }
                 else if (e.Key == Key.Escape)
                 {
-                    CleanupDragLine();
+                    if (targetNote == null) CleanupDragLine();
                     CancelBalloonInput();
+                    if (targetNote != null) UpdateCanvasRects(); // 編集キャンセル時は再描画して元に戻す
                 }
             };
         }
