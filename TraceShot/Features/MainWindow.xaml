@@ -58,7 +58,7 @@
                           Visibility="Collapsed" 
                           Stretch="Uniform" />
 
-            <Canvas x:Name="DrawingCanvas" Background="Transparent" 
+            <Canvas x:Name="DrawingCanvas" Background="#01FFFFFF" 
                     MouseDown="DrawingCanvas_MouseDown"
                     MouseMove="DrawingCanvas_MouseMove"
                     MouseUp="DrawingCanvas_MouseUp" />

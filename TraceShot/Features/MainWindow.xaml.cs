@@ -15,6 +15,7 @@ using System.Windows.Shell;
 using System.Windows.Threading;
 using TraceShot.Features;
 using TraceShot.Services;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
@@ -22,6 +23,7 @@ using Cursors = System.Windows.Input.Cursors;
 using Drawing = System.Drawing;
 using Line = System.Windows.Shapes.Line;
 using MessageBox = System.Windows.MessageBox;
+using Size = System.Windows.Size;
 using WpfPoint = System.Windows.Point; // WPFの座標
 using WpfRectangle = System.Windows.Shapes.Rectangle;
 
@@ -474,100 +476,174 @@ namespace TraceShot
                 }
 
                 // --- 2. 吹き出し (Balloons) の描画 ---
-                if (selected.Balloons != null)
+                foreach (var note in selected.Balloons)
                 {
-                    foreach (var note in selected.Balloons)
-                    {
-                        // 座標復元
-                        double startX = (note.TargetPoint.X * dispW) + offsetX;
-                        double startY = (note.TargetPoint.Y * dispH) + offsetY;
-                        double endX = (note.TextPoint.X * dispW) + offsetX;
-                        double endY = (note.TextPoint.Y * dispH) + offsetY;
+                    // 座標計算
+                    WpfPoint start = new WpfPoint(note.TargetPoint.X * dispW + offsetX, note.TargetPoint.Y * dispH + offsetY);
+                    WpfPoint end = new WpfPoint(note.TextPoint.X * dispW + offsetX, note.TextPoint.Y * dispH + offsetY);
 
-                        // --- (A) 指し示す線（点線） ---
-                        var line = new System.Windows.Shapes.Line
-                        {
-                            X1 = startX,
-                            Y1 = startY,
-                            X2 = endX,
-                            Y2 = endY,
-                            Stroke = mainBrush,
-                            StrokeThickness = 1,
-                            StrokeDashArray = new System.Windows.Media.DoubleCollection { 4, 2 },
-                            IsHitTestVisible = false // マウス反応を無効化してテキストの操作を邪魔しない
-                        };
+                    // 💡 描画はこのメソッド1つに任せる
+                    DrawBalloonUI(start, end, note);
 
-                        // --- (B) 始点の丸 ---
-                        var dot = new System.Windows.Shapes.Ellipse
-                        {
-                            Width = 6,
-                            Height = 6,
-                            Fill = mainBrush,
-                            IsHitTestVisible = false
-                        };
-                        Canvas.SetLeft(dot, startX - 3);
-                        Canvas.SetTop(dot, startY - 3);
+                    // 💡 アンカー（つまみ）の生成もここで行う
+                    var startAnchor = CreateAnchor(note, true);
+                    Canvas.SetLeft(startAnchor, start.X - 10);
+                    Canvas.SetTop(startAnchor, start.Y - 10);
+                    DrawingCanvas.Children.Add(startAnchor);
 
-                        // --- (C) テキストラベル（ここがマウス反応の主役） ---
-                        var textBorder = new Border
-                        {
-                            Background = mainFill,
-                            CornerRadius = new CornerRadius(4),
-                            Padding = new Thickness(6, 4, 6, 4),
-                            Child = new TextBlock
-                            {
-                                Text = note.Text,
-                                Foreground = mainTextBrush,
-                                FontSize = 12,
-                                FontWeight = FontWeights.Bold,
-                                TextWrapping = TextWrapping.Wrap,
-                                MaxWidth = 200
-                            }
-                        };
-                        Canvas.SetLeft(textBorder, endX);
-                        Canvas.SetTop(textBorder, endY);
-
-                        // 💡 ハイライトイベント（textBorder にマウスが乗ったら line も変える）
-                        textBorder.MouseEnter += (s, e) =>
-                        {
-                            textBorder.Background = overBrush;
-                            ((TextBlock)textBorder.Child).Foreground = overTextBrush;
-                            line.Stroke = overBrush;
-                            line.StrokeThickness = 2;
-                            textBorder.Cursor = Cursors.Hand;
-
-                            dot.Fill = overBrush;
-
-                            textBorder.Cursor = Cursors.Hand;
-                        };
-
-                        textBorder.MouseLeave += (s, e) =>
-                        {
-                            textBorder.Background = mainFill;
-                            ((TextBlock)textBorder.Child).Foreground = mainTextBrush;
-                            line.Stroke = mainBrush;
-                            line.StrokeThickness = 1;
-
-                            dot.Fill = mainBrush;
-                        };
-
-                        textBorder.MouseLeftButtonDown += (s, e) =>
-                        {
-                            if (e.ClickCount == 2) // ダブルクリック判定
-                            {
-                                ShowBalloonInput(note);
-                                e.Handled = true;
-                            }
-                        };
-
-                        // 💡 描画順：線を先に描くことで、テキストの下に線が潜り込むようにする
-                        DrawingCanvas.Children.Add(line);
-                        DrawingCanvas.Children.Add(dot);
-                        DrawingCanvas.Children.Add(textBorder);
-                    }
+                    // 終点アンカーは textBorder 自体にドラッグ機能を持たせるなら不要ですが、
+                    // ひとまず透明なつまみとして置くなら以下
+                    var endAnchor = CreateAnchor(note, false);
+                    Canvas.SetLeft(endAnchor, end.X - 10);
+                    Canvas.SetTop(endAnchor, end.Y - 10);
+                    DrawingCanvas.Children.Add(endAnchor);
                 }
             }
         }
+
+        /*
+                private void DrawBalloonUI(WpfPoint start, WpfPoint end, BalloonNote note)
+                {
+                    var mainTextBrush = GetBrushFromName(Properties.Settings.Default.MainTextColorName);
+                    var overTextBrush = GetBrushFromName(Properties.Settings.Default.HighlightTextColorName);
+                    var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
+                    var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
+                    var mainColor = ((SolidColorBrush)mainBrush).Color;
+                    var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
+        */
+
+        private void DrawBalloonUI(WpfPoint start, WpfPoint end, BalloonNote note)
+        {
+            var mainTextBrush = GetBrushFromName(Properties.Settings.Default.MainTextColorName);
+            var overTextBrush = GetBrushFromName(Properties.Settings.Default.HighlightTextColorName);
+            var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
+            var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
+            var mainColor = ((SolidColorBrush)mainBrush).Color;
+            var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
+            // --- 1. Borderのサイズを先に計算 ---
+            var textBlock = new TextBlock
+            {
+                Text = note.Text,
+                Foreground = mainTextBrush,
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 200,
+                IsHitTestVisible = false
+            };
+
+            var textBorder = new Border
+            {
+                Background = mainFill,
+                CornerRadius = new CornerRadius(4),
+                //Padding = new Thickness(6, 4, 6, 4),
+                Padding = new Thickness(10), // 💡 判定エリアを広げる
+                IsHitTestVisible = true,    // 💡 明示的にTrueにする
+                Child = textBlock,
+                Tag = note,
+                Uid = "Text"
+            };
+
+            textBorder.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            double w = textBorder.DesiredSize.Width;
+            double h = textBorder.DesiredSize.Height;
+
+            // --- 2. 💡 ラインの終点を「バルーンの外側」にオフセットする ---
+            double dx = end.X - start.X;
+            double dy = end.Y - start.Y;
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+
+            // Borderの半径（w/2）に、さらに安全圏として 5px の隙間（Gap）を作る
+            double gap = 5;
+            double margin = (w / 2) + gap;
+
+            // ラインの長さを調整（短くする）
+            double ratio = (distance > margin) ? (distance - margin) / distance : 0;
+            double adjustedX2 = start.X + dx * ratio;
+            double adjustedY2 = start.Y + dy * ratio;
+
+            // --- 3. 要素の描画 ---
+
+            // (A) ライン（終点をバルーンの外に設定）
+            var line = new System.Windows.Shapes.Line
+            {
+                X1 = start.X,
+                Y1 = start.Y,
+                X2 = adjustedX2,
+                Y2 = adjustedY2, // 💡 ここがポイント
+                Stroke = mainBrush,
+                StrokeThickness = 1,
+                StrokeDashArray = new DoubleCollection { 4, 2 },
+                IsHitTestVisible = false
+            };
+
+            // (B) 始点の丸
+            var dot = new Ellipse { Width = 6, Height = 6, Fill = mainBrush, IsHitTestVisible = false };
+            Canvas.SetLeft(dot, start.X - 3);
+            Canvas.SetTop(dot, start.Y - 3);
+
+            // (C) Borderの配置（中心は end のまま）
+            Canvas.SetLeft(textBorder, end.X - (w / 2));
+            Canvas.SetTop(textBorder, end.Y - (h / 2));
+
+            // --- 4. イベント登録 ---
+            // (マウスが入った時に色を変える処理などは以前と同じ)
+            textBorder.MouseEnter += (s, e) =>
+            {
+                textBorder.Background = overBrush;
+                line.Stroke = overBrush;
+                line.StrokeThickness = 1;
+                textBorder.Cursor = Cursors.Hand;
+            };
+            textBorder.MouseLeave += (s, e) =>
+            {
+                textBorder.Background = mainFill;
+                line.Stroke = mainBrush;
+                line.StrokeThickness = 1;
+            };
+            textBorder.MouseLeftButtonDown += (s, e) =>
+            {
+                if (e.ClickCount == 2) { ShowBalloonInput(note); e.Handled = true; return; }
+                _draggingRect = textBorder;
+                _lastMousePosition = e.GetPosition(DrawingCanvas);
+                textBorder.CaptureMouse();
+                e.Handled = true;
+            };
+            textBorder.MouseLeftButtonUp += EndDrag;
+
+            // --- 5. 追加 ---
+            DrawingCanvas.Children.Add(line);
+            DrawingCanvas.Children.Add(dot);
+            DrawingCanvas.Children.Add(textBorder);
+        }
+
+
+        // アンカー生成ヘルパー
+        Ellipse CreateAnchor(BalloonNote data, bool isTarget)
+        {
+            var el = new Ellipse
+            {
+                Width = 20,
+                Height = 20,
+                Fill = Brushes.Transparent, // 💡 通常は透明、デバッグ時は半透明にすると分かりやすい
+                Cursor = Cursors.Hand,
+                Tag = data // 参照用
+            };
+
+            el.MouseLeftButtonDown += (s, e) => {
+                _draggingRect = el;
+                // 💡 どちらの点を動かしているか判別するために、Tagに情報を付与するか、
+                // 名前（Uidなど）に "Target" か "Text" を入れておくと便利です
+                el.Uid = isTarget ? "Target" : "Text";
+
+                _lastMousePosition = e.GetPosition(DrawingCanvas);
+                el.CaptureMouse();
+                e.Handled = true;
+            };
+            el.MouseLeftButtonUp += EndDrag; // 前に作った共通の解放関数
+            return el;
+        }
+
         void EndDrag(object sender, MouseButtonEventArgs e)
         {
             if (_draggingRect != null)
@@ -721,6 +797,36 @@ namespace TraceShot
         // 2. マウスが移動中：矩形のサイズを更新
         private void DrawingCanvas_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            if (_draggingRect != null && _draggingRect.Tag is BalloonNote bNote)
+            {
+                double containerW = DrawingCanvas.ActualWidth;
+                double containerH = DrawingCanvas.ActualHeight;
+                if (VideoPlayer.NaturalVideoWidth == 0) return;
+
+                double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
+                double dispW = VideoPlayer.NaturalVideoWidth * ratio;
+                double dispH = VideoPlayer.NaturalVideoHeight * ratio;
+
+                var currentPos = e.GetPosition(DrawingCanvas);
+
+                // 移動量を計算（正規化座標 0.0-1.0）
+                double diffX = (currentPos.X - _lastMousePosition.X) / dispW;
+                double diffY = (currentPos.Y - _lastMousePosition.Y) / dispH;
+
+                // 💡 どちらの点を動かしているか判定して更新
+                if (_draggingRect.Uid == "Target")
+                {
+                    bNote.TargetPoint = new WpfPoint(bNote.TargetPoint.X + diffX, bNote.TargetPoint.Y + diffY);
+                }
+                else if (_draggingRect.Uid == "Text")
+                {
+                    bNote.TextPoint = new WpfPoint(bNote.TextPoint.X + diffX, bNote.TextPoint.Y + diffY);
+                }
+
+                _lastMousePosition = currentPos;
+                UpdateCanvasRects(); // 再描画
+                return;
+            }
             // --- 1. 矩形の移動・リサイズ処理 ---
             if (_draggingRect != null && _draggingRect.Tag is MarkRect data)
             {
@@ -887,7 +993,7 @@ namespace TraceShot
             DrawingCanvas.Children.Add(_activeBalloonInput);
 
             _activeBalloonInput.Focus();
-            if (targetNote != null) _activeBalloonInput.SelectAll();
+            if (targetNote != null && _activeBalloonInput != null) _activeBalloonInput.SelectAll();
 
             // 確定処理
             void FinalizeInput()
