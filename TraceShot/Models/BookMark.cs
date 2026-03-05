@@ -7,10 +7,9 @@ public class BookMark
     public double Seconds { get; set; }
     public string? Note { get; set; }
     public string? ImagePath { get; set; }
-    public List<Rect> MarkRects { get; set; } = new List<Rect>();
+    public List<MarkRect> MarkRects { get; set; } = new ();
 
-    // 💡 吹き出し（コメント）用のリストを追加
-    public List<BalloonNote> Balloons { get; set; } = new List<BalloonNote>();
+    public List<BalloonNote> Balloons { get; set; } = new ();
 
     public override string ToString() => $"📌 [{Time}] {Note}";
 }
