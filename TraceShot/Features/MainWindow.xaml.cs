@@ -696,8 +696,9 @@ namespace TraceShot
         {
             _activeBalloonInput = new System.Windows.Controls.TextBox
             {
-                Width = 120,
-                AcceptsReturn = false,
+                Width = 150,
+                AcceptsReturn = true,      // ✅ 改行自体は許可しておく
+                TextWrapping = TextWrapping.Wrap,
                 FontSize = 14,
                 BorderBrush = Brushes.Red,
                 BorderThickness = new Thickness(2)
@@ -708,26 +709,46 @@ namespace TraceShot
             DrawingCanvas.Children.Add(_activeBalloonInput);
             _activeBalloonInput.Focus();
 
-            // 💡 追加：右クリックでキャンセル
+            // 右クリックでキャンセル（テキストボックス内）
             _activeBalloonInput.PreviewMouseRightButtonDown += (s, e) =>
             {
                 CancelBalloonInput();
-                e.Handled = true; // 右クリックメニューを出さない
+                e.Handled = true;
             };
-            // Enterキーで確定
-            _activeBalloonInput.KeyDown += (s, e) =>
+
+            // 💡 フォーカスが外れたら確定する
+            _activeBalloonInput.LostFocus += (s, e) =>
             {
-                if (e.Key == Key.Enter)
+                // 既に破棄（確定済み）されていないか確認して実行
+                if (_activeBalloonInput != null)
                 {
                     ConfirmBalloon(_startPoint, _endPoint, _activeBalloonInput.Text);
                 }
+            };
+
+            // キー操作のロジックを変更
+            _activeBalloonInput.PreviewKeyDown += (s, e) =>
+            {
+                if (e.Key == Key.Enter)
+                {
+                    // 💡 Shiftが押されている時は「改行」として扱い、何もしない（TextBox標準の挙動に任せる）
+                    if (Keyboard.Modifiers == ModifierKeys.Shift)
+                    {
+                        return;
+                    }
+
+                    // 💡 ShiftなしのEnterなら「確定」
+                    ConfirmBalloon(_startPoint, _endPoint, _activeBalloonInput.Text);
+                    e.Handled = true; // EnterキーがTextBoxに伝わるのを防ぐ
+                }
                 else if (e.Key == Key.Escape)
                 {
-                    // キャンセル時も仮線を消す
                     CleanupDragLine();
+                    CancelBalloonInput();
                 }
             };
         }
+
         private void CancelBalloonInput()
         {
             // 💡 1. 入力中の TextBox を消す
@@ -799,7 +820,7 @@ namespace TraceShot
             if (VideoPlayer.NaturalVideoWidth == 0) return;
 
             // --- 3. 【共通】ブックマークを探す、または自動作成する ---
-            BookMark? selectedBm = BookmarkListBox.SelectedItem as BookMark;
+            var selectedBm = BookmarkListBox.SelectedItem as BookMark;
             TimeSpan currentTime = VideoPlayer.Position;
 
             // 現在選択中のブックマークがない、または再生時間とズレている場合に新規作成
