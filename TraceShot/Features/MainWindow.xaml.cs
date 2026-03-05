@@ -78,6 +78,16 @@ namespace TraceShot
             _recordingTimer.Interval = TimeSpan.FromMilliseconds(500); // 0.5秒ごとに更新
             _recordingTimer.Tick += RecordingTimer_Tick;
 
+            // 録画開始ボタンの処理内
+            RecorderMgr.OnActualRecordingStarted += (s, e) =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    _recordingTimer.Start();
+                });
+            };
+
+            // ブックマークの矩形用
             _hoverHighlightRect = new WpfRectangle
             {
                 Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(80, 255, 0, 0)), // 💡 半透明の赤
@@ -86,6 +96,7 @@ namespace TraceShot
             };
             DrawingCanvas.Children.Add(_hoverHighlightRect);
         }
+
         private void ApplyCurrentSettings()
         {
             bool update = false;
@@ -213,6 +224,7 @@ namespace TraceShot
                     if (evidence != null)
                     {
                         RecorderMgr.Evidence = evidence;
+                        RecorderMgr.SyncBookmark();
                         RecorderMgr.JsonPath = openFileDialog.FileName;
 
                         // 3. JSONと同じフォルダ内にある動画ファイルのフルパスを作成
@@ -241,7 +253,6 @@ namespace TraceShot
                                     foreach (var bm in evidence.Bookmarks)
                                     {
                                         BookmarkListBox.Items.Add(bm);
-                                        RecorderMgr.AddBookmark(bm);
                                     }
                                 }
                             }
@@ -890,48 +901,9 @@ namespace TraceShot
 
         private void AddBookmarkButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_isRecording)
-            {
-                TakeBookmark(); // 前に準備したログ保存メソッドを呼ぶ
-                return;
-            }
-
-            if (RecorderMgr is null || RecorderMgr.Evidence is null) return;
-
-            // 1. 現在の再生時間を取得（秒単位などで丸めるのがおすすめ）
-            var currentTime = VideoPlayer.Position;
-            string timeStr = currentTime.ToString(@"mm\:ss\.fff");
-
-            // 2. 💡 すでに同じ時間のブックマークがあるかチェック
-            bool isDuplicate = RecorderMgr.Evidence.Bookmarks.Any(b => b.Time == timeStr);
-
-            if (isDuplicate)
-            {
-                // 重複している場合は何もしない（またはメッセージを出す）
-                return;
-            }
-
-            // 3. スクリーンショットの撮影と保存
-            string fileName = $"SS_{DateTime.Now:yyyyMMddHHmmss}.png";
-            string imagePath = System.IO.Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
-
-            // 4. ブックマークリストに追加
-            var bookmark = new BookMark
-            {
-                Time = timeStr,
-                Seconds = currentTime.TotalSeconds,
-                Note = "- Add",
-                ImagePath = imagePath
-            };
-
-            var sorted = RecorderMgr.AddBookmark(bookmark);
-            BookmarkListBox.Items.Clear();
-            foreach (var b in sorted) BookmarkListBox.Items.Add(b);
-            
-            BookmarkListBox.ScrollIntoView(bookmark);
-            StatusText.Text = $"★ 追加 {bookmark.Time} {bookmark.Note}";
-            System.Media.SystemSounds.Asterisk.Play();
+            AddBookmark();
         }
+
 
         private void RecordingTimer_Tick(object? sender, EventArgs e)
         {
@@ -1124,8 +1096,53 @@ namespace TraceShot
         // ホットキーが押された時の動作
         private void OnBookmark(object? sender, HotkeyEventArgs e)
         {
-            AddBookmarkButton_Click(null, null);
+            AddBookmark();
             e.Handled = true; // 他のアプリにこのキー入力を流さない場合
+        }
+
+        private void AddBookmark()
+        {
+            if (_isRecording)
+            {
+                TakeBookmark(); // 前に準備したログ保存メソッドを呼ぶ
+                return;
+            }
+
+            if (RecorderMgr is null || RecorderMgr.Evidence is null) return;
+
+            // 1. 現在の再生時間を取得（秒単位などで丸めるのがおすすめ）
+            var currentTime = VideoPlayer.Position;
+            string timeStr = currentTime.ToString(@"mm\:ss\.fff");
+
+            // 2. 💡 すでに同じ時間のブックマークがあるかチェック
+            bool isDuplicate = RecorderMgr.Evidence.Bookmarks.Any(b => b.Time == timeStr);
+
+            if (isDuplicate)
+            {
+                // 重複している場合は何もしない（またはメッセージを出す）
+                return;
+            }
+
+            // 3. スクリーンショットの撮影と保存
+            string fileName = $"SS_{DateTime.Now:yyyyMMddHHmmss}.png";
+            string imagePath = System.IO.Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
+
+            // 4. ブックマークリストに追加
+            var bookmark = new BookMark
+            {
+                Time = timeStr,
+                Seconds = currentTime.TotalSeconds,
+                Note = "- Add",
+                ImagePath = imagePath
+            };
+
+            var sorted = RecorderMgr.AddBookmark(bookmark);
+            BookmarkListBox.Items.Clear();
+            foreach (var b in sorted) BookmarkListBox.Items.Add(b);
+
+            BookmarkListBox.ScrollIntoView(bookmark);
+            StatusText.Text = $"★ 追加 {bookmark.Time} {bookmark.Note}";
+            System.Media.SystemSounds.Asterisk.Play();
         }
 
         private void TakeBookmark()
@@ -1248,15 +1265,6 @@ namespace TraceShot
                             RecorderMgr.StartWindowRecording(_currentVideoPath, _targetWindowHandle);
                             break;
                     }
-
-                    // 録画開始ボタンの処理内
-                    RecorderMgr.OnActualRecordingStarted += (s, e) =>
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            _recordingTimer.Start();
-                        });
-                    };
 
                     OnRecordingStarted();
 

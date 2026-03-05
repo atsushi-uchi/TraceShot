@@ -167,6 +167,13 @@ public class RecorderManager
         return filePath;
     }
 
+    public void SyncBookmark()
+    {
+        if (Evidence != null && Evidence.Bookmarks != null)
+        {
+            _currentBookmarks = Evidence.Bookmarks;
+        }
+    }
 
     public List<BookMark> AddBookmark(BookMark bookmark)
     {
