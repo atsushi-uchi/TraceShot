@@ -15,6 +15,8 @@ using System.Windows.Threading;
 using TraceShot.Features;
 using TraceShot.Services;
 using Brushes = System.Windows.Media.Brushes;
+using Color = System.Windows.Media.Color;
+using Cursors = System.Windows.Input.Cursors;
 using Drawing = System.Drawing;
 using MessageBox = System.Windows.MessageBox;
 using WpfPoint = System.Windows.Point; // WPFの座標
@@ -371,16 +373,71 @@ namespace TraceShot
                 // --- 2. 吹き出し (Balloons) の描画 ---
                 if (selected.Balloons != null)
                 {
+                    //foreach (var note in selected.Balloons)
+                    //{
+                    //    // 💡 比率座標 (0.0~1.0) から現在の表示サイズに合わせて復元
+                    //    double startX = (note.TargetPoint.X * dispW) + offsetX;
+                    //    double startY = (note.TargetPoint.Y * dispH) + offsetY;
+                    //    double endX = (note.TextPoint.X * dispW) + offsetX;
+                    //    double endY = (note.TextPoint.Y * dispH) + offsetY;
+
+                    //    // (A) 指し示す線（点線）
+                    //    System.Windows.Shapes.Line line = new System.Windows.Shapes.Line
+                    //    {
+                    //        X1 = startX,
+                    //        Y1 = startY,
+                    //        X2 = endX,
+                    //        Y2 = endY,
+                    //        Stroke = Brushes.Red,
+                    //        StrokeThickness = 1,
+                    //        // DoubleCollection の初期化を確実に
+                    //        StrokeDashArray = new System.Windows.Media.DoubleCollection { 4, 2 }
+                    //    };
+                    //    DrawingCanvas.Children.Add(line);
+
+                    //    // (B) 始点のポインター（小さな丸）
+                    //    System.Windows.Shapes.Ellipse dot = new System.Windows.Shapes.Ellipse
+                    //    {
+                    //        Width = 6,
+                    //        Height = 6,
+                    //        Fill = Brushes.Red
+                    //    };
+                    //    Canvas.SetLeft(dot, startX - 3);
+                    //    Canvas.SetTop(dot, startY - 3);
+                    //    DrawingCanvas.Children.Add(dot);
+
+                    //    // (C) テキストラベル（Border + TextBlock）
+                    //    Border textBorder = new Border
+                    //    {
+                    //        // 💡 Color.FromArgb を使う場合は明示的に指定
+                    //        Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(200, 255, 0, 0)),
+                    //        CornerRadius = new CornerRadius(4),
+                    //        Padding = new Thickness(6, 4, 6, 4),
+                    //        Child = new TextBlock
+                    //        {
+                    //            Text = note.Text,
+                    //            Foreground = Brushes.White,
+                    //            FontSize = 12,
+                    //            FontWeight = FontWeights.Bold,
+                    //            TextWrapping = TextWrapping.Wrap, // 💡 長いテキスト対策
+                    //            MaxWidth = 200 // 💡 横に広がりすぎないように制限
+                    //        },
+                    //        Tag = note
+                    //    };
+                    //    Canvas.SetLeft(textBorder, endX);
+                    //    Canvas.SetTop(textBorder, endY);
+                    //    DrawingCanvas.Children.Add(textBorder);
+                    //}
                     foreach (var note in selected.Balloons)
                     {
-                        // 💡 比率座標 (0.0~1.0) から現在の表示サイズに合わせて復元
+                        // 座標復元
                         double startX = (note.TargetPoint.X * dispW) + offsetX;
                         double startY = (note.TargetPoint.Y * dispH) + offsetY;
                         double endX = (note.TextPoint.X * dispW) + offsetX;
                         double endY = (note.TextPoint.Y * dispH) + offsetY;
 
-                        // (A) 指し示す線（点線）
-                        System.Windows.Shapes.Line line = new System.Windows.Shapes.Line
+                        // --- (A) 指し示す線（点線） ---
+                        var line = new System.Windows.Shapes.Line
                         {
                             X1 = startX,
                             Y1 = startY,
@@ -388,27 +445,25 @@ namespace TraceShot
                             Y2 = endY,
                             Stroke = Brushes.Red,
                             StrokeThickness = 1,
-                            // DoubleCollection の初期化を確実に
-                            StrokeDashArray = new System.Windows.Media.DoubleCollection { 4, 2 }
+                            StrokeDashArray = new System.Windows.Media.DoubleCollection { 4, 2 },
+                            IsHitTestVisible = false // マウス反応を無効化してテキストの操作を邪魔しない
                         };
-                        DrawingCanvas.Children.Add(line);
 
-                        // (B) 始点のポインター（小さな丸）
-                        System.Windows.Shapes.Ellipse dot = new System.Windows.Shapes.Ellipse
+                        // --- (B) 始点の丸 ---
+                        var dot = new System.Windows.Shapes.Ellipse
                         {
                             Width = 6,
                             Height = 6,
-                            Fill = Brushes.Red
+                            Fill = Brushes.Red,
+                            IsHitTestVisible = false
                         };
                         Canvas.SetLeft(dot, startX - 3);
                         Canvas.SetTop(dot, startY - 3);
-                        DrawingCanvas.Children.Add(dot);
 
-                        // (C) テキストラベル（Border + TextBlock）
-                        Border textBorder = new Border
+                        // --- (C) テキストラベル（ここがマウス反応の主役） ---
+                        var textBorder = new Border
                         {
-                            // 💡 Color.FromArgb を使う場合は明示的に指定
-                            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(200, 255, 0, 0)),
+                            Background = new SolidColorBrush(Color.FromArgb(200, 255, 0, 0)),
                             CornerRadius = new CornerRadius(4),
                             Padding = new Thickness(6, 4, 6, 4),
                             Child = new TextBlock
@@ -417,15 +472,43 @@ namespace TraceShot
                                 Foreground = Brushes.White,
                                 FontSize = 12,
                                 FontWeight = FontWeights.Bold,
-                                TextWrapping = TextWrapping.Wrap, // 💡 長いテキスト対策
-                                MaxWidth = 200 // 💡 横に広がりすぎないように制限
-                            },
-                            Tag = note
+                                TextWrapping = TextWrapping.Wrap,
+                                MaxWidth = 200
+                            }
                         };
                         Canvas.SetLeft(textBorder, endX);
                         Canvas.SetTop(textBorder, endY);
+
+                        // 💡 ハイライトイベント（textBorder にマウスが乗ったら line も変える）
+                        textBorder.MouseEnter += (s, e) =>
+                        {
+                            textBorder.Background = Brushes.Gold;
+                            ((TextBlock)textBorder.Child).Foreground = Brushes.Black;
+                            line.Stroke = Brushes.Gold;
+                            line.StrokeThickness = 2;
+                            textBorder.Cursor = Cursors.Hand;
+
+                            dot.Fill = Brushes.Gold;
+
+                            textBorder.Cursor = Cursors.Hand;
+                        };
+
+                        textBorder.MouseLeave += (s, e) =>
+                        {
+                            textBorder.Background = new SolidColorBrush(Color.FromArgb(200, 255, 0, 0));
+                            ((TextBlock)textBorder.Child).Foreground = Brushes.White;
+                            line.Stroke = Brushes.Red;
+                            line.StrokeThickness = 1;
+
+                            dot.Fill = Brushes.Red;
+                        };
+
+                        // 💡 描画順：線を先に描くことで、テキストの下に線が潜り込むようにする
+                        DrawingCanvas.Children.Add(line);
+                        DrawingCanvas.Children.Add(dot);
                         DrawingCanvas.Children.Add(textBorder);
                     }
+
                 }
             }
 
