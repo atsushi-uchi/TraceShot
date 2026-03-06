@@ -3,12 +3,12 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using MessageBox = System.Windows.MessageBox;
 
-namespace TraceShot
+namespace TraceShot.Features
 {
     public partial class SelectionMoniter : Window
     {
-        public string DeviceName { get; private set; }
-        public string MoniterName { get; private set; }
+        public string DeviceName { get; private set; } = "";
+        public string MoniterName { get; private set; } = "";
 
         private DispatcherTimer _timer;
         private System.Drawing.Rectangle _currentScreenBounds;
@@ -28,7 +28,7 @@ namespace TraceShot
             _timer.Start();
         }
 
-        private void OnTimerTick(object sender, EventArgs e)
+        private void OnTimerTick(object? sender, EventArgs e)
         {
             var physPos = System.Windows.Forms.Control.MousePosition;
             var screen = System.Windows.Forms.Screen.FromPoint(physPos);

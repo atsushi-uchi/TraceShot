@@ -1,4 +1,4 @@
-﻿<Window x:Class="TraceShot.SettingsWindow"
+﻿<Window x:Class="TraceShot.Features.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="設定 - TraceShot" Height="550" Width="450" WindowStartupLocation="CenterOwner">

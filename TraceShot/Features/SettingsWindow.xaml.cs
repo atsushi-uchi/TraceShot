@@ -5,14 +5,14 @@ using System.Windows.Input;
 using TraceShot.Services;
 
 
-namespace TraceShot
+namespace TraceShot.Features
 {
     public partial class SettingsWindow : Window
     {
         private Key _tempKey;
         private ModifierKeys _tempMod;
         private bool _isWaitingForKey = false;
-        public string SelectedPath { get; private set; }
+        public string SelectedPath { get; private set; } = "";
 
         public SettingsWindow()
         {
@@ -29,7 +29,7 @@ namespace TraceShot
             int savedFps = Properties.Settings.Default.FrameRate;
             foreach (ComboBoxItem item in FpsComboBox.Items)
             {
-                if (int.Parse(item.Tag.ToString()) == savedFps)
+                if (int.TryParse(item.Tag.ToString(), out var f) && f == savedFps)
                 {
                     item.IsSelected = true;
                     break;
@@ -116,7 +116,10 @@ namespace TraceShot
             // フレームレート
             if (FpsComboBox.SelectedItem is ComboBoxItem selectedItem)
             {
-                Properties.Settings.Default.FrameRate = int.Parse(selectedItem.Tag.ToString());
+                if (int.TryParse(selectedItem.Tag.ToString(), out var framerate))
+                {
+                    Properties.Settings.Default.FrameRate = framerate;
+                }
             }
 
             // ハードウェアアクセル

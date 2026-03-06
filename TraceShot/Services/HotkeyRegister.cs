@@ -22,17 +22,6 @@ namespace TraceShot.Services
             return "";
         }
 
-        //private static IEnumerable<(Key key, ModifierKeys mod)> Candidates()
-        //{
-        //    //yield return (Key.Snapshot, ModifierKeys.None);  // PrintScreen
-        //    yield return (Key.F12, ModifierKeys.None);         // F12
-        //    yield return (Key.F12, ModifierKeys.Control);      // Ctrl+F12
-        //    yield return (Key.Snapshot, ModifierKeys.Control); // Ctrl+PrintScreen
-
-        //    for (var k = Key.F11; k >= Key.F1; k--)            // F11→F1
-        //        yield return (k, ModifierKeys.None);
-        //}
-
         private static bool TryRegister(Key key, ModifierKeys mod, EventHandler<HotkeyEventArgs> handler)
         {
             try

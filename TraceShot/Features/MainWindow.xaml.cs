@@ -1,11 +1,10 @@
-﻿using DocumentFormat.OpenXml.InkML;
-using DocumentFormat.OpenXml.Vml;
-using NHotkey;
+﻿using NHotkey;
 using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
 using System.Media;
 using System.Text.Json;
+using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -14,9 +13,8 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
-using TraceShot.Features;
+using TraceShot.Models;
 using TraceShot.Services;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Canvas = System.Windows.Controls.Canvas;
@@ -26,11 +24,11 @@ using Drawing = System.Drawing;
 using Line = System.Windows.Shapes.Line;
 using MessageBox = System.Windows.MessageBox;
 using Path = System.IO.Path;
-using Size = System.Windows.Size;
+using TextBox = System.Windows.Controls.TextBox;
 using WpfPoint = System.Windows.Point; // WPFの座標
 using WpfRectangle = System.Windows.Shapes.Rectangle;
 
-namespace TraceShot
+namespace TraceShot.Features
 {
     // 録画範囲の種類を定義
     public enum RecordMode { FullScreen, Region, Window }
@@ -40,7 +38,7 @@ namespace TraceShot
     {
         private bool _isPlaying = false;
         private bool _isRecording = false;
-        public RecorderManager RecorderMgr { get; private set; }  = new RecorderManager();
+        public RecorderManager RecorderMgr { get; private set; }  = new ();
 
         private string _currentVideoPath = "";
         private DispatcherTimer _recordingTimer;
@@ -53,10 +51,18 @@ namespace TraceShot
         private WpfPoint _startPoint;
         private WpfPoint _endPoint;
         
-        private WpfRectangle _currentRectangle = new ();
+        private WpfRectangle? _currentRectangle;
         private WriteableBitmap? _previewBitmap;
         string _fullDeviceName = string.Empty;
         string _rectDeviceName = string.Empty;
+        private Line? _dragLine;
+        private bool _isDrawing = false; // 💡 描画中かどうかを管理
+        private bool _isResizing = false; // 追加
+        private FrameworkElement ?_draggingRect = null;
+        private WpfPoint _lastMousePosition; // 直前のマウス座標
+        private TextBox? _activeBalloonInput;
+        private enum ResizeDirection { None, Left, Right, Top, Bottom, Move }
+        private ResizeDirection _currentResizeDir = ResizeDirection.None;
 
         public MainWindow()
         {
@@ -183,7 +189,7 @@ namespace TraceShot
             BookmarkListBox.Items.Clear();
         }
 
-        private void SaveEvidence_Click(object sender, RoutedEventArgs e)
+        private void SaveEvidence_Click(object? sender, RoutedEventArgs? e)
         {
             if (RecorderMgr.Evidence == null) return;
 
@@ -227,11 +233,11 @@ namespace TraceShot
                         RecorderMgr.JsonPath = openFileDialog.FileName;
 
                         // 3. JSONと同じフォルダ内にある動画ファイルのフルパスを作成
-                        var folderPath = System.IO.Path.GetDirectoryName(openFileDialog.FileName) ?? "";
+                        var folderPath = Path.GetDirectoryName(openFileDialog.FileName) ?? "";
                         if (!string.IsNullOrEmpty(folderPath))
                         {
                             RecorderMgr.CurrentFolder = folderPath;
-                            string videoPath = System.IO.Path.Combine(folderPath, evidence.VideoFileName);
+                            string videoPath = Path.Combine(folderPath, evidence?.VideoFileName ?? "");
 
                             if (File.Exists(videoPath))
                             {
@@ -243,11 +249,11 @@ namespace TraceShot
                                 PlayerPause(true);
 
                                 // 5. UIに情報を反映
-                                StatusText.Text = $"読み込み: {evidence.Mode} {evidence.VideoFileName}";
+                                StatusText.Text = $"読み込み: {evidence?.Mode} {evidence?.VideoFileName}";
 
                                 // リストボックスにブックマーク一覧を表示（オプション）
                                 BookmarkListBox.Items.Clear();
-                                if (evidence.Bookmarks != null)
+                                if (evidence?.Bookmarks != null)
                                 {
                                     foreach (var bm in evidence.Bookmarks)
                                     {
@@ -337,15 +343,6 @@ namespace TraceShot
                 return Brushes.Red; // 失敗時のフォールバック
             }
         }
-
-        private Line _dragLine; // 💡 追加：ドラッグ中の臨時線
-        private bool _isDrawing = false; // 💡 描画中かどうかを管理
-        private bool _isResizing = false; // 追加
-        private FrameworkElement _draggingRect = null;
-        private WpfPoint _lastMousePosition;          // 直前のマウス座標
-        private System.Windows.Controls.TextBox _activeBalloonInput;
-        private enum ResizeDirection { None, Left, Right, Top, Bottom, Move }
-        private ResizeDirection _currentResizeDir = ResizeDirection.None;
 
         private void UpdateCanvasRects()
         {
@@ -503,17 +500,6 @@ namespace TraceShot
                 }
             }
         }
-
-        /*
-                private void DrawBalloonUI(WpfPoint start, WpfPoint end, BalloonNote note)
-                {
-                    var mainTextBrush = GetBrushFromName(Properties.Settings.Default.MainTextColorName);
-                    var overTextBrush = GetBrushFromName(Properties.Settings.Default.HighlightTextColorName);
-                    var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
-                    var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
-                    var mainColor = ((SolidColorBrush)mainBrush).Color;
-                    var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
-        */
 
         private void DrawBalloonUI(WpfPoint start, WpfPoint end, BalloonNote note)
         {
@@ -965,7 +951,7 @@ namespace TraceShot
             _dragLine.Y2 = currentPoint.Y;
         }
 
-        private void ShowBalloonInput(BalloonNote targetNote = null)
+        private void ShowBalloonInput(BalloonNote? targetNote = null)
         {
             // 設定から色を取得
             var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
@@ -1035,22 +1021,25 @@ namespace TraceShot
                 }
             }
 
-            _activeBalloonInput.LostFocus += (s, e) => FinalizeInput();
-
-            _activeBalloonInput.PreviewKeyDown += (s, e) =>
+            if (_activeBalloonInput != null)
             {
-                if (e.Key == Key.Enter && Keyboard.Modifiers != ModifierKeys.Shift)
+                _activeBalloonInput.LostFocus += (s, e) => FinalizeInput();
+
+                _activeBalloonInput.PreviewKeyDown += (s, e) =>
                 {
-                    FinalizeInput();
-                    e.Handled = true;
-                }
-                else if (e.Key == Key.Escape)
-                {
-                    if (targetNote == null) CleanupDragLine();
-                    CancelBalloonInput();
-                    if (targetNote != null) UpdateCanvasRects(); // 編集キャンセル時は再描画して元に戻す
-                }
-            };
+                    if (e.Key == Key.Enter && Keyboard.Modifiers != ModifierKeys.Shift)
+                    {
+                        FinalizeInput();
+                        e.Handled = true;
+                    }
+                    else if (e.Key == Key.Escape)
+                    {
+                        if (targetNote == null) CleanupDragLine();
+                        CancelBalloonInput();
+                        if (targetNote != null) UpdateCanvasRects(); // 編集キャンセル時は再描画して元に戻す
+                    }
+                };
+            }
         }
 
         private void CancelBalloonInput()
@@ -1150,19 +1139,33 @@ namespace TraceShot
             // 現在選択中のブックマークがない、または再生時間とズレている場合に新規作成
             if (selectedBm == null || Math.Abs(selectedBm.Seconds - currentTime.TotalSeconds) > 0.1)
             {
-                BookMark bookmark = new BookMark
-                {
-                    Time = currentTime.ToString(@"mm\:ss\.fff"),
-                    Seconds = currentTime.TotalSeconds,
-                    Note = " - Marking"
-                };
+                // A. 既に登録されているブックマークの中に、現在の再生時間と一致するものがあるか探す
+                var existingBm = BookmarkListBox.Items.Cast<BookMark>()
+                    .FirstOrDefault(b => Math.Abs(b.Seconds - currentTime.TotalSeconds) <= 0.1);
 
-                // リストに追加して選択状態にする
-                var sorted = RecorderMgr.AddBookmark(bookmark);
-                BookmarkListBox.Items.Clear();
-                foreach (var b in sorted) BookmarkListBox.Items.Add(b);
-                BookmarkListBox.SelectedItem = bookmark;
-                selectedBm = bookmark;
+                if (existingBm != null)
+                {
+                    // 一致するものが見つかった場合は、それを選択状態にする
+                    selectedBm = existingBm;
+                    BookmarkListBox.SelectedItem = selectedBm;
+                }
+                else
+                {
+                    // B. 一致するものがなければ、新しくブックマークを登録する
+                    BookMark bookmark = new()
+                    {
+                        Time = currentTime.ToString(@"mm\:ss\.fff"),
+                        Seconds = currentTime.TotalSeconds,
+                        Note = " - Marking"
+                    };
+
+                    // リストに追加して選択状態にする
+                    var sorted = RecorderMgr.AddBookmark(bookmark);
+                    BookmarkListBox.Items.Clear();
+                    foreach (var b in sorted) BookmarkListBox.Items.Add(b);
+                    BookmarkListBox.SelectedItem = bookmark;
+                    selectedBm = bookmark;
+                }
             }
 
             // --- 4. モード分岐：バルーン（Ctrl）か 矩形か ---
@@ -1205,7 +1208,7 @@ namespace TraceShot
             UpdateCanvasRects();
         }
 
-        private void DeleteBookmarkButton_Click(object sender, RoutedEventArgs e)
+        private void DeleteBookmarkButton_Click(object? sender, RoutedEventArgs? e)
         {
             // 1. 選択されている項目があるかチェック
             if (BookmarkListBox.SelectedItems.Count == 0)
@@ -1368,7 +1371,8 @@ namespace TraceShot
             VideoPlayer.Position = TimeSpan.FromSeconds(TimelineSlider.Value);
         }
 
-        private void PlayPauseButton_Click(object sender, RoutedEventArgs e)
+
+        private void PlayPauseButton_Click(object? sender, RoutedEventArgs? e)
         {
             ClearMarkRectangle(); // 再生が始まったら描画を消す
             if (_isPlaying)
@@ -1495,10 +1499,8 @@ namespace TraceShot
 
                 if (File.Exists(soundPath))
                 {
-                    using (SoundPlayer player = new SoundPlayer(soundPath))
-                    {
-                        player.Play();
-                    }
+                    using SoundPlayer player = new SoundPlayer(soundPath);
+                    player.Play();
                 }
             }
             catch

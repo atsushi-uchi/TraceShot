@@ -1,13 +1,11 @@
-﻿using System;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using WpfPoint = System.Windows.Point;
-using System.Windows.Forms;
 
-namespace TraceShot
+namespace TraceShot.Features
 {
     public partial class SelectionRect : Window
     {
@@ -42,7 +40,7 @@ namespace TraceShot
         #endregion
 
         public Rect SelectedRegion { get; private set; }
-        public string TargetDeviceName { get; private set; } // 選択されたモニターの情報
+        public string TargetDeviceName { get; private set; } = "";// 選択されたモニターの情報
 
         public SelectionRect()
         {

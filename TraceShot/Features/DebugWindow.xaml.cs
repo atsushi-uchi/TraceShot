@@ -3,7 +3,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Threading;
 
-namespace TraceShot
+namespace TraceShot.Features
 {
     public partial class DebugWindow : Window
     {

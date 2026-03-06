@@ -6,7 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 
-namespace TraceShot
+namespace TraceShot.Features
 {
     public partial class SelectionWindow : Window
     {

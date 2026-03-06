@@ -6,6 +6,8 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using TraceShot.Models;
+using TraceShot.Services;
 using MessageBox = System.Windows.MessageBox;
 using Path = System.IO.Path;
 
@@ -238,7 +240,7 @@ namespace TraceShot.Features
             sb.AppendLine("<tr><th class='col-time'>経過時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr>");
 
             // --- データ行部分の修正 ---
-            foreach (var bm in evidence.Bookmarks)
+            foreach (var bm in evidence?.Bookmarks!)
             {
                 sb.AppendLine("<tr>");
                 sb.AppendLine($"<td class='col-time'>{bm.Time}</td>");
@@ -318,7 +320,7 @@ namespace TraceShot.Features
                 ws.Cell(dataStartRow, 3).Value = "スクリーンショット";
 
                 // --- ブックマーク一覧のループ内 ---
-                for (int i = 0; i < evidence.Bookmarks.Count; i++)
+                for (int i = 0; i < evidence?.Bookmarks.Count; i++)
                 {
                     var bm = evidence.Bookmarks[i];
                     int currentRow = dataStartRow + 1 + i;
