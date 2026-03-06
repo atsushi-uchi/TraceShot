@@ -81,9 +81,9 @@ namespace TraceShot.Services
         }
 
         // 引数に double scale を追加 (例: 0.5 = 50%, 1.0 = 100%)
-        public string? SaveSingleBookmarkImage(BookMark bm, MediaElement videoPlayer, double scale = 0.5)
+        public (string? Path, BitmapSource? Bitmap)? SaveSingleBookmarkImage(BookMark bm, MediaElement videoPlayer, double scale = 0.5)
         {
-            if (string.IsNullOrEmpty(CurrentFolder)) return null;
+            if (string.IsNullOrEmpty(CurrentFolder)) return (null, null);
 
             string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot");
             if (!Directory.Exists(screenshotFolder)) Directory.CreateDirectory(screenshotFolder);
@@ -91,7 +91,7 @@ namespace TraceShot.Services
             // 1. 動画の本来の解像度を取得
             int originalWidth = videoPlayer.NaturalVideoWidth;
             int originalHeight = videoPlayer.NaturalVideoHeight;
-            if (originalWidth == 0 || originalHeight == 0) return null;
+            if (originalWidth == 0 || originalHeight == 0) return (null, null);
 
             // 2. 出力先の解像度を計算
             int renderWidth = (int)(originalWidth * scale);
@@ -202,9 +202,9 @@ namespace TraceShot.Services
                 PngBitmapEncoder encoder = new PngBitmapEncoder();
                 encoder.Frames.Add(BitmapFrame.Create(bmp));
                 encoder.Save(fs);
+                fs.Flush();
             }
-
-            return filePath;
+            return (filePath, bmp);
         }
 
         // ⭐ 【修正点1】: 引数に cropRectRel (相対座標の切り出し矩形) を追加

@@ -1,4 +1,5 @@
 ﻿using ClosedXML.Excel;
+using ClosedXML.Excel.Drawings;
 using Microsoft.Win32;
 using PuppeteerSharp;
 using PuppeteerSharp.Media;
@@ -6,8 +7,8 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 using TraceShot.Models;
-using TraceShot.Services;
 using MessageBox = System.Windows.MessageBox;
 using Path = System.IO.Path;
 
@@ -22,6 +23,46 @@ namespace TraceShot.Features
         {
             InitializeComponent();
             OutputPathBox.Text = Properties.Settings.Default.SavePath;
+
+            // 💡 画面が開いた時に、現在の動画の見た目をプレビューにセット
+            this.Loaded += (s, e) => {
+                var main = Owner as MainWindow;
+                if (main != null)
+                {
+                    // 現在の表示内容をキャプチャしてプレビューに表示するロジック（RenderTargetBitmap等）
+                    // または、最新のブックマーク画像を一時的に表示
+                }
+            };
+        }
+
+        private async Task RunExportTask(Func<IProgress<int>, Task> exportAction)
+        {
+            // 1. UIをロックしてプログレス表示
+            LoadingOverlay.Visibility = Visibility.Visible;
+            ExportProgressBar.Value = 0;
+
+            // 進捗報告用のインスタンス
+            var progress = new Progress<int>(value => {
+                ExportProgressBar.Value = value;
+            });
+
+            try
+            {
+                // 2. 重い処理を実行
+                await exportAction(progress);
+                //MessageBox.Show("エクスポートが完了しました。");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"エラーが発生しました: {ex.Message}");
+            }
+            finally
+            {
+                // 3. UIを復帰
+                ExportProgressBar.Value = 0;
+                StatusText.Text = "準備完了";
+                LoadingOverlay.Visibility = Visibility.Collapsed;
+            }
         }
 
         private double GetSelectedScale()
@@ -33,6 +74,7 @@ namespace TraceShot.Features
             }
             return 1.0; // デフォルト
         }
+
 
         private void Browse_Click(object sender, RoutedEventArgs e)
         {
@@ -51,211 +93,173 @@ namespace TraceShot.Features
             }
         }
 
-        private async void ExportExcel_Click(object sender, RoutedEventArgs e)
-        {
-            var main = Owner as MainWindow;
-            if (main?.RecorderMgr.Evidence == null)
-            {
-                MessageBox.Show("エクスポートするデータがありません。");
-                return;
-            }
-
-            try
-            {
-                foreach (var bm in main.RecorderMgr.Evidence.Bookmarks)
-                {
-                    main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
-                    await Task.Delay(500);
-
-                    // 画像を保存し、そのパスを bm.ImagePath に格納するようマネージャー側を調整
-                    var scale = GetSelectedScale();
-                    var savedPath = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
-                    bm.ImagePath = savedPath;
-                }
-                ExportToExcel();
-                MessageBox.Show("Excelを出力しました！");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"エクスポート失敗: {ex.Message}");
-            }
-        }
-
         private async void ExportHtml_Click(object sender, RoutedEventArgs e)
         {
             var main = Owner as MainWindow;
-            if (main?.RecorderMgr.Evidence == null)
-            {
-                MessageBox.Show("エクスポートするデータがありません。");
-                return;
-            }
+            if (main?.RecorderMgr.Evidence == null) return;
+
             var evidence = main.RecorderMgr.Evidence;
+            var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + "_full.html";
+            var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
+                main.RecorderMgr.CurrentFolder : OutputPathBox.Text, fileName);
 
-            try
+            await RunExportTask(async (progress) =>
             {
-                foreach (var bm in evidence.Bookmarks)
+                var marks = main.RecorderMgr.Evidence.Bookmarks;
+                int total = marks.Count;
+                var scale = GetSelectedScale();
+
+                for (int i = 0; i < total; i++)
                 {
-                    main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
-                    await Task.Delay(500);
-                    var scale = GetSelectedScale();
-                    var savedPath = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
-                    bm.ImagePath = savedPath;
+                    var bm = marks[i];
+                    Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
+                    await Dispatcher.InvokeAsync(async () => {
+                        main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
+                    });
+                    await Task.Delay(100);
+                    await Dispatcher.InvokeAsync(() => {
+                        var result = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                        bm.ImagePath = result?.Path;
+                        if (result?.Bitmap != null)
+                        {
+                            PreviewImage.Source = result?.Bitmap;
+                        }
+                    });
+                    progress.Report((i + 1) * 100 / (total + 1));
                 }
+                Dispatcher.Invoke(() => StatusText.Text = "レポート出力中...");
 
-                var sb = new StringBuilder();
-
-                // --- HTML ヘッダー・スタイル部分は変更なし ---
-                sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
-                sb.AppendLine("<title>エビデンス報告書</title>");
-                sb.AppendLine("<style>");
-                sb.AppendLine("body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }");
-                sb.AppendLine(".container { max-width: 98%; margin: auto; background: white; padding: 20px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }");
-                sb.AppendLine("table { width: 100%; border-collapse: collapse; }");
-                sb.AppendLine(".col-time { width: 80px; text-align: center; }");
-                sb.AppendLine(".col-note { width: 150px; }");
-                sb.AppendLine("th, td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }");
-                sb.AppendLine("th { background-color: #4472C4; color: white; }");
-
-                sb.AppendLine(".ss-image { width: 100%; height: auto; display: block; border: 1px solid #ccc; }");
-                sb.AppendLine("</style></head><body><div class='container'>");
-
-                sb.AppendLine("<table>");
-                sb.AppendLine("<tr><th class='col-time'>経過時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr>");
-
-                // --- データ行部分の修正：ここがポイント ---
-                foreach (var bm in evidence.Bookmarks)
+                await Task.Run(() =>
                 {
-                    sb.AppendLine("<tr>");
-                    sb.AppendLine($"<td class='col-time'>{bm.Time}</td>");
-                    sb.AppendLine($"<td class='col-note'>{bm.Note}</td>");
-
-                    // 画像ファイルを読み込んで Base64 に変換
-                    string base64Image = "";
-                    if (File.Exists(bm.ImagePath))
+                    var htmlContent = GenerateHtmlFile(evidence);
+                    File.WriteAllText(fullPath, htmlContent);
+                    var p = new System.Diagnostics.Process
                     {
-                        byte[] imageBytes = File.ReadAllBytes(bm.ImagePath);
-                        string base64String = Convert.ToBase64String(imageBytes);
-                        // png か jpg かは拡張子から判断（ここでは汎用的に png 指定でも大抵動きます）
-                        base64Image = $"data:image/png;base64,{base64String}";
-                    }
-
-                    // src に相対パスではなく Base64 文字列を入れる
-                    sb.AppendLine($"<td class='col-ss'><img src='{base64Image}' class='ss-image'></td>");
-                    sb.AppendLine("</tr>");
-                }
-
-                sb.AppendLine("</table></div></body></html>");
-
-                var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + "_full.html";
-                var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
-                    main.RecorderMgr.CurrentFolder : OutputPathBox.Text, fileName);
-                File.WriteAllText(fullPath, sb.ToString());
-
-                MessageBox.Show("HTML出力");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"出力エラー: {ex.Message}");
-            }
+                        StartInfo = new System.Diagnostics.ProcessStartInfo(fullPath) { UseShellExecute = true }
+                    };
+                    p.Start();
+                });
+                progress.Report(100);
+            });
         }
 
-        private async void ExportPdf_Click(object sender, RoutedEventArgs e)
+        private string GenerateHtmlFile(RecordingEvidence evidence)
         {
-            var main = (Owner as MainWindow)!;
-            if (main?.RecorderMgr.Evidence == null)
-            {
-                MessageBox.Show("エクスポートするデータがありません。");
-                return;
-            }
-            var evidence = main.RecorderMgr.Evidence;
-
-            try
-            {
-                foreach (var bm in main.RecorderMgr.Evidence.Bookmarks)
-                {
-                    main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
-                    await Task.Delay(500);
-                    var scale = GetSelectedScale();
-                    var savedPath = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
-                    bm.ImagePath = savedPath;
-                }
-
-                var htmlPath = ExportToHtml();
-                var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".pdf";
-                var filePath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
-                    main.RecorderMgr.CurrentFolder : OutputPathBox.Text, fileName);
-
-                await ExportToPdfAsync(htmlPath, filePath);
-                MessageBox.Show("PDF出力");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"出力エラー: {ex.Message}");
-            }
-        }
-
-        private string ExportToHtml(bool isOriginalSize = false)
-        {
-            var main = (Owner as MainWindow)!;
-            var evidence = main.RecorderMgr.Evidence;
-
-            string fileName = Path.GetFileNameWithoutExtension(evidence?.VideoFileName) + ".html";
-            string htmlPath = Path.Combine(main.RecorderMgr.CurrentFolder, fileName);
             var sb = new StringBuilder();
 
-            // HTMLのヘッダーとスタイル
+            // --- HTML ヘッダー・スタイル部分は変更なし ---
             sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
             sb.AppendLine("<title>エビデンス報告書</title>");
-            // --- スタイル部分の修正 ---
             sb.AppendLine("<style>");
             sb.AppendLine("body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }");
             sb.AppendLine(".container { max-width: 98%; margin: auto; background: white; padding: 20px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }");
             sb.AppendLine("table { width: 100%; border-collapse: collapse; }");
-
-            // 列幅の設定
             sb.AppendLine(".col-time { width: 80px; text-align: center; }");
             sb.AppendLine(".col-note { width: 150px; }");
-            sb.AppendLine(".col-ss { }"); // 画像列
-
             sb.AppendLine("th, td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }");
             sb.AppendLine("th { background-color: #4472C4; color: white; }");
 
-            // 💡 設定によって画像スタイルを切り替える
-            if (isOriginalSize)
-            {
-                // 元のサイズを維持（画面からはみ出る場合はスクロール可能にする）
-                sb.AppendLine(".ss-image { display: block; border: 1px solid #ccc; margin: auto; }");
-                sb.AppendLine(".col-ss { overflow-x: auto; }");
-            }
-            else
-            {
-                // 画面幅にフィットさせる
-                sb.AppendLine(".ss-image { width: 100%; height: auto; display: block; border: 1px solid #ccc; }");
-            }
+            sb.AppendLine(".ss-image { width: 100%; height: auto; display: block; border: 1px solid #ccc; }");
+            sb.AppendLine("</style></head><body><div class='container'>");
 
-            sb.AppendLine("</style>");
-
-            // --- テーブルヘッダー部分の修正 ---
             sb.AppendLine("<table>");
             sb.AppendLine("<tr><th class='col-time'>経過時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr>");
 
-            // --- データ行部分の修正 ---
-            foreach (var bm in evidence?.Bookmarks!)
+            // --- データ行部分の修正：ここがポイント ---
+            foreach (var bm in evidence.Bookmarks)
             {
                 sb.AppendLine("<tr>");
                 sb.AppendLine($"<td class='col-time'>{bm.Time}</td>");
                 sb.AppendLine($"<td class='col-note'>{bm.Note}</td>");
 
-                string relativePath = $"ScreenShot/{Path.GetFileName(bm.ImagePath)}";
-                sb.AppendLine($"<td class='col-ss'><img src='{relativePath}' class='ss-image'></td>");
+                // 画像ファイルを読み込んで Base64 に変換
+                string base64Image = "";
+                if (File.Exists(bm.ImagePath))
+                {
+                    byte[] imageBytes = File.ReadAllBytes(bm.ImagePath);
+                    string base64String = Convert.ToBase64String(imageBytes);
+                    // png か jpg かは拡張子から判断（ここでは汎用的に png 指定でも大抵動きます）
+                    base64Image = $"data:image/png;base64,{base64String}";
+                }
+
+                // src に相対パスではなく Base64 文字列を入れる
+                sb.AppendLine($"<td class='col-ss'><img src='{base64Image}' class='ss-image'></td>");
                 sb.AppendLine("</tr>");
             }
 
             sb.AppendLine("</table></div></body></html>");
+            return sb.ToString();
+        }
 
-            File.WriteAllText(htmlPath, sb.ToString());
+        private async void ExportPdf_Click(object sender, RoutedEventArgs e)
+        {
+            var main = Owner as MainWindow;
+            if (main?.RecorderMgr.Evidence == null) return;
 
-            return htmlPath;
+            var evidence = main.RecorderMgr.Evidence;
+            // 出力先の決定
+            var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".pdf";
+            var filePath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
+                main.RecorderMgr.CurrentFolder : OutputPathBox.Text, fileName);
+
+            await RunExportTask(async (progress) =>
+            {
+                var marks = evidence.Bookmarks;
+                int total = marks.Count;
+                var scale = GetSelectedScale();
+
+                // 1. 全ての画像を生成（HTML時と同じロジック）
+                for (int i = 0; i < total; i++)
+                {
+                    var bm = marks[i];
+                    Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
+                    await Dispatcher.InvokeAsync(async () => {
+                        main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
+                    });
+                    await Task.Delay(100);
+                    await Dispatcher.InvokeAsync(() => {
+                        var result = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                        bm.ImagePath = result?.Path;
+                        if (result?.Bitmap != null)
+                        {
+                            PreviewImage.Source = result?.Bitmap;
+                        }
+                    });
+                    progress.Report((i + 1) * 100 / (total + 2)); // 最後の2ステップをHTML/PDF用に残す
+                }
+
+                // 2. HTML 文字列の生成（既存の GenerateHtmlFile を活用）
+                Dispatcher.Invoke(() => StatusText.Text = "一時レポートを作成中...");
+                string htmlContent = "";
+                await Task.Run(() => {
+                    htmlContent = GenerateHtmlFile(evidence);
+                });
+                progress.Report((total + 1) * 100 / (total + 2));
+
+                // 3. 一時的なHTMLファイルを保存してPDFに変換
+                Dispatcher.Invoke(() => StatusText.Text = "PDFに変換中（ブラウザ起動）...");
+                await Task.Run(async () =>
+                {
+                    // PDF変換用に一時ファイルとして書き出す
+                    string tempHtmlPath = Path.Combine(Path.GetTempPath(), "TraceShot_temp.html");
+                    File.WriteAllText(tempHtmlPath, htmlContent);
+
+                    // PuppeteerSharp を使った変換処理
+                    await ExportToPdfAsync(tempHtmlPath, filePath);
+
+                    // 使い終わった一時ファイルを削除（任意）
+                    if (File.Exists(tempHtmlPath)) File.Delete(tempHtmlPath);
+
+                    // 完了後にPDFを開く
+                    var p = new System.Diagnostics.Process
+                    {
+                        StartInfo = new System.Diagnostics.ProcessStartInfo(filePath) { UseShellExecute = true }
+                    };
+                    p.Start();
+                });
+
+                progress.Report(100);
+            });
         }
 
         private async Task ExportToPdfAsync(string htmlPath, string pdfPath)
@@ -300,61 +304,111 @@ namespace TraceShot.Features
             }
         }
 
-        private void ExportToExcel()
+        private async void ExportExcel_Click(object sender, RoutedEventArgs e)
         {
-            var main = (Owner as MainWindow)!;
-            var evidence = main.RecorderMgr.Evidence;
+            var main = Owner as MainWindow;
+            if (main?.RecorderMgr.Evidence == null) return;
 
-            var fileName = Path.GetFileNameWithoutExtension(evidence?.VideoFileName) + ".xlsx";
+            var evidence = main.RecorderMgr.Evidence;
+            var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".xlsx";
             var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 main.RecorderMgr.CurrentFolder : OutputPathBox.Text, fileName);
 
-            using (var workbook = new XLWorkbook())
+
+            await RunExportTask(async (progress) =>
             {
-                var ws = workbook.Worksheets.Add("録画エビデンス");
+                var marks = evidence.Bookmarks;
+                int total = marks.Count;
+                var scale = GetSelectedScale();
 
-                // --- 基本設定 ---
-                int dataStartRow = 10;
-                ws.Cell(dataStartRow, 1).Value = "経過時間";
-                ws.Cell(dataStartRow, 2).Value = "内容・メモ";
-                ws.Cell(dataStartRow, 3).Value = "スクリーンショット";
+                // 1. 全ての画像を生成（HTML/PDFと同じ安定化ロジック）
+                for (int i = 0; i < total; i++)
+                {
+                    var bm = marks[i];
+                    Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
+                    await Dispatcher.InvokeAsync(async () => {
+                        main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
+                    });
+                    await Task.Delay(100);
+                    await Dispatcher.InvokeAsync(() => {
+                        var result = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                        bm.ImagePath = result?.Path;
+                        if (result?.Bitmap != null)
+                        {
+                            PreviewImage.Source = result?.Bitmap;
+                        }
+                    });
+                    progress.Report((i + 1) * 100 / (total + 1));
+                }
 
-                // --- ブックマーク一覧のループ内 ---
-                for (int i = 0; i < evidence?.Bookmarks.Count; i++)
+                // 2. Excelファイルの生成
+                Dispatcher.Invoke(() => StatusText.Text = "Excelファイルを構築中...");
+                await Task.Run(() =>
+                {
+                    // 💡 既存の ExportToExcel() メソッドを呼び出す
+                    // 引数で fullPath を渡せるように修正しておくとスムーズです
+                    SaveAsExcel(evidence, fullPath, scale);
+
+                    if (File.Exists(fullPath))
+                    {
+                        string argument = $"/select,\"{fullPath}\"";
+                        System.Diagnostics.Process.Start("explorer.exe", argument);
+                    }
+                });
+
+                progress.Report(100);
+            });
+        }
+        private void SaveAsExcel(RecordingEvidence evidence, string fullPath, double selectedScale)
+        {
+            using (var workbook = new ClosedXML.Excel.XLWorkbook())
+            {
+                for (int i = 0; i < evidence.Bookmarks.Count; i++)
                 {
                     var bm = evidence.Bookmarks[i];
-                    int currentRow = dataStartRow + 1 + i;
+                    if (bm == null) continue;
+                    // 1. シートの作成（シート名は「No_経過時間」形式）
+                    // ※シート名に使えない記号を置換します
+                    string safeTime = bm?.Time?.Replace(":", "-").Replace(".", "_") ?? "";
+                    string sheetName = $"{i + 1}_{safeTime}";
+                    var ws = workbook.Worksheets.Add(sheetName);
 
-                    ws.Cell(currentRow, 1).Value = bm.Time;
-                    ws.Cell(currentRow, 2).Value = bm.Note;
+                    // 2. テキスト情報の配置
+                    ws.Cell(1, 1).Value = "経過時間";
+                    ws.Cell(1, 2).Value = bm.Time;
+                    ws.Cell(2, 1).Value = "コメント";
+                    ws.Cell(2, 2).Value = bm.Note;
 
+                    // デザイン調整
+                    var headerRange = ws.Range("A1:A2");
+                    headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#4472C4");
+                    headerRange.Style.Font.FontColor = XLColor.White;
+                    headerRange.Style.Font.Bold = true;
+                    ws.Column(1).Width = 15;
+                    ws.Column(2).Width = 50;
+
+                    // 3. 画像の挿入（指定倍率を適用）
                     if (!string.IsNullOrEmpty(bm.ImagePath) && File.Exists(bm.ImagePath))
                     {
-                        // 1. 画像を追加（この時点ではまだ位置固定しない）
                         var picture = ws.AddPicture(bm.ImagePath);
 
-                        // 2. 💡 MoveTo メソッドを使って、セル位置と「ズレ（オフセット）」を同時に指定する
-                        // 第1引数：開始セル
-                        // 第2引数：横方向のオフセット（ピクセル）
-                        // 第3引数：縦方向のオフセット（ピクセル） ← ここで 10 指定
-                        picture.MoveTo(ws.Cell(currentRow, 3), 5, 10);
+                        // 💡 修正：スケールを変更する前に配置モードを設定する
+                        picture.Placement = XLPicturePlacement.Move;
 
-                        // 3. 等倍に設定
-                        picture.Scale(1.0);
+                        // ComboBoxで選ばれた倍率（0.25〜1.0）を適用
+                        picture.Scale(selectedScale);
 
-                        // 4. 黄金設定の高さ調整
-                        double baseHeight = picture.Height * 0.75;
-                        double safeBuffer = 80; // さらに余裕を持って 80 に増やしました
-                        ws.Row(currentRow).Height = Math.Min(baseHeight + safeBuffer, 409);
+                        // 4行目から画像を配置（テキストと重ならないように）
+                        picture.MoveTo(ws.Cell(4, 1), 5, 5);
+
+                        // 画像が隠れないように、配置した場所の行高さを調整
+                        // Excelの行高さ制限（409.5）に注意しながら設定
+                        double rowHeight = (picture.Height * 0.75) + 20;
+                        ws.Row(4).Height = Math.Min(rowHeight, 409);
                     }
                 }
 
-                // 💡 仕上げのレイアウト調整
-                ws.Columns(1, 2).AdjustToContents(); // テキストに合わせて幅調整
-                ws.Column(3).Width = 120; // 画像列は十分な幅を確保
-                ws.Rows().Style.Alignment.Vertical = XLAlignmentVerticalValues.Top; // すべて上揃え
-                ws.Rows().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left; // 左揃え
-
+                // 最後にブックを保存
                 workbook.SaveAs(fullPath);
             }
         }
