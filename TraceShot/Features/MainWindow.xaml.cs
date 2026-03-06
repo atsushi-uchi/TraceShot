@@ -1,4 +1,5 @@
-﻿using DocumentFormat.OpenXml.Vml;
+﻿using DocumentFormat.OpenXml.InkML;
+using DocumentFormat.OpenXml.Vml;
 using NHotkey;
 using ScreenRecorderLib;
 using System.Diagnostics;
@@ -18,11 +19,13 @@ using TraceShot.Services;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
+using Canvas = System.Windows.Controls.Canvas;
 using Color = System.Windows.Media.Color;
 using Cursors = System.Windows.Input.Cursors;
 using Drawing = System.Drawing;
 using Line = System.Windows.Shapes.Line;
 using MessageBox = System.Windows.MessageBox;
+using Path = System.IO.Path;
 using Size = System.Windows.Size;
 using WpfPoint = System.Windows.Point; // WPFの座標
 using WpfRectangle = System.Windows.Shapes.Rectangle;
@@ -1509,6 +1512,13 @@ namespace TraceShot
                 BookmarkListBox.Items.Add(bookmark);
                 BookmarkListBox.ScrollIntoView(bookmark);
                 StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note}";
+
+                // 💡 録画中ならプレビュー用ビットマップをそのまま使う
+                if (_previewBitmap != null)
+                {
+                    // 念のため、この時点でのビットマップの状態を保存
+                    RecorderMgr.SaveBackupFromWriteableBitmap(bookmark, _previewBitmap);
+                }
             }
         }
 

@@ -40,6 +40,43 @@ public class RecorderManager
         };
     }
 
+    public string? SaveBackupFromWriteableBitmap(BookMark bm, WriteableBitmap source)
+    {
+        if (string.IsNullOrEmpty(CurrentFolder) || source == null) return null;
+
+        string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot");
+        if (!Directory.Exists(screenshotFolder)) Directory.CreateDirectory(screenshotFolder);
+
+        // 💡 1. bm.Time (文字列) から ":" を除外して安全な名前にする
+        // 例: "00:05.123" -> "00_05_123"
+        string safeTime = bm.Time.Replace(":", "");
+        string fileName = $"SS_{safeTime}.png";
+        string filePath = Path.Combine(screenshotFolder, fileName);
+
+        try
+        {
+            // 💡 2. UIスレッドのデータを安全にコピー
+            var bitmapCopy = source.Clone();
+            bitmapCopy.Freeze();
+
+            using (var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+            {
+                PngBitmapEncoder encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(bitmapCopy));
+                encoder.Save(stream);
+                stream.Flush();
+            }
+
+            System.Diagnostics.Debug.WriteLine($"✅ Backup success: {filePath}");
+            return filePath;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ Backup Save Error: {ex.Message}");
+            return null;
+        }
+    }
+
     // 引数に double scale を追加 (例: 0.5 = 50%, 1.0 = 100%)
     public string? SaveSingleBookmarkImage(BookMark bm, MediaElement videoPlayer, double scale = 0.5)
     {
