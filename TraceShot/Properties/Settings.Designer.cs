@@ -130,5 +130,29 @@ namespace TraceShot.Properties {
                 this["HighlightTextColorName"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Orange")]
+        public string CropColorName {
+            get {
+                return ((string)(this["CropColorName"]));
+            }
+            set {
+                this["CropColorName"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Orange")]
+        public string CropFillColorName {
+            get {
+                return ((string)(this["CropFillColorName"]));
+            }
+            set {
+                this["CropFillColorName"] = value;
+            }
+        }
     }
 }

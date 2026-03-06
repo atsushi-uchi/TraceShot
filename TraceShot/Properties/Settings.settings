@@ -29,5 +29,11 @@
     <Setting Name="HighlightTextColorName" Type="System.String" Scope="User">
       <Value Profile="(Default)">Black</Value>
     </Setting>
+    <Setting Name="CropColorName" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Orange</Value>
+    </Setting>
+    <Setting Name="CropFillColorName" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Orange</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

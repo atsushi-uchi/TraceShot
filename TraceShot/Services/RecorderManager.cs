@@ -208,7 +208,7 @@ namespace TraceShot.Services
         }
 
         // ⭐ 【修正点1】: 引数に cropRectRel (相対座標の切り出し矩形) を追加
-        public string? SaveCroppedBookmarkImage(BookMark bm, MediaElement videoPlayer, MarkRect cropRectRel, double scale = 1.0)
+        public (string? Path, BitmapSource? Bitmap)? SaveCroppedBookmarkImage(BookMark bm, MediaElement videoPlayer, MarkRect cropRectRel, double scale = 1.0)
         {
             if (string.IsNullOrEmpty(CurrentFolder)) return null;
 
@@ -264,6 +264,8 @@ namespace TraceShot.Services
                 {
                     foreach (var relRect in bm.MarkRects)
                     {
+                        if (relRect.IsCropArea) continue;
+
                         Rect scaledRect = new Rect(
                             relRect.X * originalWidth,
                             relRect.Y * originalHeight,
@@ -368,9 +370,10 @@ namespace TraceShot.Services
                 PngBitmapEncoder encoder = new PngBitmapEncoder();
                 encoder.Frames.Add(BitmapFrame.Create(bmp));
                 encoder.Save(fs);
+                fs.Flush();
             }
 
-            return filePath;
+            return (filePath, bmp);
         }
 
         public void SyncBookmark()

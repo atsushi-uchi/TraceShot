@@ -3,8 +3,8 @@ using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
 using System.Media;
+using System.Security.Policy;
 using System.Text.Json;
-using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -291,7 +291,7 @@ namespace TraceShot.Features
         private void DrawingCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             // 💡 リサイズ時に矩形をクリアして再描画する
-            UpdateCanvasRects();
+            RefreshCanvas();
         }
 
         private void SavePathStatusText_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -344,134 +344,206 @@ namespace TraceShot.Features
             }
         }
 
-        private void UpdateCanvasRects()
+        private void DrawRectOnCanvas(MarkRect rect, bool isCropMode)
+        {
+            double containerW = DrawingCanvas.ActualWidth;
+            double containerH = DrawingCanvas.ActualHeight;
+
+            if (containerW == 0 || containerH == 0 || VideoPlayer.NaturalVideoWidth == 0) return;
+
+            double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
+            double dispW = VideoPlayer.NaturalVideoWidth * ratio;
+            double dispH = VideoPlayer.NaturalVideoHeight * ratio;
+            double offsetX = (containerW - dispW) / 2.0;
+            double offsetY = (containerH - dispH) / 2.0;
+
+            var mainTextBrush = GetBrushFromName(Properties.Settings.Default.MainTextColorName);
+            var overTextBrush = GetBrushFromName(Properties.Settings.Default.HighlightTextColorName);
+            var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
+            var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
+            var cropBrush = GetBrushFromName(Properties.Settings.Default.CropColorName);
+            var cropFillBrush = GetBrushFromName(Properties.Settings.Default.CropFillColorName);
+            var overColor = isCropMode ? ((SolidColorBrush)cropFillBrush).Color : ((SolidColorBrush)overBrush).Color;
+            var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
+            var mainColor = ((SolidColorBrush)mainBrush).Color;
+            var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
+
+            var rectBrush = isCropMode ? cropBrush : mainBrush;
+            //var fillBrush = isCropMode ? new SolidColorBrush(Color.FromArgb(30, 255, 255, 0)) : Brushes.Transparent;
+
+            // 共通の座標計算
+            double rectLeft = (rect.X * dispW) + offsetX;
+            double rectTop = (rect.Y * dispH) + offsetY;
+            double rectWidth = rect.Width * dispW;
+            double rectHeight = rect.Height * dispH;
+
+            // --- 1. 中央の移動用エリア（透明な塗りつぶし） ---
+            var moveArea = new WpfRectangle
+            {
+                Width = Math.Max(0, rectWidth),
+                Height = Math.Max(0, rectHeight),
+                Fill = Brushes.Transparent, // 透明だがマウスには反応する
+                Cursor = Cursors.SizeAll,
+                Tag = rect, // MarkRectを保持
+                // クロップモードなら少し枠線を太く・目立たせる
+                Stroke = rectBrush,
+                StrokeThickness = isCropMode ? 3 : 0
+            };
+
+            moveArea.MouseEnter += (s, e) => {
+                moveArea.Fill = overFill; // 設定されているハイライト色（半透明）
+            };
+            moveArea.MouseLeave += (s, e) => {
+                moveArea.Fill = Brushes.Transparent;
+            };
+            moveArea.MouseLeftButtonUp += EndDrag;
+
+            Canvas.SetLeft(moveArea, rectLeft);
+            Canvas.SetTop(moveArea, rectTop);
+
+            moveArea.MouseLeftButtonDown += (s, e) => {
+                // ダブルクリック判定
+                if (e.ClickCount == 2)
+                {
+                    ToggleCropArea(rect); // クロップ範囲の切り替えメソッドを呼ぶ
+                    e.Handled = true;
+                    return;
+                }
+                // 通常のドラッグ開始処理
+                _draggingRect = moveArea;
+                _isResizing = false;
+                _currentResizeDir = ResizeDirection.Move;
+                _lastMousePosition = e.GetPosition(DrawingCanvas);
+                moveArea.CaptureMouse();
+                e.Handled = true;
+            };
+            DrawingCanvas.Children.Add(moveArea);
+
+            // --- 2. 4つの辺を作成するための共通ヘルパー関数 ---
+            UIElement CreateEdge(double x1, double y1, double x2, double y2, ResizeDirection dir, Brush brush)
+            {
+                var container = new Canvas();
+                // 1. 【当たり判定用】 透明で太い線
+                var hitArea = new Line
+                {
+                    X1 = x1,
+                    Y1 = y1,
+                    X2 = x2,
+                    Y2 = y2,
+                    Stroke = Brushes.Transparent, // 💡 見えない
+                    StrokeThickness = 10,         // 💡 当たり判定を 10px くらいに広げる
+                    Cursor = (dir == ResizeDirection.Left || dir == ResizeDirection.Right) ? Cursors.SizeWE : Cursors.SizeNS,
+                    Tag = rect
+                };
+                var line = new Line
+                {
+                    X1 = x1,
+                    Y1 = y1,
+                    X2 = x2,
+                    Y2 = y2,
+                    Stroke = brush,
+                    StrokeThickness = 2, // 当たり判定のために少し太めにする
+                    Cursor = (dir == ResizeDirection.Left || dir == ResizeDirection.Right) ? Cursors.SizeWE : Cursors.SizeNS,
+                    Tag = rect
+                };
+
+                // --- イベント処理 ---
+                hitArea.MouseEnter += (s, e) => line.Stroke = overBrush;
+                hitArea.MouseLeave += (s, e) => line.Stroke = brush;
+
+                hitArea.MouseLeftButtonDown += (s, e) => {
+                    _draggingRect = hitArea; // ドラッグ対象は当たり判定用にする
+                    _isResizing = true;
+                    _currentResizeDir = dir;
+                    _lastMousePosition = e.GetPosition(DrawingCanvas);
+                    hitArea.CaptureMouse();
+                    e.Handled = true;
+                };
+
+                // 前述の MouseUp 処理も追加
+                hitArea.MouseLeftButtonUp += EndDrag;
+
+                container.Children.Add(line); // 下に描画
+                container.Children.Add(hitArea);    // 上に重ねて当たり判定を確保
+
+                return container;
+            }
+
+            // --- 3. 4辺をキャンバスに追加 ---
+            // 上辺
+            DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop, rectLeft + rectWidth, rectTop, ResizeDirection.Top, rectBrush));
+            // 下辺
+            DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop + rectHeight, rectLeft + rectWidth, rectTop + rectHeight, ResizeDirection.Bottom, rectBrush));
+            // 左辺
+            DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop, rectLeft, rectTop + rectHeight, ResizeDirection.Left, rectBrush));
+            // 右辺
+            DrawingCanvas.Children.Add(CreateEdge(rectLeft + rectWidth, rectTop, rectLeft + rectWidth, rectTop + rectHeight, ResizeDirection.Right, rectBrush));
+        }
+
+        private void ToggleCropArea(MarkRect target)
+        {
+            // 1. すでに自分がクロップ範囲なら解除、そうでなければ設定
+            bool isNowSelected = !target.IsCropArea;
+
+            // 2. 「クロップ範囲は1つだけ」ルールを適用
+            // (全ブックマークの全矩形を走査)
+            foreach (var bm in RecorderMgr.Evidence.Bookmarks)
+            {
+                foreach (var r in bm.MarkRects)
+                {
+                    r.IsCropArea = false;
+                }
+            }
+
+            target.IsCropArea = isNowSelected;
+
+            // 💡 画面を更新して色を変えたり、プレビューを再描画したりする
+            RefreshCanvas();
+        }
+
+        private void RefreshCanvas()
         {
             DrawingCanvas.Children.Clear();
 
+            var marks = RecorderMgr.Evidence.Bookmarks;
+
+            // 1. クロップ範囲を探す（動画全体から1つだけ）
+            var cropRect = marks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
+            if (cropRect != null)
+            {
+                DrawRectOnCanvas(cropRect, isCropMode: true); // 黄色などで描画
+            }
+
+            double containerW = DrawingCanvas.ActualWidth;
+            double containerH = DrawingCanvas.ActualHeight;
+
+            if (containerW == 0 || containerH == 0 || VideoPlayer.NaturalVideoWidth == 0) return;
+
+            double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
+            double dispW = VideoPlayer.NaturalVideoWidth * ratio;
+            double dispH = VideoPlayer.NaturalVideoHeight * ratio;
+            double offsetX = (containerW - dispW) / 2.0;
+            double offsetY = (containerH - dispH) / 2.0;
+
+            var mainTextBrush = GetBrushFromName(Properties.Settings.Default.MainTextColorName);
+            var overTextBrush = GetBrushFromName(Properties.Settings.Default.HighlightTextColorName);
+            var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
+            var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
+            var overColor = ((SolidColorBrush)overBrush).Color;
+            var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
+            var mainColor = ((SolidColorBrush)mainBrush).Color;
+            var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
+
             if (BookmarkListBox.SelectedItem is BookMark selected)
             {
-                double containerW = DrawingCanvas.ActualWidth;
-                double containerH = DrawingCanvas.ActualHeight;
-
-                // 動画が読み込まれていない、またはキャンバスにサイズがない場合は抜ける
-                if (containerW == 0 || containerH == 0 || VideoPlayer.NaturalVideoWidth == 0) return;
-
-                double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
-                double dispW = VideoPlayer.NaturalVideoWidth * ratio;
-                double dispH = VideoPlayer.NaturalVideoHeight * ratio;
-                double offsetX = (containerW - dispW) / 2.0;
-                double offsetY = (containerH - dispH) / 2.0;
-
-                var mainTextBrush = GetBrushFromName(Properties.Settings.Default.MainTextColorName);
-                var overTextBrush = GetBrushFromName(Properties.Settings.Default.HighlightTextColorName);
-                var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
-                var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
-                var overColor = ((SolidColorBrush)overBrush).Color;
-                var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
-                var mainColor = ((SolidColorBrush)mainBrush).Color;
-                var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
-
                 // --- 1. 矩形 (MarkRects) の描画 ---
                 if (selected.MarkRects != null)
                 {
                     foreach (var rect in selected.MarkRects)
                     {
-                        // 共通の座標計算
-                        double rectLeft = (rect.X * dispW) + offsetX;
-                        double rectTop = (rect.Y * dispH) + offsetY;
-                        double rectWidth = rect.Width * dispW;
-                        double rectHeight = rect.Height * dispH;
+                        if (rect.IsCropArea) continue; // クロップ用は既に描画済みならスキップ
 
-                        // --- 1. 中央の移動用エリア（透明な塗りつぶし） ---
-                        var moveArea = new WpfRectangle
-                        {
-                            Width = Math.Max(0, rectWidth),
-                            Height = Math.Max(0, rectHeight),
-                            Fill = Brushes.Transparent, // 透明だがマウスには反応する
-                            Cursor = Cursors.SizeAll,
-                            Tag = rect // MarkRectを保持
-                        };
-
-                        moveArea.MouseEnter += (s, e) => {
-                            moveArea.Fill = overFill; // 設定されているハイライト色（半透明）
-                        };
-                        moveArea.MouseLeave += (s, e) => {
-                            moveArea.Fill = Brushes.Transparent;
-                        };
-                        moveArea.MouseLeftButtonUp += EndDrag;
-
-                        Canvas.SetLeft(moveArea, rectLeft);
-                        Canvas.SetTop(moveArea, rectTop);
-
-                        moveArea.MouseLeftButtonDown += (s, e) => {
-                            _draggingRect = moveArea;
-                            _isResizing = false;
-                            _currentResizeDir = ResizeDirection.Move;
-                            _lastMousePosition = e.GetPosition(DrawingCanvas);
-                            moveArea.CaptureMouse();
-                            e.Handled = true;
-                        };
-                        DrawingCanvas.Children.Add(moveArea);
-
-                        // --- 2. 4つの辺を作成するための共通ヘルパー関数 ---
-                        UIElement CreateEdge(double x1, double y1, double x2, double y2, ResizeDirection dir)
-                        {
-                            var container = new Canvas();
-                            // 1. 【当たり判定用】 透明で太い線
-                            var hitArea = new Line
-                            {
-                                X1 = x1,
-                                Y1 = y1,
-                                X2 = x2,
-                                Y2 = y2,
-                                Stroke = Brushes.Transparent, // 💡 見えない
-                                StrokeThickness = 10,         // 💡 当たり判定を 10px くらいに広げる
-                                Cursor = (dir == ResizeDirection.Left || dir == ResizeDirection.Right) ? Cursors.SizeWE : Cursors.SizeNS,
-                                Tag = rect
-                            };
-                            var line = new Line
-                            {
-                                X1 = x1,
-                                Y1 = y1,
-                                X2 = x2,
-                                Y2 = y2,
-                                Stroke = mainBrush,
-                                StrokeThickness = 2, // 当たり判定のために少し太めにする
-                                Cursor = (dir == ResizeDirection.Left || dir == ResizeDirection.Right) ? Cursors.SizeWE : Cursors.SizeNS,
-                                Tag = rect
-                            };
-
-                            // --- イベント処理 ---
-                            hitArea.MouseEnter += (s, e) => line.Stroke = overBrush;
-                            hitArea.MouseLeave += (s, e) => line.Stroke = mainBrush;
-
-                            hitArea.MouseLeftButtonDown += (s, e) => {
-                                _draggingRect = hitArea; // ドラッグ対象は当たり判定用にする
-                                _isResizing = true;
-                                _currentResizeDir = dir;
-                                _lastMousePosition = e.GetPosition(DrawingCanvas);
-                                hitArea.CaptureMouse();
-                                e.Handled = true;
-                            };
-
-                            // 前述の MouseUp 処理も追加
-                            hitArea.MouseLeftButtonUp += EndDrag;
-
-                            container.Children.Add(line); // 下に描画
-                            container.Children.Add(hitArea);    // 上に重ねて当たり判定を確保
-
-                            return container;
-                        }
-
-                        // --- 3. 4辺をキャンバスに追加 ---
-                        // 上辺
-                        DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop, rectLeft + rectWidth, rectTop, ResizeDirection.Top));
-                        // 下辺
-                        DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop + rectHeight, rectLeft + rectWidth, rectTop + rectHeight, ResizeDirection.Bottom));
-                        // 左辺
-                        DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop, rectLeft, rectTop + rectHeight, ResizeDirection.Left));
-                        // 右辺
-                        DrawingCanvas.Children.Add(CreateEdge(rectLeft + rectWidth, rectTop, rectLeft + rectWidth, rectTop + rectHeight, ResizeDirection.Right));
+                        DrawRectOnCanvas(rect, isCropMode: false);
                     }
                 }
 
@@ -733,7 +805,7 @@ namespace TraceShot.Features
                         if (textRect.Contains(mousePos))
                         {
                             selectedBm.Balloons.RemoveAt(i);
-                            UpdateCanvasRects();
+                            RefreshCanvas();
                             e.Handled = true;
                             return;
                         }
@@ -749,7 +821,7 @@ namespace TraceShot.Features
                     if (absRect.Contains(mousePos))
                     {
                         selectedBm.MarkRects.RemoveAt(i);
-                        UpdateCanvasRects();
+                        RefreshCanvas();
                         e.Handled = true;
                         return;
                     }
@@ -832,7 +904,7 @@ namespace TraceShot.Features
                 }
 
                 _lastMousePosition = currentPos;
-                UpdateCanvasRects(); // 再描画
+                RefreshCanvas(); // 再描画
                 return;
             }
             // --- 1. 矩形の移動・リサイズ処理 ---
@@ -881,7 +953,7 @@ namespace TraceShot.Features
                 }
 
                 _lastMousePosition = currentPos;
-                UpdateCanvasRects();
+                RefreshCanvas();
                 return;
             }
 
@@ -1013,7 +1085,7 @@ namespace TraceShot.Features
                 {
                     targetNote.Text = newText;
                     CancelBalloonInput();
-                    UpdateCanvasRects();
+                    RefreshCanvas();
                 }
                 else
                 {
@@ -1036,7 +1108,7 @@ namespace TraceShot.Features
                     {
                         if (targetNote == null) CleanupDragLine();
                         CancelBalloonInput();
-                        if (targetNote != null) UpdateCanvasRects(); // 編集キャンセル時は再描画して元に戻す
+                        if (targetNote != null) RefreshCanvas(); // 編集キャンセル時は再描画して元に戻す
                     }
                 };
             }
@@ -1100,7 +1172,7 @@ namespace TraceShot.Features
                 _activeBalloonInput = null; // nullに戻すことで「入力中ではない」と判定させる
             }
             CleanupDragLine(); // ガイド線を消す
-            UpdateCanvasRects(); // 再描画
+            RefreshCanvas(); // 再描画
         }
 
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
@@ -1205,7 +1277,7 @@ namespace TraceShot.Features
             );
 
             selectedBm.MarkRects.Add(relativeRect);
-            UpdateCanvasRects();
+            RefreshCanvas();
         }
 
         private void DeleteBookmarkButton_Click(object? sender, RoutedEventArgs? e)
@@ -1358,7 +1430,10 @@ namespace TraceShot.Features
             {
                 VideoPlayer.Position = TimeSpan.FromSeconds(TimelineSlider.Value);
                 PlayerPause(true);
+
+                BookmarkListBox.SelectedItem = null;
             }
+            RefreshCanvas();
         }
 
         // スライダーを掴んだらタイマーを止める（操作しやすくするため）
@@ -1707,7 +1782,7 @@ namespace TraceShot.Features
                     // イベント連鎖を防ぐため一度ハンドラを外すか、フラグを使うと安全です
                     NoteEditBox.Text = selected.Note;
 
-                    UpdateCanvasRects();
+                    RefreshCanvas();
                 }
             }
             catch (Exception ex)

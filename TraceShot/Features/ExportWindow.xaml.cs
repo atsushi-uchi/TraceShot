@@ -102,6 +102,7 @@ namespace TraceShot.Features
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + "_full.html";
             var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 main.RecorderMgr.CurrentFolder : OutputPathBox.Text, fileName);
+            var crop = evidence.Bookmarks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
@@ -118,7 +119,16 @@ namespace TraceShot.Features
                     });
                     await Task.Delay(100);
                     await Dispatcher.InvokeAsync(() => {
-                        var result = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                        (string? Path, BitmapSource? Bitmap)? result;
+                        if (crop != null)
+                        {
+                            result = main.RecorderMgr.SaveCroppedBookmarkImage(bm, main.VideoPlayer, crop, scale); ;
+                        }
+                        else
+                        {
+                            result = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                        }
+
                         bm.ImagePath = result?.Path;
                         if (result?.Bitmap != null)
                         {
@@ -201,6 +211,7 @@ namespace TraceShot.Features
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".pdf";
             var filePath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 main.RecorderMgr.CurrentFolder : OutputPathBox.Text, fileName);
+            var crop = evidence.Bookmarks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
@@ -218,7 +229,15 @@ namespace TraceShot.Features
                     });
                     await Task.Delay(100);
                     await Dispatcher.InvokeAsync(() => {
-                        var result = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                        (string? Path, BitmapSource? Bitmap)? result;
+                        if (crop != null)
+                        {
+                            result = main.RecorderMgr.SaveCroppedBookmarkImage(bm, main.VideoPlayer, crop, scale); ;
+                        }
+                        else
+                        {
+                            result = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                        }
                         bm.ImagePath = result?.Path;
                         if (result?.Bitmap != null)
                         {
@@ -313,7 +332,7 @@ namespace TraceShot.Features
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".xlsx";
             var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 main.RecorderMgr.CurrentFolder : OutputPathBox.Text, fileName);
-
+            var crop = evidence.Bookmarks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
@@ -331,7 +350,15 @@ namespace TraceShot.Features
                     });
                     await Task.Delay(100);
                     await Dispatcher.InvokeAsync(() => {
-                        var result = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                        (string? Path, BitmapSource? Bitmap)? result;
+                        if (crop != null)
+                        {
+                            result = main.RecorderMgr.SaveCroppedBookmarkImage(bm, main.VideoPlayer, crop, scale); ;
+                        }
+                        else
+                        {
+                            result = main.RecorderMgr.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                        }
                         bm.ImagePath = result?.Path;
                         if (result?.Bitmap != null)
                         {

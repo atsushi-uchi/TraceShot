@@ -25,6 +25,9 @@
         /// </summary>
         public double Height { get; set; }
 
+        // ⭐ クロップ用かどうかを保持
+        public bool IsCropArea { get; set; }
+
         // コンストラクタ（初期化用）
         public MarkRect() { }
 
@@ -34,6 +37,7 @@
             Y = y;
             Width = width;
             Height = height;
+            IsCropArea = false;
         }
     }
 }

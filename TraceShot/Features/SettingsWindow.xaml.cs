@@ -45,17 +45,22 @@ namespace TraceShot.Features
             HotkeySettingButton.Content = HotkeyRegister.Format(_tempKey, _tempMod);
 
             // 色リストの準備 (主要な色をピックアップ)
-            var colorList = new[] { "White", "Black", "Red", "Blue", "Green", "Orange", "Purple", "DeepPink", "Aqua", "Gold" };
+            //var colorList = new[] { "White", "Black", "Red", "Blue", "Green", "Orange", "Purple", "DeepPink", "Aqua", "Gold" };
+            var colorList = typeof(Brushes).GetProperties().Select(p => p.Name).ToList();
             MainColorComboBox.ItemsSource = colorList;
             HighlightColorComboBox.ItemsSource = colorList;
             MainTextColorComboBox.ItemsSource = colorList;
             HighlightTextColorComboBox.ItemsSource = colorList;
+            CropColorComboBox.ItemsSource = colorList;
+            CropFillColorComboBox.ItemsSource = colorList;
 
             // 保存されている色を反映
             MainColorComboBox.SelectedItem = Properties.Settings.Default.MainColorName;
             HighlightColorComboBox.SelectedItem = Properties.Settings.Default.HighlightColorName;
             MainTextColorComboBox.SelectedItem = Properties.Settings.Default.MainTextColorName;
             HighlightTextColorComboBox.SelectedItem = Properties.Settings.Default.HighlightTextColorName;
+            CropColorComboBox.SelectedItem = Properties.Settings.Default.CropColorName;
+            CropFillColorComboBox.SelectedItem = Properties.Settings.Default.CropFillColorName;
         }
 
         private void HotkeySettingButton_Click(object sender, RoutedEventArgs e)
