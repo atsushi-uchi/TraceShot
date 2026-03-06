@@ -21,7 +21,7 @@
       <Value Profile="(Default)">Red</Value>
     </Setting>
     <Setting Name="HighlightColorName" Type="System.String" Scope="User">
-      <Value Profile="(Default)">Gold</Value>
+      <Value Profile="(Default)">Aqua</Value>
     </Setting>
     <Setting Name="MainTextColorName" Type="System.String" Scope="User">
       <Value Profile="(Default)">White</Value>
@@ -30,10 +30,10 @@
       <Value Profile="(Default)">Black</Value>
     </Setting>
     <Setting Name="CropColorName" Type="System.String" Scope="User">
-      <Value Profile="(Default)">Orange</Value>
+      <Value Profile="(Default)">Blue</Value>
     </Setting>
     <Setting Name="CropFillColorName" Type="System.String" Scope="User">
-      <Value Profile="(Default)">Orange</Value>
+      <Value Profile="(Default)">Silver</Value>
     </Setting>
   </Settings>
 </SettingsFile>

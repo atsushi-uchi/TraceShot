@@ -97,7 +97,7 @@ namespace TraceShot.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Gold")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Aqua")]
         public string HighlightColorName {
             get {
                 return ((string)(this["HighlightColorName"]));
@@ -133,7 +133,7 @@ namespace TraceShot.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Orange")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Blue")]
         public string CropColorName {
             get {
                 return ((string)(this["CropColorName"]));
@@ -145,7 +145,7 @@ namespace TraceShot.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Orange")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Silver")]
         public string CropFillColorName {
             get {
                 return ((string)(this["CropFillColorName"]));

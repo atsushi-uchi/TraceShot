@@ -3,7 +3,6 @@ using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
 using System.Media;
-using System.Security.Policy;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -344,6 +343,44 @@ namespace TraceShot.Features
             }
         }
 
+        private void AddVisualMask(MarkRect rect)
+        {
+            double containerW = DrawingCanvas.ActualWidth;
+            double containerH = DrawingCanvas.ActualHeight;
+
+            if (containerW == 0 || containerH == 0 || VideoPlayer.NaturalVideoWidth == 0) return;
+
+            double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
+            double dispW = VideoPlayer.NaturalVideoWidth * ratio;
+            double dispH = VideoPlayer.NaturalVideoHeight * ratio;
+            double offsetX = (containerW - dispW) / 2.0;
+            double offsetY = (containerH - dispH) / 2.0;
+
+            // キャンバス上の実際のピクセル座標に変換
+            double rectLeft = (rect.X * dispW) + offsetX;
+            double rectTop = (rect.Y * dispH) + offsetY;
+            double rectWidth = rect.Width * dispW;
+            double rectHeight = rect.Height * dispH;
+
+            // 1. 全体（外枠）のジオメトリ
+            RectangleGeometry fullCanvas = new RectangleGeometry(new Rect(0, 0, DrawingCanvas.ActualWidth, DrawingCanvas.ActualHeight));
+
+            // 2. クロップ範囲（内枠）のジオメトリ
+            RectangleGeometry cropArea = new RectangleGeometry(new Rect(rectLeft, rectTop, rectWidth, rectHeight));
+
+            // 3. 2つの図形を「除外(Exclude)」で合成（ドーナツ型にする）
+            CombinedGeometry maskGeometry = new CombinedGeometry(GeometryCombineMode.Exclude, fullCanvas, cropArea);
+
+            // 4. Path要素としてキャンバスに追加
+            System.Windows.Shapes.Path maskPath = new System.Windows.Shapes.Path
+            {
+                Data = maskGeometry,
+                Fill = new SolidColorBrush(Color.FromArgb(200, 40, 40, 40)), // 半透明のグレー
+                IsHitTestVisible = false // マウス操作を邪魔しないようにする
+            };
+
+            DrawingCanvas.Children.Add(maskPath);
+        }
         private void DrawRectOnCanvas(MarkRect rect, bool isCropMode)
         {
             double containerW = DrawingCanvas.ActualWidth;
@@ -387,7 +424,7 @@ namespace TraceShot.Features
                 Tag = rect, // MarkRectを保持
                 // クロップモードなら少し枠線を太く・目立たせる
                 Stroke = rectBrush,
-                StrokeThickness = isCropMode ? 3 : 0
+                StrokeThickness = isCropMode ? 1 : 0
             };
 
             moveArea.MouseEnter += (s, e) => {
@@ -507,11 +544,11 @@ namespace TraceShot.Features
 
             var marks = RecorderMgr.Evidence.Bookmarks;
 
-            // 1. クロップ範囲を探す（動画全体から1つだけ）
             var cropRect = marks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
             if (cropRect != null)
             {
-                DrawRectOnCanvas(cropRect, isCropMode: true); // 黄色などで描画
+                DrawRectOnCanvas(cropRect, isCropMode: true);
+                AddVisualMask(cropRect);
             }
 
             double containerW = DrawingCanvas.ActualWidth;

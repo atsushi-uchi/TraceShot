@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using TraceShot.Services;
-
+using static TraceShot.Properties.Settings;
 
 namespace TraceShot.Features
 {
@@ -23,10 +23,10 @@ namespace TraceShot.Features
         private void LoadSettings()
         {
             // 1. 保存されたパスを反映
-            SaveFolderTextBox.Text = Properties.Settings.Default.SavePath;
+            SaveFolderTextBox.Text = Default.SavePath;
 
             // 2. 保存されたフレームレートを反映
-            int savedFps = Properties.Settings.Default.FrameRate;
+            int savedFps = Default.FrameRate;
             foreach (ComboBoxItem item in FpsComboBox.Items)
             {
                 if (int.TryParse(item.Tag.ToString(), out var f) && f == savedFps)
@@ -37,11 +37,11 @@ namespace TraceShot.Features
             }
 
             // 3.ハードウェアアクセル
-            HardwareAccelCheckBox.IsChecked = Properties.Settings.Default.UseHardwareAccel;
+            HardwareAccelCheckBox.IsChecked = Default.UseHardwareAccel;
 
             // ホットキーの表示
-            _tempKey = (Key)Properties.Settings.Default.HotkeyKey;
-            _tempMod = (ModifierKeys)Properties.Settings.Default.HotkeyMod;
+            _tempKey = (Key)Default.HotkeyKey;
+            _tempMod = (ModifierKeys)Default.HotkeyMod;
             HotkeySettingButton.Content = HotkeyRegister.Format(_tempKey, _tempMod);
 
             // 色リストの準備 (主要な色をピックアップ)
@@ -55,12 +55,12 @@ namespace TraceShot.Features
             CropFillColorComboBox.ItemsSource = colorList;
 
             // 保存されている色を反映
-            MainColorComboBox.SelectedItem = Properties.Settings.Default.MainColorName;
-            HighlightColorComboBox.SelectedItem = Properties.Settings.Default.HighlightColorName;
-            MainTextColorComboBox.SelectedItem = Properties.Settings.Default.MainTextColorName;
-            HighlightTextColorComboBox.SelectedItem = Properties.Settings.Default.HighlightTextColorName;
-            CropColorComboBox.SelectedItem = Properties.Settings.Default.CropColorName;
-            CropFillColorComboBox.SelectedItem = Properties.Settings.Default.CropFillColorName;
+            MainColorComboBox.SelectedItem = Default.MainColorName;
+            HighlightColorComboBox.SelectedItem = Default.HighlightColorName;
+            MainTextColorComboBox.SelectedItem = Default.MainTextColorName;
+            HighlightTextColorComboBox.SelectedItem = Default.HighlightTextColorName;
+            CropColorComboBox.SelectedItem = Default.CropColorName;
+            CropFillColorComboBox.SelectedItem = Default.CropFillColorName;
         }
 
         private void HotkeySettingButton_Click(object sender, RoutedEventArgs e)
@@ -116,31 +116,33 @@ namespace TraceShot.Features
         private void SaveSettings_Click(object sender, RoutedEventArgs e)
         {
             // デフォルト保存先
-            Properties.Settings.Default.SavePath = SaveFolderTextBox.Text;
+            Default.SavePath = SaveFolderTextBox.Text;
 
             // フレームレート
             if (FpsComboBox.SelectedItem is ComboBoxItem selectedItem)
             {
                 if (int.TryParse(selectedItem.Tag.ToString(), out var framerate))
                 {
-                    Properties.Settings.Default.FrameRate = framerate;
+                    Default.FrameRate = framerate;
                 }
             }
 
             // ハードウェアアクセル
-            Properties.Settings.Default.UseHardwareAccel = HardwareAccelCheckBox.IsChecked ?? true;
+            Default.UseHardwareAccel = HardwareAccelCheckBox.IsChecked ?? true;
 
             // 証跡追加ホットキー
-            Properties.Settings.Default.HotkeyKey = (int)_tempKey;
-            Properties.Settings.Default.HotkeyMod = (int)_tempMod;
+            Default.HotkeyKey = (int)_tempKey;
+            Default.HotkeyMod = (int)_tempMod;
 
             // 表示色の保存
-            Properties.Settings.Default.MainColorName = MainColorComboBox.SelectedItem.ToString();
-            Properties.Settings.Default.HighlightColorName = HighlightColorComboBox.SelectedItem.ToString();
-            Properties.Settings.Default.MainTextColorName = MainTextColorComboBox.SelectedItem.ToString();
-            Properties.Settings.Default.HighlightTextColorName = MainTextColorComboBox.SelectedItem.ToString();
+            Default.MainColorName = MainColorComboBox.SelectedItem.ToString();
+            Default.HighlightColorName = HighlightColorComboBox.SelectedItem.ToString();
+            Default.MainTextColorName = MainTextColorComboBox.SelectedItem.ToString();
+            Default.HighlightTextColorName = HighlightTextColorComboBox.SelectedItem.ToString();
+            Default.CropColorName = CropColorComboBox.SelectedItem.ToString();
+            Default.CropFillColorName = CropFillColorComboBox.SelectedItem.ToString();
 
-            Properties.Settings.Default.Save();
+            Default.Save();
             this.DialogResult = true;
             this.Close();
         }
