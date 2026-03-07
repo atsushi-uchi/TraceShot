@@ -19,14 +19,14 @@ namespace TraceShot.Services
         [ObservableProperty] private Color _cropFillColor;
 
         // --- Brushes (Auto-generated from colors) ---
-        [ObservableProperty] private SolidColorBrush _mainTextBrush;
-        [ObservableProperty] private SolidColorBrush _overTextBrush;
-        [ObservableProperty] private SolidColorBrush _mainBrush;
-        [ObservableProperty] private SolidColorBrush _overBrush;
-        [ObservableProperty] private SolidColorBrush _cropBrush;
-        [ObservableProperty] private SolidColorBrush _mainFillBrush; // 半透明用
-        [ObservableProperty] private SolidColorBrush _overFillBrush; // 半透明用
-        [ObservableProperty] private SolidColorBrush _cropFillBrush;// 半透明用
+        [ObservableProperty] private SolidColorBrush _mainTextBrush = default!;
+        [ObservableProperty] private SolidColorBrush _overTextBrush = default!;
+        [ObservableProperty] private SolidColorBrush _mainBrush = default!;
+        [ObservableProperty] private SolidColorBrush _overBrush = default!;
+        [ObservableProperty] private SolidColorBrush _cropBrush = default!;
+        [ObservableProperty] private SolidColorBrush _mainFillBrush = default!;
+        [ObservableProperty] private SolidColorBrush _overFillBrush = default!;
+        [ObservableProperty] private SolidColorBrush _cropFillBrush = default!;
 
         private SettingsService()
         {

@@ -255,13 +255,19 @@ namespace TraceShot.Features
                                 // 5. UIに情報を反映
                                 StatusText.Text = $"読み込み: {evidence?.Mode} {evidence?.VideoFileName}";
 
-                                // リストボックスにブックマーク一覧を表示（オプション）
+                                // リストボックスにブックマーク一覧を表示
                                 BookmarkListBox.Items.Clear();
                                 if (evidence?.Bookmarks != null)
                                 {
                                     foreach (var bm in evidence.Bookmarks)
                                     {
                                         BookmarkListBox.Items.Add(bm);
+                                    }
+                                    // --- 追加：最初のアイテムを選択する ---
+                                    if (BookmarkListBox.Items.Count > 0)
+                                    {
+                                        BookmarkListBox.SelectedIndex = 0; // 0番目を選択
+                                        BookmarkListBox.Focus();           // 必要に応じてフォーカスを当てる
                                     }
                                 }
                             }
@@ -585,13 +591,6 @@ namespace TraceShot.Features
 
         private void DrawBalloonUI(WpfPoint start, WpfPoint end, BalloonNote note)
         {
-            //var mainTextBrush = new SolidColorBrush(_setting.MainTextColor);
-            //var overTextBrush = new SolidColorBrush(_setting.HighlightTextColor);
-            //var mainBrush = new SolidColorBrush(_setting.MainColor);
-            //var overBrush = new SolidColorBrush(_setting.HighlightColor);
-            //var mainColor = _setting.MainColor;
-            //var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
-
             // --- 1. Border の生成 ---
             var textBlock = new TextBlock
             {
@@ -862,10 +861,6 @@ namespace TraceShot.Features
                 }
                 else
                 {
-                    //var overBrush = new SolidColorBrush(_setting.HighlightColor);
-                    //var overColor = _setting.HighlightColor;
-                    //var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
-
                     // B. 通常の矩形描画モード
                     _currentRectangle = new WpfRectangle
                     {
@@ -1217,11 +1212,11 @@ namespace TraceShot.Features
             TimeSpan currentTime = VideoPlayer.Position;
 
             // 現在選択中のブックマークがない、または再生時間とズレている場合に新規作成
-            if (selectedBm == null || Math.Abs(selectedBm.Seconds - currentTime.TotalSeconds) > 0.1)
+            if (selectedBm == null || Math.Abs(selectedBm.Time.TotalSeconds - currentTime.TotalSeconds) > 0.1)
             {
                 // A. 既に登録されているブックマークの中に、現在の再生時間と一致するものがあるか探す
                 var existingBm = BookmarkListBox.Items.Cast<BookMark>()
-                    .FirstOrDefault(b => Math.Abs(b.Seconds - currentTime.TotalSeconds) <= 0.1);
+                    .FirstOrDefault(b => Math.Abs(b.Time.TotalSeconds - currentTime.TotalSeconds) <= 0.1);
 
                 if (existingBm != null)
                 {
@@ -1234,8 +1229,7 @@ namespace TraceShot.Features
                     // B. 一致するものがなければ、新しくブックマークを登録する
                     BookMark bookmark = new()
                     {
-                        Time = currentTime.ToString(@"mm\:ss\.fff"),
-                        Seconds = currentTime.TotalSeconds,
+                        Time = currentTime,
                         Note = " - Marking"
                     };
 
@@ -1541,10 +1535,9 @@ namespace TraceShot.Features
 
             // 1. 現在の再生時間を取得（秒単位などで丸めるのがおすすめ）
             var currentTime = VideoPlayer.Position;
-            string timeStr = currentTime.ToString(@"mm\:ss\.fff");
 
             // 2. 💡 すでに同じ時間のブックマークがあるかチェック
-            bool isDuplicate = RecorderMgr.Evidence.Bookmarks.Any(b => b.Time == timeStr);
+            bool isDuplicate = RecorderMgr.Evidence.Bookmarks.Any(b => b.Time == currentTime);
 
             if (isDuplicate)
             {
@@ -1553,14 +1546,13 @@ namespace TraceShot.Features
             }
 
             // 3. スクリーンショットの撮影と保存
-            string fileName = $"SS_{DateTime.Now:yyyyMMddHHmmss}.png";
-            string imagePath = System.IO.Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
+            string fileName = $"SS_{DateTime.Now:yyyy-MM-dd_HHmmss_fff}.png";
+            string imagePath = Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
 
             // 4. ブックマークリストに追加
             var bookmark = new BookMark
             {
-                Time = timeStr,
-                Seconds = currentTime.TotalSeconds,
+                Time = currentTime,
                 Note = "- Add",
                 ImagePath = imagePath
             };
@@ -1782,7 +1774,7 @@ namespace TraceShot.Features
             {
                 if (BookmarkListBox.SelectedItem is BookMark selected)
                 {
-                    VideoPlayer.Position = TimeSpan.FromSeconds(selected.Seconds);
+                    VideoPlayer.Position = selected.Time;
                     PlayerPause(true);
 
                     StatusText.Text = $"ジャンプ: {selected.Time}";

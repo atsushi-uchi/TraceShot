@@ -21,6 +21,7 @@ namespace TraceShot.Services
         private DispatcherTimer _timer;
         private Recorder? _recorder;
         private List<BookMark> _currentBookmarks = [];
+        private DateTime _actualStartTime;
         public string RecordingTime { get; private set; } = "00:00:00";
         public List<string> TraceLogs { get; private set; } = new List<string>();
         public string CurrentVideoName { get; private set; } = "";
@@ -50,10 +51,8 @@ namespace TraceShot.Services
             string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot");
             if (!Directory.Exists(screenshotFolder)) Directory.CreateDirectory(screenshotFolder);
 
-            // 💡 1. bm.Time (文字列) から ":" を除外して安全な名前にする
-            // 例: "00:05.123" -> "00_05_123"
-            string safeTime = bm?.Time?.Replace(":", "") ?? "";
-            string fileName = $"SS_{safeTime}.png";
+            var timestamp = _actualStartTime.Add(bm.Time);
+            string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
             string filePath = Path.Combine(screenshotFolder, fileName);
 
             try
@@ -193,8 +192,10 @@ namespace TraceShot.Services
             bmp.Render(drawingVisual);
 
             // --- 保存処理 ---
-            string timeStr = bm?.Time?.Replace(":", "") ?? "";
-            string fileName = $"SS_{timeStr}.png";
+            DateTime startDate = Evidence?.RecordingDate ?? DateTime.Now;
+            DateTime timestamp = startDate.Add(bm.Time);
+
+            string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
             string filePath = Path.Combine(screenshotFolder, fileName);
 
             using (FileStream fs = new FileStream(filePath, FileMode.Create))
@@ -360,9 +361,9 @@ namespace TraceShot.Services
             bmp.Render(drawingVisual);
 
             // --- 保存処理 ---
-            string timeStr = bm?.Time?.Replace(":", "") ?? "";
-            // ファイル名に "cropped" を追加
-            string fileName = $"SS_Cropped_{timeStr}.png";
+            DateTime startDate = Evidence?.RecordingDate ?? DateTime.Now;
+            DateTime timestamp = startDate.Add(bm.Time);
+            string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
             string filePath = Path.Combine(screenshotFolder, fileName);
 
             using (FileStream fs = new FileStream(filePath, FileMode.Create))
@@ -387,7 +388,7 @@ namespace TraceShot.Services
         public List<BookMark> AddBookmark(BookMark bookmark)
         {
             _currentBookmarks.Add(bookmark);
-            var sorted = _currentBookmarks.OrderBy(b => b.Seconds).ToList();
+            var sorted = _currentBookmarks.OrderBy(b => b.Time).ToList();
             _currentBookmarks.Clear();
             foreach (var b in sorted)
             {
@@ -405,8 +406,7 @@ namespace TraceShot.Services
                 string timestamp = elapsed.ToString(@"mm\:ss\.fff");
                 var bm = new BookMark
                 {
-                    Time = timestamp,
-                    Seconds = elapsed.TotalSeconds,
+                    Time = _stopwatch.Elapsed,
                     Note = note,
                 };
                 _currentBookmarks.Add(bm);
@@ -449,7 +449,7 @@ namespace TraceShot.Services
             Evidence = new RecordingEvidence
             {
                 VideoFileName = CurrentVideoName,
-                RecordingDate = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"),
+                RecordingDate = _actualStartTime,
                 Mode = mode,
                 Bookmarks = _currentBookmarks,
             };
@@ -478,9 +478,6 @@ namespace TraceShot.Services
 
         public void StartFullscreenRecording(string filePath, string targetDeviceName)
         {
-            TraceLogs.Clear();
-            _currentBookmarks.Clear();
-
             DisplayRecordingSource? screenSource = null;
             if (string.IsNullOrEmpty(targetDeviceName))
             {
@@ -530,19 +527,15 @@ namespace TraceShot.Services
                     OnActualRecordingStarted?.Invoke(this, EventArgs.Empty);
                 }
             };
-            _recorder.OnRecordingComplete += (s, e) => TraceLogs.Add("Recording Complete");
-            _recorder.OnRecordingFailed += (s, e) => TraceLogs.Add("Recording Failed: " + e.Error);
 
-            _timer.Start();
-            _stopwatch.Restart();
-            _recorder.Record(filePath);
+            StartRecording(filePath);
         }
 
         public void StartRectangleRecording(string filePath, string targetDeviceName, Rectangle? region)
         {
             if (region is null) return;
+
             TraceLogs.Clear();
-            _currentBookmarks.Clear();
 
             // 1. ソースの作成
             DisplayRecordingSource? screenSource = null;
@@ -598,12 +591,8 @@ namespace TraceShot.Services
                     OnActualRecordingStarted?.Invoke(this, EventArgs.Empty);
                 }
             };
-            _recorder.OnRecordingComplete += (s, e) => TraceLogs.Add("Recording Complete");
-            _recorder.OnRecordingFailed += (s, e) => TraceLogs.Add("Recording Failed: " + e.Error);
 
-            _timer.Start();
-            _stopwatch.Restart();
-            _recorder.Record(filePath);
+            StartRecording(filePath);
         }
 
         public void StartWindowRecording(string filePath, IntPtr windowHandle)
@@ -637,9 +626,20 @@ namespace TraceShot.Services
             // 3. インスタンス生成と開始
             _recorder = Recorder.CreateRecorder(options);
             _recorder.OnFrameRecorded += (s, e) => OnPreviewFrameReceived?.Invoke(this, e);
+
+            StartRecording(filePath);
+        }
+
+        private void StartRecording(string filePath)
+        {
+            if (_recorder is null) return;
+
+            TraceLogs.Clear();
             _recorder.OnRecordingComplete += (s, e) => TraceLogs.Add("Window Recording Complete");
             _recorder.OnRecordingFailed += (s, e) => TraceLogs.Add("Window Recording Failed: " + e.Error);
 
+            _actualStartTime = DateTime.Now;
+            _currentBookmarks.Clear();
             _timer.Start();
             _stopwatch.Restart();
             _recorder.Record(filePath);

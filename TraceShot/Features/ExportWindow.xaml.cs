@@ -115,7 +115,7 @@ namespace TraceShot.Features
                     var bm = marks[i];
                     Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
                     await Dispatcher.InvokeAsync(async () => {
-                        main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
+                        main.VideoPlayer.Position = bm.Time;
                     });
                     await Task.Delay(100);
                     await Dispatcher.InvokeAsync(() => {
@@ -225,7 +225,7 @@ namespace TraceShot.Features
                     var bm = marks[i];
                     Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
                     await Dispatcher.InvokeAsync(async () => {
-                        main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
+                        main.VideoPlayer.Position = bm.Time;
                     });
                     await Task.Delay(100);
                     await Dispatcher.InvokeAsync(() => {
@@ -346,7 +346,7 @@ namespace TraceShot.Features
                     var bm = marks[i];
                     Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
                     await Dispatcher.InvokeAsync(async () => {
-                        main.VideoPlayer.Position = TimeSpan.FromSeconds(bm.Seconds);
+                        main.VideoPlayer.Position = bm.Time;
                     });
                     await Task.Delay(100);
                     await Dispatcher.InvokeAsync(() => {
@@ -394,10 +394,8 @@ namespace TraceShot.Features
                 {
                     var bm = evidence.Bookmarks[i];
                     if (bm == null) continue;
-                    // 1. シートの作成（シート名は「No_経過時間」形式）
                     // ※シート名に使えない記号を置換します
-                    string safeTime = bm?.Time?.Replace(":", "-").Replace(".", "_") ?? "";
-                    string sheetName = $"{i + 1}_{safeTime}";
+                    string sheetName = $"{i + 1}_{bm.Time:HH-mm-ss_fff}";
                     var ws = workbook.Worksheets.Add(sheetName);
 
                     // 2. テキスト情報の配置
