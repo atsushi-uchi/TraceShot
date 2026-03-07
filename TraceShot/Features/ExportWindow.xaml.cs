@@ -153,60 +153,136 @@ namespace TraceShot.Features
             });
         }
 
-        private string GenerateHtmlFile(RecordingEvidence evidence, bool isPdf = false)
+        private string GenerateHtmlFile(RecordingEvidence evidence)
         {
             var sb = new StringBuilder();
 
-            if (isPdf)
+            // --- HTML ヘッダー ---
+            sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
+            sb.AppendLine("<title>エビデンス報告書</title>");
+            sb.AppendLine("<style>");
+            sb.AppendLine("body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }");
+            sb.AppendLine(".container { max-width: 98%; margin: auto; background: white; padding: 20px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }");
+            sb.AppendLine("table { width: 100%; border-collapse: collapse; }");
+            sb.AppendLine(".col-time { width: 100px; text-align: center; }"); // 幅を少し広げました
+            sb.AppendLine(".col-note { width: 150px; }");
+            sb.AppendLine("th, td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }");
+            sb.AppendLine("th { background-color: #4472C4; color: white; }");
+
+            // --- 画像とモーダルのスタイル ---
+            sb.AppendLine(".modal { display: none; position: fixed; z-index: 999; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); cursor: zoom-out; }");
+            sb.AppendLine(".modal-content { margin: auto; display: block; max-width: 95%; max-height: 95%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border: 2px solid #fff; }");
+            sb.AppendLine(".ss-image { max-width: 100%; max-height: 500px; width: auto; height: auto; display: block; margin: 0 auto; cursor: zoom-in; transition: 0.2s; object-fit: contain; }");
+            sb.AppendLine(".ss-image:hover { opacity: 0.8; transform: scale(1.01); }");
+            sb.AppendLine(".col-ss { background-color: #f8f9fa; text-align: center; }");
+            sb.AppendLine("</style></head><body><div class='container'>");
+
+            sb.AppendLine("<table>");
+            sb.AppendLine("<thead><tr><th class='col-time'>実行時間</th><th class='col-note'>コメント</th><th>スクリーンショット</th></tr></thead><tbody>");
+
+            var startAt = evidence.RecordingDate;
+
+            // --- データ行部分 ---
+            foreach (var bm in evidence.Bookmarks)
             {
-                // --- PDF用L ヘッダー ---
-                sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
-                sb.AppendLine("<title>エビデンス報告書</title>");
-                sb.AppendLine("<style>");
-                sb.AppendLine("body { font-family: sans-serif; margin: 0; padding: 0; background: #f0f2f5; }");
-                sb.AppendLine(".container { width: 100%; margin: 0; background: white; padding: 10px; box-sizing: border-box; }");
-                sb.AppendLine("table { width: 100%; border-collapse: collapse; table-layout: fixed; }"); // table-layout: fixed が重要
-                sb.AppendLine(".col-time { width: 100px; text-align: center; font-size: 0.9em; }");
-                sb.AppendLine(".col-note { width: 150px; word-wrap: break-word; }");
-                sb.AppendLine(".col-ss { width: auto; }");
-                sb.AppendLine("th, td { border: 1px solid #dee2e6; padding: 8px; vertical-align: top; }");
-                sb.AppendLine("th { background-color: #4472C4; color: white; }");
-                sb.AppendLine(".ss-image { width: 100%; height: auto; display: block; }");
-                sb.AppendLine("@media print {");
-                sb.AppendLine("  body { background: white; }");
-                sb.AppendLine("  .container { padding: 0; box-shadow: none; }");
-                sb.AppendLine("  th { -webkit-print-color-adjust: exact; }");
-                sb.AppendLine("}");
-                sb.AppendLine("</style></head><body><div class='container'>");
-                sb.AppendLine("<table>");
-                sb.AppendLine("<thead><tr><th class='col-time'>実行時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr></thead>");
-                sb.AppendLine("<tbody>");
+                var timestamp = startAt.Add(bm.Time);
+                sb.AppendLine("<tr>");
+                sb.AppendLine($"<td class='col-time'>{timestamp:yyyy/MM/dd<br/>HH:mm:ss.fff}</td>");
+                sb.AppendLine($"<td class='col-note'>{bm.Note}</td>");
+
+                string base64Image = "";
+                if (File.Exists(bm.ImagePath))
+                {
+                    byte[] imageBytes = File.ReadAllBytes(bm.ImagePath);
+                    string base64String = Convert.ToBase64String(imageBytes);
+                    base64Image = $"data:image/png;base64,{base64String}";
+                }
+
+                // ★修正: openModal に this (要素自身) を渡すように変更
+                sb.AppendLine($"<td class='col-ss'><img src='{base64Image}' class='ss-image' onclick='openModal(this)'></td>");
+                sb.AppendLine("</tr>");
             }
-            else
-            {
-                // --- HTML ヘッダー ---
-                sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
-                sb.AppendLine("<title>エビデンス報告書</title>");
-                sb.AppendLine("<style>");
-                sb.AppendLine("body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }");
-                sb.AppendLine(".container { max-width: 98%; margin: auto; background: white; padding: 20px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }");
-                sb.AppendLine("table { width: 100%; border-collapse: collapse; }");
-                sb.AppendLine(".col-time { width: 80px; text-align: center; }");
-                sb.AppendLine(".col-note { width: 150px; }");
-                sb.AppendLine("th, td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }");
-                sb.AppendLine("th { background-color: #4472C4; color: white; }");
-                sb.AppendLine(".ss-image { width: 100%; height: auto; display: block; border: 1px solid #ccc; }");
-                sb.AppendLine("</style></head><body><div class='container'>");
-                sb.AppendLine("<table>");
-                sb.AppendLine("<tr><th class='col-time'>実行時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr>");
-            }
+
+            sb.AppendLine("</tbody></table></div>");
+
+            // --- モーダル要素 ---
+            sb.AppendLine("<div id='imgModal' class='modal' onclick='this.style.display=\"none\"'>");
+            sb.AppendLine("  <img id='fullImg' class='modal-content'>");
+            sb.AppendLine("</div>");
+
+            // --- キーボードナビゲーション対応スクリプト ---
+            sb.AppendLine("<script>");
+            sb.AppendLine("let currentImgIndex = 0;");
+            sb.AppendLine("const allImages = [];");
+
+            // 読み込み時に全画像のリストを作成
+            sb.AppendLine("window.onload = () => {");
+            sb.AppendLine("  document.querySelectorAll('.ss-image').forEach((img, index) => {");
+            sb.AppendLine("    allImages.push(img.src);");
+            sb.AppendLine("    img.setAttribute('data-index', index);");
+            sb.AppendLine("  });");
+            sb.AppendLine("};");
+
+            // モーダルを開く
+            sb.AppendLine("function openModal(imgElement) {");
+            sb.AppendLine("  const modal = document.getElementById('imgModal');");
+            sb.AppendLine("  currentImgIndex = parseInt(imgElement.getAttribute('data-index'));");
+            sb.AppendLine("  updateModalImage();");
+            sb.AppendLine("  modal.style.display = 'block';");
+            sb.AppendLine("}");
+
+            // 画像の更新
+            sb.AppendLine("function updateModalImage() {");
+            sb.AppendLine("  document.getElementById('fullImg').src = allImages[currentImgIndex];");
+            sb.AppendLine("}");
+
+            // キーボードイベント
+            sb.AppendLine("document.onkeydown = function(e) {");
+            sb.AppendLine("  const modal = document.getElementById('imgModal');");
+            sb.AppendLine("  if (modal.style.display !== 'block') return;");
+            sb.AppendLine("  if (e.key === 'ArrowRight') { currentImgIndex = (currentImgIndex + 1) % allImages.length; updateModalImage(); }");
+            sb.AppendLine("  else if (e.key === 'ArrowLeft') { currentImgIndex = (currentImgIndex - 1 + allImages.length) % allImages.length; updateModalImage(); }");
+            sb.AppendLine("  else if (e.key === 'Escape') { modal.style.display = 'none'; }");
+            sb.AppendLine("};");
+            sb.AppendLine("</script>");
+
+            sb.AppendLine("</body></html>");
+
+            return sb.ToString();
+        }
+
+        private string GenerateHtmlFileForPdf(RecordingEvidence evidence)
+        {
+            var sb = new StringBuilder();
+            // --- PDF用L ヘッダー ---
+            sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
+            sb.AppendLine("<title>エビデンス報告書</title>");
+            sb.AppendLine("<style>");
+            sb.AppendLine("body { font-family: sans-serif; margin: 0; padding: 0; background: #f0f2f5; }");
+            sb.AppendLine(".container { width: 100%; margin: 0; background: white; padding: 10px; box-sizing: border-box; }");
+            sb.AppendLine("table { width: 100%; border-collapse: collapse; table-layout: fixed; }"); // table-layout: fixed が重要
+            sb.AppendLine(".col-time { width: 100px; text-align: center; font-size: 0.9em; }");
+            sb.AppendLine(".col-note { width: 150px; word-wrap: break-word; }");
+            sb.AppendLine(".col-ss { width: auto; }");
+            sb.AppendLine("th, td { border: 1px solid #dee2e6; padding: 8px; vertical-align: top; }");
+            sb.AppendLine("th { background-color: #4472C4; color: white; }");
+            sb.AppendLine(".ss-image { width: 100%; height: auto; display: block; }");
+            sb.AppendLine("@media print {");
+            sb.AppendLine("  body { background: white; }");
+            sb.AppendLine("  .container { padding: 0; box-shadow: none; }");
+            sb.AppendLine("  th { -webkit-print-color-adjust: exact; }");
+            sb.AppendLine("}");
+            sb.AppendLine("</style></head><body><div class='container'>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<thead><tr><th class='col-time'>実行時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr></thead>");
+            sb.AppendLine("<tbody>");
             var startAt = evidence.RecordingDate;
             // --- データ行部分の修正：ここがポイント ---
             foreach (var bm in evidence.Bookmarks)
             {
                 var timestamp = startAt.Add(bm.Time);
                 sb.AppendLine("<tr>");
-                sb.AppendLine($"<td class='col-time'>{timestamp:yyyy/MM/dd<br/>hh:mm:ss.fff}</td>");
+                sb.AppendLine($"<td class='col-time'>{timestamp:yyyy/MM/dd<br/>HH:mm:ss.fff}</td>");
                 sb.AppendLine($"<td class='col-note'>{bm.Note}</td>");
 
                 // 画像ファイルを読み込んで Base64 に変換
@@ -223,10 +299,10 @@ namespace TraceShot.Features
                 sb.AppendLine($"<td class='col-ss'><img src='{base64Image}' class='ss-image'></td>");
                 sb.AppendLine("</tr>");
             }
-
             sb.AppendLine("</table></div></body></html>");
             return sb.ToString();
         }
+
 
         private async void ExportPdf_Click(object sender, RoutedEventArgs e)
         {
@@ -278,7 +354,7 @@ namespace TraceShot.Features
                 Dispatcher.Invoke(() => StatusText.Text = "一時レポートを作成中...");
                 string htmlContent = "";
                 await Task.Run(() => {
-                    htmlContent = GenerateHtmlFile(evidence, true);
+                    htmlContent = GenerateHtmlFileForPdf(evidence);
                 });
                 progress.Report((total + 1) * 100 / (total + 2));
 
