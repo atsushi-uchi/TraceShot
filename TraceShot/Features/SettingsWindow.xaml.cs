@@ -4,8 +4,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using TraceShot.Services;
 using static TraceShot.Properties.Settings;
-using Color = System.Windows.Media.Color;
-using ColorConverter = System.Windows.Media.ColorConverter;
 
 namespace TraceShot.Features
 {
@@ -47,14 +45,6 @@ namespace TraceShot.Features
             _tempKey = (Key)Default.HotkeyKey;
             _tempMod = (ModifierKeys)Default.HotkeyMod;
             HotkeySettingButton.Content = HotkeyRegister.Format(_tempKey, _tempMod);
-
-            // 保存されている色を反映
-            //_setting.MainColor = (Color)ColorConverter.ConvertFromString(Default.MainColorName);
-            //_setting.HighlightColor = (Color)ColorConverter.ConvertFromString(Default.HighlightColorName);
-            //_setting.MainTextColor = (Color)ColorConverter.ConvertFromString(Default.MainTextColorName);
-            //_setting.HighlightTextColor = (Color)ColorConverter.ConvertFromString(Default.HighlightTextColorName);
-            //_setting.CropColor = (Color)ColorConverter.ConvertFromString(Default.CropColorName);
-            //_setting.CropFillColor = (Color)ColorConverter.ConvertFromString(Default.CropFillColorName);
         }
 
         private void HotkeySettingButton_Click(object sender, RoutedEventArgs e)
@@ -128,15 +118,7 @@ namespace TraceShot.Features
             Default.HotkeyKey = (int)_tempKey;
             Default.HotkeyMod = (int)_tempMod;
 
-            // 表示色の保存
-            Default.MainColorName = MainColorPicker.SelectedColorText;
-            Default.HighlightColorName = HighlightColorPicker.SelectedColorText;
-            Default.MainTextColorName = MainTextColorPicker.SelectedColorText;
-            Default.HighlightTextColorName = HighlightTextColorPicker.SelectedColorText;
-            Default.CropColorName = CropColorPicker.SelectedColorText;
-            Default.CropFillColorName = CropFillColorPicker.SelectedColorText;
-
-            Default.Save();
+            SettingsService.Instance.Save();
             this.DialogResult = true;
             this.Close();
         }

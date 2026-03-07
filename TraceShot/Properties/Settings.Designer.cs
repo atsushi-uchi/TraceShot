@@ -98,12 +98,12 @@ namespace TraceShot.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("Aqua")]
-        public string HighlightColorName {
+        public string OverColorName {
             get {
-                return ((string)(this["HighlightColorName"]));
+                return ((string)(this["OverColorName"]));
             }
             set {
-                this["HighlightColorName"] = value;
+                this["OverColorName"] = value;
             }
         }
         
@@ -122,12 +122,12 @@ namespace TraceShot.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("Black")]
-        public string HighlightTextColorName {
+        public string OverTextColorName {
             get {
-                return ((string)(this["HighlightTextColorName"]));
+                return ((string)(this["OverTextColorName"]));
             }
             set {
-                this["HighlightTextColorName"] = value;
+                this["OverTextColorName"] = value;
             }
         }
         

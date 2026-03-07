@@ -20,13 +20,13 @@
     <Setting Name="MainColorName" Type="System.String" Scope="User">
       <Value Profile="(Default)">Red</Value>
     </Setting>
-    <Setting Name="HighlightColorName" Type="System.String" Scope="User">
+    <Setting Name="OverColorName" Type="System.String" Scope="User">
       <Value Profile="(Default)">Aqua</Value>
     </Setting>
     <Setting Name="MainTextColorName" Type="System.String" Scope="User">
       <Value Profile="(Default)">White</Value>
     </Setting>
-    <Setting Name="HighlightTextColorName" Type="System.String" Scope="User">
+    <Setting Name="OverTextColorName" Type="System.String" Scope="User">
       <Value Profile="(Default)">Black</Value>
     </Setting>
     <Setting Name="CropColorName" Type="System.String" Scope="User">

@@ -14,6 +14,7 @@ using System.Windows.Shell;
 using System.Windows.Threading;
 using TraceShot.Models;
 using TraceShot.Services;
+using static TraceShot.Properties.Settings;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Canvas = System.Windows.Controls.Canvas;
@@ -26,7 +27,6 @@ using Path = System.IO.Path;
 using TextBox = System.Windows.Controls.TextBox;
 using WpfPoint = System.Windows.Point; // WPFの座標
 using WpfRectangle = System.Windows.Shapes.Rectangle;
-using static TraceShot.Properties.Settings;
 
 namespace TraceShot.Features
 {
@@ -373,6 +373,7 @@ namespace TraceShot.Features
 
             DrawingCanvas.Children.Add(maskPath);
         }
+
         private void DrawRectOnCanvas(MarkRect rect, bool isCropMode)
         {
             double containerW = DrawingCanvas.ActualWidth;
@@ -386,18 +387,8 @@ namespace TraceShot.Features
             double offsetX = (containerW - dispW) / 2.0;
             double offsetY = (containerH - dispH) / 2.0;
 
-            var mainTextBrush = new SolidColorBrush(_setting.MainTextColor);
-            var overTextBrush = new SolidColorBrush(_setting.HighlightTextColor);
-            var mainBrush = new SolidColorBrush(_setting.MainColor);
-            var overBrush = new SolidColorBrush(_setting.HighlightColor);
-            var cropBrush = new SolidColorBrush(_setting.CropColor);
-            var cropFillBrush = new SolidColorBrush(_setting.CropFillColor);
-            var overColor = isCropMode ? _setting.CropFillColor : _setting.HighlightColor;
-            var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
-            var mainColor = _setting.MainTextColor;
-            var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
-
-            var rectBrush = isCropMode ? cropBrush : mainBrush;
+            var rectBrush = isCropMode ? _setting.CropBrush: _setting.MainBrush;
+            var overBrush = isCropMode ? _setting.CropFillBrush : _setting.OverFillBrush;
 
             // 共通の座標計算
             double rectLeft = (rect.X * dispW) + offsetX;
@@ -419,7 +410,7 @@ namespace TraceShot.Features
             };
 
             moveArea.MouseEnter += (s, e) => {
-                moveArea.Fill = overFill; // 設定されているハイライト色（半透明）
+                moveArea.Fill = overBrush; // 設定されているハイライト色（半透明）
             };
             moveArea.MouseLeave += (s, e) => {
                 moveArea.Fill = Brushes.Transparent;
@@ -476,7 +467,7 @@ namespace TraceShot.Features
                 };
 
                 // --- イベント処理 ---
-                hitArea.MouseEnter += (s, e) => line.Stroke = overBrush;
+                hitArea.MouseEnter += (s, e) => line.Stroke = _setting.OverBrush;
                 hitArea.MouseLeave += (s, e) => line.Stroke = brush;
 
                 hitArea.MouseLeftButtonDown += (s, e) => {
@@ -553,15 +544,6 @@ namespace TraceShot.Features
             double offsetX = (containerW - dispW) / 2.0;
             double offsetY = (containerH - dispH) / 2.0;
 
-            var mainTextBrush = new SolidColorBrush(_setting.MainTextColor);
-            var overTextBrush = new SolidColorBrush(_setting.HighlightTextColor);
-            var mainBrush = new SolidColorBrush(_setting.MainColor);
-            var overBrush = new SolidColorBrush(_setting.HighlightColor);
-            var cropBrush = new SolidColorBrush(_setting.CropColor);
-            var cropFillBrush = new SolidColorBrush(_setting.CropFillColor);
-            var mainColor = _setting.MainTextColor;
-            var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
-
             if (BookmarkListBox.SelectedItem is BookMark selected)
             {
                 // --- 1. 矩形 (MarkRects) の描画 ---
@@ -603,18 +585,18 @@ namespace TraceShot.Features
 
         private void DrawBalloonUI(WpfPoint start, WpfPoint end, BalloonNote note)
         {
-            var mainTextBrush = new SolidColorBrush(_setting.MainTextColor);
-            var overTextBrush = new SolidColorBrush(_setting.HighlightTextColor);
-            var mainBrush = new SolidColorBrush(_setting.MainColor);
-            var overBrush = new SolidColorBrush(_setting.HighlightColor);
-            var mainColor = _setting.MainColor;
-            var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
+            //var mainTextBrush = new SolidColorBrush(_setting.MainTextColor);
+            //var overTextBrush = new SolidColorBrush(_setting.HighlightTextColor);
+            //var mainBrush = new SolidColorBrush(_setting.MainColor);
+            //var overBrush = new SolidColorBrush(_setting.HighlightColor);
+            //var mainColor = _setting.MainColor;
+            //var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
 
             // --- 1. Border の生成 ---
             var textBlock = new TextBlock
             {
                 Text = note.Text,
-                Foreground = mainTextBrush,
+                Foreground = _setting.MainTextBrush,
                 FontSize = 12,
                 FontWeight = FontWeights.Bold,
                 TextWrapping = TextWrapping.Wrap,
@@ -624,7 +606,7 @@ namespace TraceShot.Features
 
             var textBorder = new Border
             {
-                Background = mainFill,
+                Background = _setting.MainFillBrush,
                 CornerRadius = new CornerRadius(4),
                 Padding = new Thickness(10),
                 IsHitTestVisible = true,
@@ -664,14 +646,14 @@ namespace TraceShot.Features
                 Y1 = start.Y,
                 X2 = adjustedX2,
                 Y2 = adjustedY2,
-                Stroke = mainBrush,
+                Stroke = _setting.MainFillBrush,
                 StrokeThickness = 1,
                 StrokeDashArray = new DoubleCollection { 4, 2 },
                 IsHitTestVisible = false
             };
             Canvas.SetZIndex(line, 0);
 
-            var dot = new Ellipse { Width = 6, Height = 6, Fill = mainBrush, IsHitTestVisible = false };
+            var dot = new Ellipse { Width = 6, Height = 6, Fill = _setting.MainBrush, IsHitTestVisible = false };
             Canvas.SetLeft(dot, start.X - 3);
             Canvas.SetTop(dot, start.Y - 3);
             Canvas.SetZIndex(dot, 1);
@@ -692,18 +674,17 @@ namespace TraceShot.Features
                 e.Handled = true;
             };
             // --- 4. イベント登録 ---
-            // (マウスが入った時に色を変える処理などは以前と同じ)
             textBorder.MouseEnter += (s, e) =>
             {
-                textBorder.Background = overBrush;
-                line.Stroke = overBrush;
+                textBorder.Background = _setting.OverBrush;
+                line.Stroke = _setting.OverBrush;
                 line.StrokeThickness = 1;
                 textBorder.Cursor = Cursors.Hand;
             };
             textBorder.MouseLeave += (s, e) =>
             {
-                textBorder.Background = mainFill;
-                line.Stroke = mainBrush;
+                textBorder.Background = _setting.MainFillBrush;
+                line.Stroke = _setting.MainBrush;
                 line.StrokeThickness = 1;
             };
             textBorder.MouseLeftButtonUp += EndDrag;
@@ -761,7 +742,6 @@ namespace TraceShot.Features
                 _isResizing = false;
                 _currentResizeDir = ResizeDirection.None;
                 e.Handled = true;
-                System.Diagnostics.Debug.WriteLine("Drag released by Element!");
             }
         }
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
@@ -882,16 +862,16 @@ namespace TraceShot.Features
                 }
                 else
                 {
-                    var overBrush = new SolidColorBrush(_setting.HighlightColor);
-                    var overColor = _setting.HighlightColor;
-                    var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
+                    //var overBrush = new SolidColorBrush(_setting.HighlightColor);
+                    //var overColor = _setting.HighlightColor;
+                    //var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
 
                     // B. 通常の矩形描画モード
                     _currentRectangle = new WpfRectangle
                     {
-                        Stroke = overBrush,
+                        Stroke = _setting.OverBrush,
                         StrokeThickness = 2,
-                        Fill = overFill,
+                        Fill = _setting.OverFillBrush,
                         IsHitTestVisible = false
                     };
 
@@ -993,7 +973,7 @@ namespace TraceShot.Features
                 return;
             }
 
-            var overBrush = new SolidColorBrush(_setting.HighlightColor);
+            var overBrush = new SolidColorBrush(_setting.OverColor);
 
             // --- 3. 新規バルーン描画中のガイド線表示 ---
             if (_isDrawing && Keyboard.Modifiers == ModifierKeys.Control)
@@ -1210,9 +1190,9 @@ namespace TraceShot.Features
             {
                 _draggingRect.ReleaseMouseCapture();
 
-                var mainBrush = new SolidColorBrush(_setting.MainColor);
+                //var mainBrush = new SolidColorBrush(_setting.MainColor);
                 // ハイライトを戻す（必要に応じて）
-                if (_draggingRect is Line l) l.Stroke = mainBrush;
+                if (_draggingRect is Line l) l.Stroke = _setting.MainBrush;
                 if (_draggingRect is WpfRectangle r) r.Fill = Brushes.Transparent;
 
                 _draggingRect = null;

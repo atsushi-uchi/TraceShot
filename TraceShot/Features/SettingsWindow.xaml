@@ -76,9 +76,9 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Margin="5,5,5,10">
-                    <TextBlock Text="ハイライトカラー (マウスホバー時):" FontSize="11" Margin="0,0,0,3"/>
+                    <TextBlock Text="ハイライトカラー (ハイライト時):" FontSize="11" Margin="0,0,0,3"/>
                     <xctk:ColorPicker Name="HighlightColorPicker" 
-                         SelectedColor="{Binding Path=HighlightColor, Mode=TwoWay}" 
+                         SelectedColor="{Binding Path=OverColor, Mode=TwoWay}" 
                          DisplayColorAndName="True"
                          AvailableColorsHeader="おすすめの色"
                          StandardColorsHeader="標準の色"
@@ -98,7 +98,7 @@
                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="5,5,5,5">
                     <TextBlock Text="バルーン文字色 (ハイライト時):" FontSize="11" Margin="0,0,0,3"/>
                     <xctk:ColorPicker Name="HighlightTextColorPicker" 
-                         SelectedColor="{Binding Path=HighlightTextColor, Mode=TwoWay}" 
+                         SelectedColor="{Binding Path=OverTextColor, Mode=TwoWay}" 
                          DisplayColorAndName="True"
                          AvailableColorsHeader="おすすめの色"
                          StandardColorsHeader="標準の色"
