@@ -30,6 +30,7 @@ namespace TraceShot.Services
         public string? JsonPath { get; set; }
         public int FrameRate { get; set; }
         public bool UseHardwareAccel { get; set; }
+        public bool IsCropLocked { get; set; }
         public event EventHandler? OnActualRecordingStarted;
         public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
 
@@ -452,6 +453,7 @@ namespace TraceShot.Services
                 RecordingDate = _actualStartTime,
                 Mode = mode,
                 Bookmarks = _currentBookmarks,
+                IsCropLocked =  IsCropLocked,
             };
 
             JsonPath = Path.Combine(CurrentFolder, $"TraceShot_{timestamp}.json");

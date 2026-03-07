@@ -39,6 +39,7 @@ namespace TraceShot.Features
         private SettingsService _setting = SettingsService.Instance;
         private bool _isPlaying = false;
         private bool _isRecording = false;
+        //private bool _isCropLocked = false;
         public RecorderManager RecorderMgr { get; private set; }  = new ();
 
         private string _currentVideoPath = "";
@@ -401,7 +402,9 @@ namespace TraceShot.Features
             double rectTop = (rect.Y * dispH) + offsetY;
             double rectWidth = rect.Width * dispW;
             double rectHeight = rect.Height * dispH;
-            bool isLocked = isCropMode && _isCropLocked;
+            bool isCropLocked = RecorderMgr?.Evidence?.IsCropLocked?? false;
+            bool canTouch = !isCropMode || !isCropLocked;
+
             // --- 1. 中央の移動用エリア（透明な塗りつぶし） ---
             var moveArea = new WpfRectangle
             {
@@ -412,8 +415,8 @@ namespace TraceShot.Features
                 Tag = rect,
                 Stroke = rectBrush,
                 StrokeThickness = isCropMode ? 1 : 0,
-                IsHitTestVisible = !isLocked,
-                Opacity = !isLocked ? 0.6 : 1.0,
+                IsHitTestVisible = canTouch,
+                Opacity = canTouch ? 0.6 : 1.0,
             };
 
             moveArea.MouseEnter += (s, e) => {
@@ -449,6 +452,7 @@ namespace TraceShot.Features
             UIElement CreateEdge(double x1, double y1, double x2, double y2, ResizeDirection dir, Brush brush)
             {
                 var container = new Canvas();
+
                 // 1. 【当たり判定用】 透明で太い線
                 var hitArea = new Line
                 {
@@ -459,7 +463,8 @@ namespace TraceShot.Features
                     Stroke = Brushes.Transparent, // 💡 見えない
                     StrokeThickness = 10,         // 💡 当たり判定を 10px くらいに広げる
                     Cursor = (dir == ResizeDirection.Left || dir == ResizeDirection.Right) ? Cursors.SizeWE : Cursors.SizeNS,
-                    Tag = rect
+                    Tag = rect,
+                    IsHitTestVisible = canTouch,
                 };
                 var line = new Line
                 {
@@ -469,7 +474,7 @@ namespace TraceShot.Features
                     Y2 = y2,
                     Stroke = brush,
                     StrokeThickness = 2, // 当たり判定のために少し太めにする
-                    Cursor = (dir == ResizeDirection.Left || dir == ResizeDirection.Right) ? Cursors.SizeWE : Cursors.SizeNS,
+                    Cursor = canTouch ? ((dir == ResizeDirection.Left || dir == ResizeDirection.Right) ? Cursors.SizeWE : Cursors.SizeNS) : Cursors.Arrow,
                     Tag = rect
                 };
 
@@ -515,7 +520,7 @@ namespace TraceShot.Features
                     Padding = new Thickness(5, 1, 5, 1),
                     VerticalAlignment = VerticalAlignment.Center
                 };
-                string lockIcon = _isCropLocked ? " 🔒" : " 🔓";
+                string lockIcon = isCropLocked ? " 🔒" : " 🔓";
                 infoTextBlock.Text = $"{(int)(rect.Width * VideoPlayer.NaturalVideoWidth)} × {(int)(rect.Height * VideoPlayer.NaturalVideoHeight)}{lockIcon}";
 
                 var infoBadge = new Border
@@ -533,6 +538,7 @@ namespace TraceShot.Features
                 // --- ホバー時の色の定義 ---
                 var normalBackground = new SolidColorBrush(Color.FromArgb(180, 40, 40, 40)); // 通常時
                 var hoverBackground = _setting.CropFillBrush;
+                infoBadge.ToolTip = isCropLocked ? "クリックして解除（移動・リサイズ可能）" : "クリックして固定（注釈編集を優先）";
 
                 // 初期状態の設定
                 infoBadge.Background = normalBackground;
@@ -551,8 +557,9 @@ namespace TraceShot.Features
                 };
 
                 // クリック（マウスダウン）イベント
+                if (RecorderMgr?.Evidence != null)
                 infoBadge.MouseLeftButtonDown += (s, e) => {
-                    _isCropLocked = !_isCropLocked; // ロック状態を反転
+                    RecorderMgr.Evidence.IsCropLocked = !isCropLocked; // ロック状態を反転
 
                     // UIを即座に更新するために再描画をかける
                     // 描画メソッドを現在の状態で呼び出し直す
@@ -561,7 +568,7 @@ namespace TraceShot.Features
                     e.Handled = true; // 他の要素にクリックが伝わるのを防ぐ
                 };
                 // ロック中はバッジの背景色を変えて「固定済み」を強調してもOK
-                if (_isCropLocked)
+                if (isCropLocked)
                 {
                     infoBadge.Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)); // ロック中は真っ黒に近く
                 }
@@ -573,9 +580,6 @@ namespace TraceShot.Features
                 DrawingCanvas.Children.Add(infoBadge);
             }
         }
-
-        // ボタンクリック等で切り替え
-        private bool _isCropLocked = true;
 
         private void ToggleCropArea(MarkRect target)
         {
