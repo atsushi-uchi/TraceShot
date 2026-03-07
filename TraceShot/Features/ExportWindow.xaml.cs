@@ -157,6 +157,10 @@ namespace TraceShot.Features
         {
             var sb = new StringBuilder();
 
+            bool showRelative = false;
+            Dispatcher.Invoke(() => showRelative = RadioRelativeTime.IsChecked == true);
+            string timeHeader = showRelative ? "経過時間" : "実行時間";
+
             // --- HTML ヘッダー ---
             sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
             sb.AppendLine("<title>エビデンス報告書</title>");
@@ -164,7 +168,7 @@ namespace TraceShot.Features
             sb.AppendLine("body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }");
             sb.AppendLine(".container { max-width: 98%; margin: auto; background: white; padding: 20px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }");
             sb.AppendLine("table { width: 100%; border-collapse: collapse; }");
-            sb.AppendLine(".col-time { width: 100px; text-align: center; }"); // 幅を少し広げました
+            sb.AppendLine(".col-time { width: 100px; text-align: center; }");
             sb.AppendLine(".col-note { width: 150px; }");
             sb.AppendLine("th, td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }");
             sb.AppendLine("th { background-color: #4472C4; color: white; }");
@@ -178,16 +182,19 @@ namespace TraceShot.Features
             sb.AppendLine("</style></head><body><div class='container'>");
 
             sb.AppendLine("<table>");
-            sb.AppendLine("<thead><tr><th class='col-time'>実行時間</th><th class='col-note'>コメント</th><th>スクリーンショット</th></tr></thead><tbody>");
+            sb.AppendLine($"<thead><tr><th class='col-time'>{timeHeader}</th><th class='col-note'>コメント</th><th>スクリーンショット</th></tr></thead><tbody>");
 
             var startAt = evidence.RecordingDate;
 
             // --- データ行部分 ---
             foreach (var bm in evidence.Bookmarks)
             {
-                var timestamp = startAt.Add(bm.Time);
+                string time = showRelative ?
+                    $"+{(int)bm.Time.TotalHours:D2}:{bm.Time.Minutes:D2}:{bm.Time.Seconds:D2}"
+                    : startAt.Add(bm.Time).ToString("yyyy/MM/dd<br/>HH:mm:ss");
+
                 sb.AppendLine("<tr>");
-                sb.AppendLine($"<td class='col-time'>{timestamp:yyyy/MM/dd<br/>HH:mm:ss.fff}</td>");
+                sb.AppendLine($"<td class='col-time'>{time}</td>");
                 sb.AppendLine($"<td class='col-note'>{bm.Note}</td>");
 
                 string base64Image = "";
@@ -254,6 +261,11 @@ namespace TraceShot.Features
         private string GenerateHtmlFileForPdf(RecordingEvidence evidence)
         {
             var sb = new StringBuilder();
+
+            bool showRelative = false;
+            Dispatcher.Invoke(() => showRelative = RadioRelativeTime.IsChecked == true);
+            string timeHeader = showRelative ? "経過時間" : "実行時間";
+
             // --- PDF用L ヘッダー ---
             sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
             sb.AppendLine("<title>エビデンス報告書</title>");
@@ -274,15 +286,18 @@ namespace TraceShot.Features
             sb.AppendLine("}");
             sb.AppendLine("</style></head><body><div class='container'>");
             sb.AppendLine("<table>");
-            sb.AppendLine("<thead><tr><th class='col-time'>実行時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr></thead>");
+            sb.AppendLine($"<thead><tr><th class='col-time'>{timeHeader}</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr></thead>");
             sb.AppendLine("<tbody>");
             var startAt = evidence.RecordingDate;
             // --- データ行部分の修正：ここがポイント ---
             foreach (var bm in evidence.Bookmarks)
             {
-                var timestamp = startAt.Add(bm.Time);
+                string time = showRelative ? 
+                    $"+{(int)bm.Time.TotalHours:D2}:{bm.Time.Minutes:D2}:{bm.Time.Seconds:D2}"
+                    : startAt.Add(bm.Time).ToString("yyyy/MM/dd<br/>HH:mm:ss");
+
                 sb.AppendLine("<tr>");
-                sb.AppendLine($"<td class='col-time'>{timestamp:yyyy/MM/dd<br/>HH:mm:ss.fff}</td>");
+                sb.AppendLine($"<td class='col-time'>{time}</td>");
                 sb.AppendLine($"<td class='col-note'>{bm.Note}</td>");
 
                 // 画像ファイルを読み込んで Base64 に変換
