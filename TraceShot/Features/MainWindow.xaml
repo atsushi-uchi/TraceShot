@@ -73,10 +73,18 @@
                  SelectionMode="Extended"
                  SelectionChanged="BookmarkListBox_SelectionChanged">
 
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="MinHeight" Value="0"/>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Grid x:Name="ItemRoot" Margin="0,0,0,4">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,5,5,5">
+                    <Grid x:Name="ItemRoot" Margin="0,0,0,1">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="5,2,5,2">
                             <TextBlock x:Name="IconTxt" Text="{Binding Icon}" Foreground="Black" />
                             <TextBlock x:Name="SpaceTxt" Text=" " Foreground="Black" />
                             <TextBlock x:Name="TimeTxt" Text="{Binding Time, StringFormat=\{0:mm\\:ss\}}" Foreground="Black" />
@@ -124,12 +132,12 @@
             <TextBlock Grid.Row="0" Text="コメント:" Margin="5,0,0,2"/>
 
             <TextBox x:Name="NoteEditBox" 
-                 Grid.Row="1"
-                 TextWrapping="Wrap" 
-                 AcceptsReturn="True" 
-                 VerticalContentAlignment="Top"
-                 VerticalAlignment="Stretch"
-                 TextChanged="NoteEditBox_TextChanged"/>
+                     Grid.Row="1"
+                     TextWrapping="Wrap" 
+                     AcceptsReturn="True" 
+                     VerticalContentAlignment="Top"
+                     VerticalAlignment="Stretch"
+                     Text="{Binding SelectedItem.Note, ElementName=BookmarkListBox, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />                     
         </Grid>
 
         <Border Grid.Row="2" Background="#F0F0F0" Padding="10" BorderBrush="#DDD" BorderThickness="0,1,0,0">

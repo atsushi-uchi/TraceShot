@@ -1897,30 +1897,16 @@ namespace TraceShot.Features
                     VideoPlayer.Position = selected.Time;
                     PlayerPause(true);
 
-                    StatusText.Text = $"ジャンプ: {selected.Time}";
-
-                    // イベント連鎖を防ぐため一度ハンドラを外すか、フラグを使うと安全です
-                    NoteEditBox.Text = selected.Note;
-
+                    StatusText.Text = $"Seek: {selected.Time}";
                     RefreshCanvas();
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine("エラー: " + ex.Message);
+                Debug.WriteLine("Error: " + ex.Message);
             }
         }
 
-        private void NoteEditBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (BookmarkListBox.SelectedItem is Bookmark selected)
-            {
-                selected.Note = NoteEditBox.Text;
-
-                // 💡 画面上のリスト表示をリアルタイムに更新（Refresh）
-                BookmarkListBox.Items.Refresh();
-            }
-        }
 
         private void UpdateBookmarkMarkers()
         {
