@@ -529,6 +529,27 @@ namespace TraceShot.Features
                     IsHitTestVisible = true,
                     Margin = new Thickness(5)  // 矩形の角から少し離す
                 };
+
+                // --- ホバー時の色の定義 ---
+                var normalBackground = new SolidColorBrush(Color.FromArgb(180, 40, 40, 40)); // 通常時
+                var hoverBackground = _setting.CropFillBrush;
+
+                // 初期状態の設定
+                infoBadge.Background = normalBackground;
+
+                // --- マウスオーバー（ハイライト）処理 ---
+                infoBadge.MouseEnter += (s, e) =>
+                {
+                    infoBadge.Background = hoverBackground;
+                    infoBadge.BorderThickness = new Thickness(1.5); // 枠線を少し太くして強調
+                };
+
+                infoBadge.MouseLeave += (s, e) =>
+                {
+                    infoBadge.Background = normalBackground;
+                    infoBadge.BorderThickness = new Thickness(1);   // 元に戻す
+                };
+
                 // クリック（マウスダウン）イベント
                 infoBadge.MouseLeftButtonDown += (s, e) => {
                     _isCropLocked = !_isCropLocked; // ロック状態を反転
@@ -555,18 +576,6 @@ namespace TraceShot.Features
 
         // ボタンクリック等で切り替え
         private bool _isCropLocked = true;
-        //private void UpdateCropHitTest()
-        //{
-        //    // クロップ表示用の要素（moveAreaやEdge）を探して設定
-        //    foreach (var child in DrawingCanvas.Children.OfType<FrameworkElement>())
-        //    {
-        //        if (child.Tag is MarkRect rect && /* それがクロップ用なら */)
-        //        {
-        //            child.IsHitTestVisible = !_isCropLocked;
-        //            child.Opacity = _isCropLocked ? 0.5 : 1.0; // ロック時は少し薄くすると分かりやすい
-        //        }
-        //    }
-        //}
 
         private void ToggleCropArea(MarkRect target)
         {
