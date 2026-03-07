@@ -24,6 +24,7 @@ using Drawing = System.Drawing;
 using Line = System.Windows.Shapes.Line;
 using MessageBox = System.Windows.MessageBox;
 using Path = System.IO.Path;
+using Point = System.Windows.Point;
 using TextBox = System.Windows.Controls.TextBox;
 using WpfPoint = System.Windows.Point; // WPFの座標
 using WpfRectangle = System.Windows.Shapes.Rectangle;
@@ -39,7 +40,6 @@ namespace TraceShot.Features
         private SettingsService _setting = SettingsService.Instance;
         private bool _isPlaying = false;
         private bool _isRecording = false;
-        //private bool _isCropLocked = false;
         public RecorderManager RecorderMgr { get; private set; }  = new ();
 
         private string _currentVideoPath = "";
@@ -212,7 +212,7 @@ namespace TraceShot.Features
         }
 
         // エビデンスを開く
-        private void OpenEvidence_Click(object sender, RoutedEventArgs e)
+        private async void OpenEvidence_Click(object sender, RoutedEventArgs e)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -271,6 +271,22 @@ namespace TraceShot.Features
                                         BookmarkListBox.Focus();           // 必要に応じてフォーカスを当てる
                                     }
                                 }
+
+                                // 最大リトライ回数（例：100msごとに50回 ＝ 5秒）
+                                int maxRetries = 30;
+                                int retryCount = 0;
+                                while (retryCount < maxRetries)
+                                {
+                                    if (VideoPlayer.NaturalDuration.HasTimeSpan)
+                                    {
+                                        // 準備OK！印を描画してループを抜ける
+                                        UpdateBookmarkMarkers();
+                                        return;
+                                    }
+                                    await Task.Delay(100);
+                                    retryCount++;
+                                }
+                                Debug.WriteLine("マーカーの描画をタイムアウトしました。");
                             }
                             else
                             {
@@ -1418,6 +1434,8 @@ namespace TraceShot.Features
 
                 // 「00:00 / 総時間」の形式で表示
                 TimeText.Text = $"00:00 / {duration:mm\\:ss}";
+
+                UpdateBookmarkMarkers();
             }
             // 2. 💡 ここでタイマーを起動！
             StartPlaybackTimer();
@@ -1508,7 +1526,6 @@ namespace TraceShot.Features
             {
                 VideoPlayer.Position = TimeSpan.FromSeconds(TimelineSlider.Value);
                 PlayerPause(true);
-
                 BookmarkListBox.SelectedItem = null;
             }
             RefreshCanvas();
@@ -1521,7 +1538,27 @@ namespace TraceShot.Features
         private void Slider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
         {
             _isDragging = false;
-            VideoPlayer.Position = TimeSpan.FromSeconds(TimelineSlider.Value);
+            double currentValue = TimelineSlider.Value;
+            VideoPlayer.Position = TimeSpan.FromSeconds(currentValue);
+
+            if (RecorderMgr.Evidence?.Bookmarks == null || !RecorderMgr.Evidence.Bookmarks.Any()) return;
+
+            // 1. しきい値（0.5秒）以内のものを抽出し
+            // 2. 現在地との差が一番小さい順に並べ替え
+            // 3. その先頭（最も近いもの）を取得する
+            var nearbyBookmark = RecorderMgr.Evidence.Bookmarks
+                .Where(bm => Math.Abs(bm.Time.TotalSeconds - currentValue) < 0.05)
+                .OrderBy(bm => Math.Abs(bm.Time.TotalSeconds - currentValue))
+                .FirstOrDefault();
+
+            if (nearbyBookmark != null)
+            {
+                if (BookmarkListBox.SelectedItem != nearbyBookmark)
+                {
+                    BookmarkListBox.SelectedItem = nearbyBookmark;
+                    BookmarkListBox.ScrollIntoView(nearbyBookmark);
+                }
+            }
         }
 
 
@@ -1876,6 +1913,72 @@ namespace TraceShot.Features
                 // 💡 画面上のリスト表示をリアルタイムに更新（Refresh）
                 BookmarkListBox.Items.Refresh();
             }
+        }
+
+        private void UpdateBookmarkMarkers()
+        {
+            if (RecorderMgr.Evidence == null || !VideoPlayer.NaturalDuration.HasTimeSpan) return;
+            BookmarkCanvas.Children.Clear();
+
+            const double ThumbWidth = 17.0;
+            double canvasWidth = BookmarkCanvas.ActualWidth;
+            if (canvasWidth <= 0) return;
+
+            double effectiveWidth = canvasWidth - ThumbWidth;
+            if (effectiveWidth <= 0) return;
+
+            double totalSeconds = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+            if (totalSeconds <= 0) return;
+
+            foreach (var bm in RecorderMgr.Evidence.Bookmarks)
+            {
+                // 時間の割合 (0.0 ～ 1.0)
+                double ratio = bm.Time.TotalSeconds / totalSeconds;
+
+                double xPos = (ratio * effectiveWidth) + (ThumbWidth / 2.0);
+
+                // 三角形（▲）の作成
+                System.Windows.Shapes.Polygon triangle = new System.Windows.Shapes.Polygon();
+                triangle.Points = new PointCollection() {
+                    new Point(0, 0),   // 上（頂点）
+                    new Point(-6, 10), // 左下
+                    new Point(6, 10)   // 右下
+        };
+                triangle.Fill = Brushes.Orange;
+                triangle.Stroke = Brushes.White;
+                triangle.StrokeThickness = 1;
+                triangle.Cursor = Cursors.Hand;
+                triangle.Tag = bm;
+
+                // イベント登録
+                triangle.MouseLeftButtonDown += Marker_MouseLeftButtonDown;
+
+                // 位置調整（xPosが頂点の真ん中にくるように）
+                Canvas.SetLeft(triangle, xPos);
+                Canvas.SetTop(triangle, 0);
+
+                BookmarkCanvas.Children.Add(triangle);
+            }
+        }
+        private void Marker_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement el && el.Tag is BookMark bm)
+            {
+                // 1. 動画をその時間にジャンプ
+                VideoPlayer.Position = bm.Time;
+
+                // 2. (任意) リストボックス等の該当項目を選択状態にする
+                BookmarkListBox.SelectedItem = bm;
+                BookmarkListBox.ScrollIntoView(bm);
+
+                // Slider側のクリックイベントが動かないように「処理済み」とする
+                e.Handled = true;
+            }
+        }
+
+        private void BookmarkCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateBookmarkMarkers();
         }
     }
 }

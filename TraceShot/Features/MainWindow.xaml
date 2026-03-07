@@ -59,6 +59,7 @@
                           Stretch="Uniform" />
 
             <Canvas x:Name="DrawingCanvas" Background="#01FFFFFF" 
+                    SizeChanged="DrawingCanvas_SizeChanged"
                     MouseDown="DrawingCanvas_MouseDown"
                     MouseMove="DrawingCanvas_MouseMove"
                     MouseUp="DrawingCanvas_MouseUp" />
@@ -81,12 +82,12 @@
             <TextBlock Grid.Row="0" Text="コメント:" Margin="5,0,0,2"/>
 
             <TextBox x:Name="NoteEditBox" 
-             Grid.Row="1"
-             TextWrapping="Wrap" 
-             AcceptsReturn="True" 
-             VerticalContentAlignment="Top"
-             VerticalAlignment="Stretch"
-             TextChanged="NoteEditBox_TextChanged"/>
+                 Grid.Row="1"
+                 TextWrapping="Wrap" 
+                 AcceptsReturn="True" 
+                 VerticalContentAlignment="Top"
+                 VerticalAlignment="Stretch"
+                 TextChanged="NoteEditBox_TextChanged"/>
         </Grid>
 
         <Border Grid.Row="2" Background="#F0F0F0" Padding="10" BorderBrush="#DDD" BorderThickness="0,1,0,0">
@@ -94,10 +95,22 @@
                 <Grid Margin="0,5">
                     <StackPanel x:Name="PlaybackControlsArea" Visibility="Visible">
                         <TextBlock x:Name="TimeText" Text="00:00 / 00:00" HorizontalAlignment="Right" Margin="0,0,10,0"/>
-                        <Slider x:Name="TimelineSlider" Minimum="0" 
+                        <Slider x:Name="TimelineSlider" Margin="10,0"
+                                Minimum="0" 
+                                Maximum="{Binding VideoDurationTotalSeconds}"
+                                Value="{Binding CurrentPositionSeconds}"
                                 Thumb.DragStarted="Slider_DragStarted" 
                                 Thumb.DragCompleted="Slider_DragCompleted" 
-                                ValueChanged="Slider_ValueChanged" Margin="0,5"/>
+                                ValueChanged="Slider_ValueChanged"
+                                />
+
+                        <Canvas x:Name="BookmarkCanvas" 
+                                SizeChanged="BookmarkCanvas_SizeChanged"
+                                Height="15"
+                                Margin="7,-5,7,0"
+                                VerticalAlignment="Top" 
+                                Background="Transparent" 
+                                />
                     </StackPanel>
 
                     <Grid x:Name="RecordingTimerArea" Visibility="Collapsed" Height="60" Background="#E0E0E0">
