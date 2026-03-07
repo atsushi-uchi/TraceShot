@@ -213,7 +213,7 @@ namespace TraceShot.Services
         {
             if (string.IsNullOrEmpty(CurrentFolder)) return null;
 
-            string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot_Cropped"); // フォルダ名を分ける
+            string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot"); // フォルダ名を分ける
             if (!Directory.Exists(screenshotFolder)) Directory.CreateDirectory(screenshotFolder);
 
             // 1. 動画の本来の解像度を取得
