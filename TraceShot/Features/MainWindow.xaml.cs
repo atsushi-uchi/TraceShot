@@ -401,7 +401,7 @@ namespace TraceShot.Features
             double rectTop = (rect.Y * dispH) + offsetY;
             double rectWidth = rect.Width * dispW;
             double rectHeight = rect.Height * dispH;
-
+            bool isLocked = isCropMode && _isCropLocked;
             // --- 1. 中央の移動用エリア（透明な塗りつぶし） ---
             var moveArea = new WpfRectangle
             {
@@ -409,10 +409,11 @@ namespace TraceShot.Features
                 Height = Math.Max(0, rectHeight),
                 Fill = Brushes.Transparent, // 透明だがマウスには反応する
                 Cursor = Cursors.SizeAll,
-                Tag = rect, // MarkRectを保持
-                // クロップモードなら少し枠線を太く・目立たせる
+                Tag = rect,
                 Stroke = rectBrush,
-                StrokeThickness = isCropMode ? 1 : 0
+                StrokeThickness = isCropMode ? 1 : 0,
+                IsHitTestVisible = !isLocked,
+                Opacity = !isLocked ? 0.6 : 1.0,
             };
 
             moveArea.MouseEnter += (s, e) => {
@@ -495,15 +496,77 @@ namespace TraceShot.Features
             }
 
             // --- 3. 4辺をキャンバスに追加 ---
-            // 上辺
             DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop, rectLeft + rectWidth, rectTop, ResizeDirection.Top, rectBrush));
-            // 下辺
             DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop + rectHeight, rectLeft + rectWidth, rectTop + rectHeight, ResizeDirection.Bottom, rectBrush));
-            // 左辺
             DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop, rectLeft, rectTop + rectHeight, ResizeDirection.Left, rectBrush));
-            // 右辺
             DrawingCanvas.Children.Add(CreateEdge(rectLeft + rectWidth, rectTop, rectLeft + rectWidth, rectTop + rectHeight, ResizeDirection.Right, rectBrush));
+
+            // --- 4. 情報バッジ（サイズ表示）を追加 ---
+            // クロップモードの時だけ表示、あるいは常に表示などお好みで
+            if (isCropMode)
+            {
+                var infoTextBlock = new TextBlock
+                {
+                    // 実際のピクセルサイズを表示したい場合は rect.Width * NaturalVideoWidth 等を使用
+                    //Text = $"{(int)(rect.Width * VideoPlayer.NaturalVideoWidth)} × {(int)(rect.Height * VideoPlayer.NaturalVideoHeight)}",
+                    Foreground = Brushes.White,
+                    FontSize = 10,
+                    FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                    Padding = new Thickness(5, 1, 5, 1),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                string lockIcon = _isCropLocked ? " 🔒" : " 🔓";
+                infoTextBlock.Text = $"{(int)(rect.Width * VideoPlayer.NaturalVideoWidth)} × {(int)(rect.Height * VideoPlayer.NaturalVideoHeight)}{lockIcon}";
+
+                var infoBadge = new Border
+                {
+                    Uid = "RectInfoBadge", // リサイズ中に中身を書き換えるための目印
+                    Background = new SolidColorBrush(Color.FromArgb(180, 40, 40, 40)),
+                    BorderBrush = rectBrush, // 枠線の色と合わせると統一感が出ます
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(2),
+                    Child = infoTextBlock,
+                    IsHitTestVisible = true,
+                    Margin = new Thickness(5)  // 矩形の角から少し離す
+                };
+                // クリック（マウスダウン）イベント
+                infoBadge.MouseLeftButtonDown += (s, e) => {
+                    _isCropLocked = !_isCropLocked; // ロック状態を反転
+
+                    // UIを即座に更新するために再描画をかける
+                    // 描画メソッドを現在の状態で呼び出し直す
+                    RefreshCanvas();
+
+                    e.Handled = true; // 他の要素にクリックが伝わるのを防ぐ
+                };
+                // ロック中はバッジの背景色を変えて「固定済み」を強調してもOK
+                if (_isCropLocked)
+                {
+                    infoBadge.Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)); // ロック中は真っ黒に近く
+                }
+
+                Canvas.SetLeft(infoBadge, rectLeft);
+                Canvas.SetTop(infoBadge, rectTop);
+                Canvas.SetZIndex(infoBadge, 100); // 最前面
+
+                DrawingCanvas.Children.Add(infoBadge);
+            }
         }
+
+        // ボタンクリック等で切り替え
+        private bool _isCropLocked = true;
+        //private void UpdateCropHitTest()
+        //{
+        //    // クロップ表示用の要素（moveAreaやEdge）を探して設定
+        //    foreach (var child in DrawingCanvas.Children.OfType<FrameworkElement>())
+        //    {
+        //        if (child.Tag is MarkRect rect && /* それがクロップ用なら */)
+        //        {
+        //            child.IsHitTestVisible = !_isCropLocked;
+        //            child.Opacity = _isCropLocked ? 0.5 : 1.0; // ロック時は少し薄くすると分かりやすい
+        //        }
+        //    }
+        //}
 
         private void ToggleCropArea(MarkRect target)
         {
