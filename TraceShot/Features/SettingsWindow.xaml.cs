@@ -1,50 +1,26 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using Microsoft.Win32; // OpenFolderDialog のために必要
+﻿using Microsoft.Win32; // OpenFolderDialog のために必要
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using TraceShot.Services;
 using static TraceShot.Properties.Settings;
-using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
 using ColorConverter = System.Windows.Media.ColorConverter;
 
 namespace TraceShot.Features
 {
-    public partial class SettingsViewModel : ObservableObject
-    {
-        [ObservableProperty]
-        private Color _mainColor;
-
-        [ObservableProperty]
-        private Color _highlightColor;
-
-        [ObservableProperty]
-        private Color _mainTextColor;
-
-        [ObservableProperty]
-        private Color _highlightTextColor;
-
-        [ObservableProperty]
-        private Color _cropColor;
-
-        [ObservableProperty]
-        private Color _cropFillColor;
-    }
-
     public partial class SettingsWindow : Window
     {
+        private SettingsService _setting = SettingsService.Instance;
         private Key _tempKey;
         private ModifierKeys _tempMod;
-        private SettingsViewModel _viewModel;
         private bool _isWaitingForKey = false;
         public string SelectedPath { get; private set; } = "";
 
         public SettingsWindow()
         {
             InitializeComponent();
-            _viewModel = new SettingsViewModel();
-            DataContext = _viewModel;
+            DataContext = _setting;
             LoadSettings();
         }
 
@@ -73,12 +49,12 @@ namespace TraceShot.Features
             HotkeySettingButton.Content = HotkeyRegister.Format(_tempKey, _tempMod);
 
             // 保存されている色を反映
-            _viewModel.MainColor = (Color)ColorConverter.ConvertFromString(Default.MainColorName);
-            _viewModel.HighlightColor = (Color)ColorConverter.ConvertFromString(Default.HighlightColorName);
-            _viewModel.MainTextColor = (Color)ColorConverter.ConvertFromString(Default.MainTextColorName);
-            _viewModel.HighlightTextColor = (Color)ColorConverter.ConvertFromString(Default.HighlightTextColorName);
-            _viewModel.CropColor = (Color)ColorConverter.ConvertFromString(Default.CropColorName);
-            _viewModel.CropFillColor = (Color)ColorConverter.ConvertFromString(Default.CropFillColorName);
+            //_setting.MainColor = (Color)ColorConverter.ConvertFromString(Default.MainColorName);
+            //_setting.HighlightColor = (Color)ColorConverter.ConvertFromString(Default.HighlightColorName);
+            //_setting.MainTextColor = (Color)ColorConverter.ConvertFromString(Default.MainTextColorName);
+            //_setting.HighlightTextColor = (Color)ColorConverter.ConvertFromString(Default.HighlightTextColorName);
+            //_setting.CropColor = (Color)ColorConverter.ConvertFromString(Default.CropColorName);
+            //_setting.CropFillColor = (Color)ColorConverter.ConvertFromString(Default.CropFillColorName);
         }
 
         private void HotkeySettingButton_Click(object sender, RoutedEventArgs e)

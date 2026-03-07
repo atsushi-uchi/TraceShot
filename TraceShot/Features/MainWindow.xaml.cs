@@ -36,6 +36,7 @@ namespace TraceShot.Features
 
     public partial class MainWindow : Window
     {
+        private SettingsService _setting = SettingsService.Instance;
         private bool _isPlaying = false;
         private bool _isRecording = false;
         public RecorderManager RecorderMgr { get; private set; }  = new ();
@@ -67,6 +68,8 @@ namespace TraceShot.Features
         public MainWindow()
         {
             InitializeComponent();
+
+            DataContext = _setting;
 
             ApplyCurrentSettings();
 
@@ -143,6 +146,7 @@ namespace TraceShot.Features
             {
                 ApplyCurrentSettings();
                 StatusText.Text = "⚙️ 設定を更新しました";
+                RefreshCanvas();
             }
         }
 
@@ -331,19 +335,6 @@ namespace TraceShot.Features
             }
         }
 
-        // 文字列から Brush を作る便利なヘルパー
-        private Brush GetBrushFromName(string colorName)
-        {
-            try
-            {
-                return (Brush)new BrushConverter().ConvertFromString(colorName)!;
-            }
-            catch
-            {
-                return Brushes.Red; // 失敗時のフォールバック
-            }
-        }
-
         private void AddVisualMask(MarkRect rect)
         {
             double containerW = DrawingCanvas.ActualWidth;
@@ -395,19 +386,18 @@ namespace TraceShot.Features
             double offsetX = (containerW - dispW) / 2.0;
             double offsetY = (containerH - dispH) / 2.0;
 
-            var mainTextBrush = GetBrushFromName(Default.MainTextColorName);
-            var overTextBrush = GetBrushFromName(Default.HighlightTextColorName);
-            var mainBrush = GetBrushFromName(Default.MainColorName);
-            var overBrush = GetBrushFromName(Default.HighlightColorName);
-            var cropBrush = GetBrushFromName(Default.CropColorName);
-            var cropFillBrush = GetBrushFromName(Default.CropFillColorName);
-            var overColor = isCropMode ? ((SolidColorBrush)cropFillBrush).Color : ((SolidColorBrush)overBrush).Color;
+            var mainTextBrush = new SolidColorBrush(_setting.MainTextColor);
+            var overTextBrush = new SolidColorBrush(_setting.HighlightTextColor);
+            var mainBrush = new SolidColorBrush(_setting.MainColor);
+            var overBrush = new SolidColorBrush(_setting.HighlightColor);
+            var cropBrush = new SolidColorBrush(_setting.CropColor);
+            var cropFillBrush = new SolidColorBrush(_setting.CropFillColor);
+            var overColor = isCropMode ? _setting.CropFillColor : _setting.HighlightColor;
             var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
-            var mainColor = ((SolidColorBrush)mainBrush).Color;
+            var mainColor = _setting.MainTextColor;
             var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
 
             var rectBrush = isCropMode ? cropBrush : mainBrush;
-            //var fillBrush = isCropMode ? new SolidColorBrush(Color.FromArgb(30, 255, 255, 0)) : Brushes.Transparent;
 
             // 共通の座標計算
             double rectLeft = (rect.X * dispW) + offsetX;
@@ -525,7 +515,7 @@ namespace TraceShot.Features
 
             // 2. 「クロップ範囲は1つだけ」ルールを適用
             // (全ブックマークの全矩形を走査)
-            foreach (var bm in RecorderMgr.Evidence.Bookmarks)
+            foreach (var bm in RecorderMgr?.Evidence?.Bookmarks ?? new())
             {
                 foreach (var r in bm.MarkRects)
                 {
@@ -543,7 +533,7 @@ namespace TraceShot.Features
         {
             DrawingCanvas.Children.Clear();
 
-            var marks = RecorderMgr.Evidence.Bookmarks;
+            var marks = RecorderMgr?.Evidence?.Bookmarks?? new();
 
             var cropRect = marks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
             if (cropRect != null)
@@ -563,13 +553,13 @@ namespace TraceShot.Features
             double offsetX = (containerW - dispW) / 2.0;
             double offsetY = (containerH - dispH) / 2.0;
 
-            var mainTextBrush = GetBrushFromName(Default.MainTextColorName);
-            var overTextBrush = GetBrushFromName(Default.HighlightTextColorName);
-            var mainBrush = GetBrushFromName(Default.MainColorName);
-            var overBrush = GetBrushFromName(Default.HighlightColorName);
-            var overColor = ((SolidColorBrush)overBrush).Color;
-            var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
-            var mainColor = ((SolidColorBrush)mainBrush).Color;
+            var mainTextBrush = new SolidColorBrush(_setting.MainTextColor);
+            var overTextBrush = new SolidColorBrush(_setting.HighlightTextColor);
+            var mainBrush = new SolidColorBrush(_setting.MainColor);
+            var overBrush = new SolidColorBrush(_setting.HighlightColor);
+            var cropBrush = new SolidColorBrush(_setting.CropColor);
+            var cropFillBrush = new SolidColorBrush(_setting.CropFillColor);
+            var mainColor = _setting.MainTextColor;
             var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
 
             if (BookmarkListBox.SelectedItem is BookMark selected)
@@ -613,11 +603,11 @@ namespace TraceShot.Features
 
         private void DrawBalloonUI(WpfPoint start, WpfPoint end, BalloonNote note)
         {
-            var mainTextBrush = GetBrushFromName(Default.MainTextColorName);
-            var overTextBrush = GetBrushFromName(Default.HighlightTextColorName);
-            var mainBrush = GetBrushFromName(Default.MainColorName);
-            var overBrush = GetBrushFromName(Default.HighlightColorName);
-            var mainColor = ((SolidColorBrush)mainBrush).Color;
+            var mainTextBrush = new SolidColorBrush(_setting.MainTextColor);
+            var overTextBrush = new SolidColorBrush(_setting.HighlightTextColor);
+            var mainBrush = new SolidColorBrush(_setting.MainColor);
+            var overBrush = new SolidColorBrush(_setting.HighlightColor);
+            var mainColor = _setting.MainColor;
             var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
 
             // --- 1. Border の生成 ---
@@ -892,8 +882,8 @@ namespace TraceShot.Features
                 }
                 else
                 {
-                    var overBrush = GetBrushFromName(Default.HighlightColorName);
-                    var overColor = ((SolidColorBrush)overBrush).Color;
+                    var overBrush = new SolidColorBrush(_setting.HighlightColor);
+                    var overColor = _setting.HighlightColor;
                     var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
 
                     // B. 通常の矩形描画モード
@@ -1003,7 +993,7 @@ namespace TraceShot.Features
                 return;
             }
 
-            var overBrush = GetBrushFromName(Default.HighlightColorName);
+            var overBrush = new SolidColorBrush(_setting.HighlightColor);
 
             // --- 3. 新規バルーン描画中のガイド線表示 ---
             if (_isDrawing && Keyboard.Modifiers == ModifierKeys.Control)
@@ -1064,7 +1054,7 @@ namespace TraceShot.Features
         private void ShowBalloonInput(BalloonNote? targetNote = null)
         {
             // 設定から色を取得
-            var mainBrush = GetBrushFromName(Default.MainColorName);
+            var mainBrush = new SolidColorBrush(_setting.MainTextColor);
 
             double targetX, targetY;
 
@@ -1220,7 +1210,7 @@ namespace TraceShot.Features
             {
                 _draggingRect.ReleaseMouseCapture();
 
-                var mainBrush = GetBrushFromName(Default.MainColorName);
+                var mainBrush = new SolidColorBrush(_setting.MainColor);
                 // ハイライトを戻す（必要に応じて）
                 if (_draggingRect is Line l) l.Stroke = mainBrush;
                 if (_draggingRect is WpfRectangle r) r.Fill = Brushes.Transparent;
