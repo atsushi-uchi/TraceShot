@@ -11,10 +11,10 @@
     <Setting Name="UseHardwareAccel" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
-    <Setting Name="HotkeyKey" Type="System.Int32" Scope="User">
+    <Setting Name="BookmarkHotkeyKey" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">114</Value>
     </Setting>
-    <Setting Name="HotkeyMod" Type="System.Int32" Scope="User">
+    <Setting Name="BookmarkHotkeyMod" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">0</Value>
     </Setting>
     <Setting Name="MainColorName" Type="System.String" Scope="User">
@@ -34,6 +34,12 @@
     </Setting>
     <Setting Name="CropFillColorName" Type="System.String" Scope="User">
       <Value Profile="(Default)">Silver</Value>
+    </Setting>
+    <Setting Name="VoiceHotkeyKey" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">101</Value>
+    </Setting>
+    <Setting Name="VoiceHotkeyMod" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">0</Value>
     </Setting>
   </Settings>
 </SettingsFile>

@@ -386,6 +386,12 @@ namespace TraceShot.Services
             }
         }
 
+        public List<Bookmark> GetBookmarks()
+        {
+            return _currentBookmarks.OrderBy(b => b.Time).ToList();
+        }
+
+
         public List<Bookmark> AddBookmark(Bookmark bookmark)
         {
             _currentBookmarks.Add(bookmark);
@@ -639,7 +645,7 @@ namespace TraceShot.Services
             _recorder.OnRecordingComplete += (s, e) => TraceLogs.Add("Window Recording Complete");
             _recorder.OnRecordingFailed += (s, e) => TraceLogs.Add("Window Recording Failed: " + e.Error);
 
-            _actualStartTime = Evidence.RecordingDate;
+            _actualStartTime = Evidence?.RecordingDate ?? DateTime.Now;
             _currentBookmarks.Clear();
             _timer.Start();
             _stopwatch.Restart();

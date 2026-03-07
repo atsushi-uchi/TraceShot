@@ -7,12 +7,9 @@ namespace TraceShot.Services
 {
     public static class HotkeyRegister
     {
-        private const string Name = "Bookmark";
-
-
-        public static string RegisterBookmark(Key key, ModifierKeys mod, EventHandler<HotkeyEventArgs> handler)
+        public static string RegisterBookmark(string name, Key key, ModifierKeys mod, EventHandler<HotkeyEventArgs> handler)
         {
-            if (TryRegister(key, mod, handler))
+            if (TryRegister(name, key, mod, handler))
             {
                 return Format(key, mod);
             }
@@ -22,12 +19,12 @@ namespace TraceShot.Services
             return "";
         }
 
-        private static bool TryRegister(Key key, ModifierKeys mod, EventHandler<HotkeyEventArgs> handler)
+        private static bool TryRegister(string name, Key key, ModifierKeys mod, EventHandler<HotkeyEventArgs> handler)
         {
             try
             {
                 HotkeyManager.Current.AddOrReplace(
-                    Name,
+                    name,
                     new KeyGesture(key, mod),
                     handler);
 

@@ -62,24 +62,24 @@ namespace TraceShot.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("114")]
-        public int HotkeyKey {
+        public int BookmarkHotkeyKey {
             get {
-                return ((int)(this["HotkeyKey"]));
+                return ((int)(this["BookmarkHotkeyKey"]));
             }
             set {
-                this["HotkeyKey"] = value;
+                this["BookmarkHotkeyKey"] = value;
             }
         }
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("0")]
-        public int HotkeyMod {
+        public int BookmarkHotkeyMod {
             get {
-                return ((int)(this["HotkeyMod"]));
+                return ((int)(this["BookmarkHotkeyMod"]));
             }
             set {
-                this["HotkeyMod"] = value;
+                this["BookmarkHotkeyMod"] = value;
             }
         }
         
@@ -152,6 +152,30 @@ namespace TraceShot.Properties {
             }
             set {
                 this["CropFillColorName"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("101")]
+        public int VoiceHotkeyKey {
+            get {
+                return ((int)(this["VoiceHotkeyKey"]));
+            }
+            set {
+                this["VoiceHotkeyKey"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int VoiceHotkeyMod {
+            get {
+                return ((int)(this["VoiceHotkeyMod"]));
+            }
+            set {
+                this["VoiceHotkeyMod"] = value;
             }
         }
     }

@@ -38,12 +38,10 @@ namespace TraceShot.Features
 
     public partial class MainWindow : Window
     {
-        private SpeechRecognizer _winrtRecognizer;
+        private SpeechRecognizer? _winrtRecognizer;
         private SettingsService _setting = SettingsService.Instance;
         private bool _isPlaying = false;
         private bool _isRecording = false;
-        private bool _isListening = false;
-
 
         public RecorderManager RecorderMgr { get; private set; }  = new ();
 
@@ -1629,12 +1627,17 @@ namespace TraceShot.Features
         {
             try
             {
-                // 設定値を取得
-                Key key = (Key)Default.HotkeyKey;
-                ModifierKeys mod = (ModifierKeys)Default.HotkeyMod;
+                // 証跡追加
+                HotkeyRegister.RegisterBookmark("bookmark",
+                    (Key)Default.BookmarkHotkeyKey,
+                    (ModifierKeys)Default.BookmarkHotkeyMod, 
+                    OnBookmark);
 
-                // 再登録（内部で AddOrReplace が走るので古いものは上書きされる）
-                HotkeyRegister.RegisterBookmark(key, mod, OnBookmark);
+                // 音声メモ
+                HotkeyRegister.RegisterBookmark("voicememo",
+                    (Key)Default.VoiceHotkeyKey,
+                    (ModifierKeys)Default.VoiceHotkeyMod,
+                    OnVoiceMemo);
             }
             catch { /* エラー処理 */ }
         }
@@ -1643,7 +1646,12 @@ namespace TraceShot.Features
         private void OnBookmark(object? sender, HotkeyEventArgs e)
         {
             AddBookmark();
-            e.Handled = true; // 他のアプリにこのキー入力を流さない場合
+            e.Handled = true;
+        }
+        private async void OnVoiceMemo(object? sender, HotkeyEventArgs e)
+        {
+            await AddVoiceMemo();
+            e.Handled = true;
         }
 
         private void AddBookmark()
@@ -1655,21 +1663,13 @@ namespace TraceShot.Features
             }
 
             if (RecorderMgr is null || RecorderMgr.Evidence is null) return;
-
-            // 1. 現在の再生時間を取得（秒単位などで丸めるのがおすすめ）
+            var evi = RecorderMgr.Evidence;
             var currentTime = VideoPlayer.Position;
-
-            // 2. 💡 すでに同じ時間のブックマークがあるかチェック
             bool isDuplicate = RecorderMgr.Evidence.Bookmarks.Any(b => b.Time == currentTime);
+            if (isDuplicate) return;
 
-            if (isDuplicate)
-            {
-                // 重複している場合は何もしない（またはメッセージを出す）
-                return;
-            }
-
-            // 3. スクリーンショットの撮影と保存
-            string fileName = $"SS_{DateTime.Now:yyyy-MM-dd_HHmmss_fff}.png";
+            var timestamp = evi.RecordingDate.Add(currentTime);
+            string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
             string imagePath = Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
 
             // 4. ブックマークリストに追加
@@ -1686,8 +1686,7 @@ namespace TraceShot.Features
             foreach (var b in sorted) BookmarkListBox.Items.Add(b);
 
             BookmarkListBox.ScrollIntoView(bookmark);
-            StatusText.Text = $"★ 追加 {bookmark.Time} {bookmark.Note}";
-            System.Media.SystemSounds.Asterisk.Play();
+            SystemSounds.Asterisk.Play();
             UpdateBookmarkMarkers();
         }
 
@@ -1695,8 +1694,7 @@ namespace TraceShot.Features
         {
             try
             {
-                string soundPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"Resources\shutter.wav");
-
+                string soundPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"Resources\shutter.wav");
                 if (File.Exists(soundPath))
                 {
                     using SoundPlayer player = new SoundPlayer(soundPath);
@@ -1714,11 +1712,8 @@ namespace TraceShot.Features
                 BookmarkListBox.Items.Add(bookmark);
                 BookmarkListBox.ScrollIntoView(bookmark);
                 StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note}";
-
-                // 💡 録画中ならプレビュー用ビットマップをそのまま使う
                 if (_previewBitmap != null)
                 {
-                    // 念のため、この時点でのビットマップの状態を保存
                     RecorderMgr.SaveBackupFromWriteableBitmap(bookmark, _previewBitmap);
                 }
             }
@@ -2004,60 +1999,86 @@ namespace TraceShot.Features
                 // 文法のコンパイル（必須）
                 await _winrtRecognizer.CompileConstraintsAsync();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 MessageBox.Show("WinRT音声認識の初期化に失敗しました。");
             }
         }
-        
-        private async void VoiceMemoButton_Click(object sender, RoutedEventArgs e)
+        private async Task AddVoiceMemo()
         {
-            if (!_isRecording) return;
+            if (BookmarkListBox.SelectedItem is Bookmark selected) return;
 
             // 1. ボタンを無効化して連打を防ぐ
             VoiceMemoButton.IsEnabled = false;
 
             // 「アスタリスク」音（情報音）を鳴らす
-            System.Media.SystemSounds.Beep.Play(); // 開始音
-
+            SystemSounds.Beep.Play(); // 開始音
 
             // 1. ブックマークを先行作成
-            var soundMemo = RecorderMgr.AddBookmark("音声入力待ち...");
-            if (soundMemo is null) return;
-            soundMemo.Icon = "🎤";
-            soundMemo.IsListening = true;
+            Bookmark? voiceMemo = RecorderMgr.AddBookmark("音声入力待ち...");
+             
+            if (voiceMemo == null)
+            {
+                if (RecorderMgr is null || RecorderMgr.Evidence is null) return;
+                var evi = RecorderMgr.Evidence;
 
-            // UI側のリストとシークバーの▲を更新
-            BookmarkListBox.ScrollIntoView(soundMemo);
-            BookmarkListBox.Items.Add(soundMemo);
+                if (evi == null) return;
+                var currentTime = VideoPlayer.Position;
+
+                bool isDuplicate = evi.Bookmarks.Any(b => b.Time == currentTime);
+                if (isDuplicate) return;
+
+                var timestamp = evi.RecordingDate.Add(currentTime);
+                string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
+                string imagePath = Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
+                voiceMemo = new Bookmark
+                {
+                    Time = currentTime,
+                    ImagePath = imagePath
+                };
+                RecorderMgr.AddBookmark(voiceMemo);
+            }
+
+            voiceMemo.Icon = "🎤";
+            voiceMemo.IsListening = true;
+
+            var sorted = RecorderMgr.GetBookmarks();
+            BookmarkListBox.Items.Clear();
+            foreach (var b in sorted) BookmarkListBox.Items.Add(b);
+
+            BookmarkListBox.ScrollIntoView(voiceMemo);
             UpdateBookmarkMarkers();
             try
             {
                 // 2. 認識開始（Windows標準のUIを表示せずバックグラウンドで認識）
-                var result = await _winrtRecognizer.RecognizeAsync();
+                var result = await _winrtRecognizer?.RecognizeAsync();
 
                 if (result.Status == SpeechRecognitionResultStatus.Success)
                 {
-                    soundMemo.Note = result.Text;
+                    voiceMemo.Note = result.Text;
                     Debug.WriteLine($"音声入力：{result.Text}");
                 }
                 else
                 {
-                    soundMemo.Note = "(認識失敗)";
-                    Debug.WriteLine($"音声入力：(認識失敗)");
+                    voiceMemo.Note = "(認識失敗)";
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                soundMemo.Note = "(エラー発生)";
+                voiceMemo.Note = "(エラー発生)";
             }
             finally
             {
-                soundMemo.IsListening = false;
+                voiceMemo.IsListening = false;
                 System.Media.SystemSounds.Asterisk.Play();
                 UpdateBookmarkMarkers();
                 VoiceMemoButton.IsEnabled = true;
             }
+        }
+
+        private async void VoiceMemoButton_Click(object sender, RoutedEventArgs? e)
+        {
+            await AddVoiceMemo();
         }
     }
 }
