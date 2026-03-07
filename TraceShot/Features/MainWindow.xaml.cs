@@ -1331,6 +1331,7 @@ namespace TraceShot.Features
                     foreach (var b in sorted) BookmarkListBox.Items.Add(b);
                     BookmarkListBox.SelectedItem = bookmark;
                     selectedBm = bookmark;
+                    UpdateBookmarkMarkers();
                 }
             }
 
@@ -1408,6 +1409,7 @@ namespace TraceShot.Features
                 NoteEditBox.Text = "";
                 StatusText.Text = $"🗑️ {bookmarks.Count} 件削除しました";
             }
+            UpdateBookmarkMarkers();
         }
 
         private void AddBookmarkButton_Click(object sender, RoutedEventArgs e)
@@ -1677,6 +1679,7 @@ namespace TraceShot.Features
             BookmarkListBox.ScrollIntoView(bookmark);
             StatusText.Text = $"★ 追加 {bookmark.Time} {bookmark.Note}";
             System.Media.SystemSounds.Asterisk.Play();
+            UpdateBookmarkMarkers();
         }
 
         private void TakeBookmark()
@@ -1944,8 +1947,8 @@ namespace TraceShot.Features
                     new Point(-6, 10), // 左下
                     new Point(6, 10)   // 右下
         };
-                triangle.Fill = Brushes.Orange;
-                triangle.Stroke = Brushes.White;
+                triangle.Fill = Brushes.White;
+                triangle.Stroke = Brushes.DarkGray;
                 triangle.StrokeThickness = 1;
                 triangle.Cursor = Cursors.Hand;
                 triangle.Tag = bm;
