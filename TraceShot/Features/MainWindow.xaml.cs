@@ -26,6 +26,7 @@ using Path = System.IO.Path;
 using TextBox = System.Windows.Controls.TextBox;
 using WpfPoint = System.Windows.Point; // WPFの座標
 using WpfRectangle = System.Windows.Shapes.Rectangle;
+using static TraceShot.Properties.Settings;
 
 namespace TraceShot.Features
 {
@@ -104,20 +105,20 @@ namespace TraceShot.Features
         private void ApplyCurrentSettings()
         {
             bool update = false;
-            string savedPath = Properties.Settings.Default.SavePath;
+            string savedPath = Default.SavePath;
             if (string.IsNullOrEmpty(savedPath) || !Directory.Exists(savedPath))
             {
                 // デフォルトの保存先が未設定の場合、MYVideosに設定
                 savedPath = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
-                Properties.Settings.Default.SavePath = savedPath;
+                Default.SavePath = savedPath;
                 update = true;
             }
             SavePathStatusText.Text = savedPath;
-            int fps = Properties.Settings.Default.FrameRate;
+            int fps = Default.FrameRate;
             if (fps == 0) {
                 // フレームレートが未設定の場合、30に設定
                 fps = 30;
-                Properties.Settings.Default.FrameRate = fps;
+                Default.FrameRate = fps;
                 update = true;
             }
 
@@ -126,7 +127,7 @@ namespace TraceShot.Features
 
             if (update)
             {
-                Properties.Settings.Default.Save();
+                Default.Save();
             }
             // ホットキー登録
             RefreshHotkey();
@@ -212,7 +213,7 @@ namespace TraceShot.Features
             {
                 Filter = "JSON files (*.json)|*.json",
                 Title = "保存されたエビデンス（JSON）を選択してください",
-                InitialDirectory = Properties.Settings.Default.SavePath
+                InitialDirectory = Default.SavePath
             };
 
             if (openFileDialog.ShowDialog() == true)
@@ -301,7 +302,7 @@ namespace TraceShot.Features
             // パスが未設定の場合は MyVideo フォルダをデフォルトにする
             if (string.IsNullOrEmpty(folderPath) || folderPath == "未設定")
             {
-                folderPath = Properties.Settings.Default.SavePath;
+                folderPath = Default.SavePath;
             }
 
             try
@@ -394,12 +395,12 @@ namespace TraceShot.Features
             double offsetX = (containerW - dispW) / 2.0;
             double offsetY = (containerH - dispH) / 2.0;
 
-            var mainTextBrush = GetBrushFromName(Properties.Settings.Default.MainTextColorName);
-            var overTextBrush = GetBrushFromName(Properties.Settings.Default.HighlightTextColorName);
-            var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
-            var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
-            var cropBrush = GetBrushFromName(Properties.Settings.Default.CropColorName);
-            var cropFillBrush = GetBrushFromName(Properties.Settings.Default.CropFillColorName);
+            var mainTextBrush = GetBrushFromName(Default.MainTextColorName);
+            var overTextBrush = GetBrushFromName(Default.HighlightTextColorName);
+            var mainBrush = GetBrushFromName(Default.MainColorName);
+            var overBrush = GetBrushFromName(Default.HighlightColorName);
+            var cropBrush = GetBrushFromName(Default.CropColorName);
+            var cropFillBrush = GetBrushFromName(Default.CropFillColorName);
             var overColor = isCropMode ? ((SolidColorBrush)cropFillBrush).Color : ((SolidColorBrush)overBrush).Color;
             var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
             var mainColor = ((SolidColorBrush)mainBrush).Color;
@@ -562,10 +563,10 @@ namespace TraceShot.Features
             double offsetX = (containerW - dispW) / 2.0;
             double offsetY = (containerH - dispH) / 2.0;
 
-            var mainTextBrush = GetBrushFromName(Properties.Settings.Default.MainTextColorName);
-            var overTextBrush = GetBrushFromName(Properties.Settings.Default.HighlightTextColorName);
-            var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
-            var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
+            var mainTextBrush = GetBrushFromName(Default.MainTextColorName);
+            var overTextBrush = GetBrushFromName(Default.HighlightTextColorName);
+            var mainBrush = GetBrushFromName(Default.MainColorName);
+            var overBrush = GetBrushFromName(Default.HighlightColorName);
             var overColor = ((SolidColorBrush)overBrush).Color;
             var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
             var mainColor = ((SolidColorBrush)mainBrush).Color;
@@ -612,10 +613,10 @@ namespace TraceShot.Features
 
         private void DrawBalloonUI(WpfPoint start, WpfPoint end, BalloonNote note)
         {
-            var mainTextBrush = GetBrushFromName(Properties.Settings.Default.MainTextColorName);
-            var overTextBrush = GetBrushFromName(Properties.Settings.Default.HighlightTextColorName);
-            var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
-            var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
+            var mainTextBrush = GetBrushFromName(Default.MainTextColorName);
+            var overTextBrush = GetBrushFromName(Default.HighlightTextColorName);
+            var mainBrush = GetBrushFromName(Default.MainColorName);
+            var overBrush = GetBrushFromName(Default.HighlightColorName);
             var mainColor = ((SolidColorBrush)mainBrush).Color;
             var mainFill = new SolidColorBrush(Color.FromArgb(180, mainColor.R, mainColor.G, mainColor.B));
 
@@ -891,7 +892,7 @@ namespace TraceShot.Features
                 }
                 else
                 {
-                    var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
+                    var overBrush = GetBrushFromName(Default.HighlightColorName);
                     var overColor = ((SolidColorBrush)overBrush).Color;
                     var overFill = new SolidColorBrush(Color.FromArgb(80, overColor.R, overColor.G, overColor.B));
 
@@ -1002,7 +1003,7 @@ namespace TraceShot.Features
                 return;
             }
 
-            var overBrush = GetBrushFromName(Properties.Settings.Default.HighlightColorName);
+            var overBrush = GetBrushFromName(Default.HighlightColorName);
 
             // --- 3. 新規バルーン描画中のガイド線表示 ---
             if (_isDrawing && Keyboard.Modifiers == ModifierKeys.Control)
@@ -1063,7 +1064,7 @@ namespace TraceShot.Features
         private void ShowBalloonInput(BalloonNote? targetNote = null)
         {
             // 設定から色を取得
-            var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
+            var mainBrush = GetBrushFromName(Default.MainColorName);
 
             double targetX, targetY;
 
@@ -1219,7 +1220,7 @@ namespace TraceShot.Features
             {
                 _draggingRect.ReleaseMouseCapture();
 
-                var mainBrush = GetBrushFromName(Properties.Settings.Default.MainColorName);
+                var mainBrush = GetBrushFromName(Default.MainColorName);
                 // ハイライトを戻す（必要に応じて）
                 if (_draggingRect is Line l) l.Stroke = mainBrush;
                 if (_draggingRect is WpfRectangle r) r.Fill = Brushes.Transparent;
@@ -1542,8 +1543,8 @@ namespace TraceShot.Features
             try
             {
                 // 設定値を取得
-                Key key = (Key)Properties.Settings.Default.HotkeyKey;
-                ModifierKeys mod = (ModifierKeys)Properties.Settings.Default.HotkeyMod;
+                Key key = (Key)Default.HotkeyKey;
+                ModifierKeys mod = (ModifierKeys)Default.HotkeyMod;
 
                 // 再登録（内部で AddOrReplace が走るので古いものは上書きされる）
                 HotkeyRegister.RegisterBookmark(key, mod, OnBookmark);
@@ -1703,7 +1704,7 @@ namespace TraceShot.Features
                     // 1. 保存されている設定を読み込む
 
                     string modeName = (ModeComboBox.SelectionBoxItem as string) ?? ModeComboBox.Text;
-                    _currentVideoPath = RecorderMgr.PrepareEvidence(Properties.Settings.Default.SavePath, modeName);
+                    _currentVideoPath = RecorderMgr.PrepareEvidence(Default.SavePath, modeName);
                     switch (ModeComboBox.SelectedIndex)
                     {
                         case 0: // 全画面
