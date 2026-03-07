@@ -1,22 +1,50 @@
-﻿using Microsoft.Win32; // OpenFolderDialog のために必要
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.Win32; // OpenFolderDialog のために必要
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using TraceShot.Services;
 using static TraceShot.Properties.Settings;
+using Brushes = System.Windows.Media.Brushes;
+using Color = System.Windows.Media.Color;
+using ColorConverter = System.Windows.Media.ColorConverter;
 
 namespace TraceShot.Features
 {
+    public partial class SettingsViewModel : ObservableObject
+    {
+        [ObservableProperty]
+        private Color _mainColor;
+
+        [ObservableProperty]
+        private Color _highlightColor;
+
+        [ObservableProperty]
+        private Color _mainTextColor;
+
+        [ObservableProperty]
+        private Color _highlightTextColor;
+
+        [ObservableProperty]
+        private Color _cropColor;
+
+        [ObservableProperty]
+        private Color _cropFillColor;
+    }
+
     public partial class SettingsWindow : Window
     {
         private Key _tempKey;
         private ModifierKeys _tempMod;
+        private SettingsViewModel _viewModel;
         private bool _isWaitingForKey = false;
         public string SelectedPath { get; private set; } = "";
 
         public SettingsWindow()
         {
             InitializeComponent();
+            _viewModel = new SettingsViewModel();
+            DataContext = _viewModel;
             LoadSettings();
         }
 
@@ -44,23 +72,13 @@ namespace TraceShot.Features
             _tempMod = (ModifierKeys)Default.HotkeyMod;
             HotkeySettingButton.Content = HotkeyRegister.Format(_tempKey, _tempMod);
 
-            // 色リストの準備 (主要な色をピックアップ)
-            //var colorList = new[] { "White", "Black", "Red", "Blue", "Green", "Orange", "Purple", "DeepPink", "Aqua", "Gold" };
-            var colorList = typeof(Brushes).GetProperties().Select(p => p.Name).ToList();
-            MainColorComboBox.ItemsSource = colorList;
-            HighlightColorComboBox.ItemsSource = colorList;
-            MainTextColorComboBox.ItemsSource = colorList;
-            HighlightTextColorComboBox.ItemsSource = colorList;
-            CropColorComboBox.ItemsSource = colorList;
-            CropFillColorComboBox.ItemsSource = colorList;
-
             // 保存されている色を反映
-            MainColorComboBox.SelectedItem = Default.MainColorName;
-            HighlightColorComboBox.SelectedItem = Default.HighlightColorName;
-            MainTextColorComboBox.SelectedItem = Default.MainTextColorName;
-            HighlightTextColorComboBox.SelectedItem = Default.HighlightTextColorName;
-            CropColorComboBox.SelectedItem = Default.CropColorName;
-            CropFillColorComboBox.SelectedItem = Default.CropFillColorName;
+            _viewModel.MainColor = (Color)ColorConverter.ConvertFromString(Default.MainColorName);
+            _viewModel.HighlightColor = (Color)ColorConverter.ConvertFromString(Default.HighlightColorName);
+            _viewModel.MainTextColor = (Color)ColorConverter.ConvertFromString(Default.MainTextColorName);
+            _viewModel.HighlightTextColor = (Color)ColorConverter.ConvertFromString(Default.HighlightTextColorName);
+            _viewModel.CropColor = (Color)ColorConverter.ConvertFromString(Default.CropColorName);
+            _viewModel.CropFillColor = (Color)ColorConverter.ConvertFromString(Default.CropFillColorName);
         }
 
         private void HotkeySettingButton_Click(object sender, RoutedEventArgs e)
@@ -135,12 +153,12 @@ namespace TraceShot.Features
             Default.HotkeyMod = (int)_tempMod;
 
             // 表示色の保存
-            Default.MainColorName = MainColorComboBox.SelectedItem.ToString();
-            Default.HighlightColorName = HighlightColorComboBox.SelectedItem.ToString();
-            Default.MainTextColorName = MainTextColorComboBox.SelectedItem.ToString();
-            Default.HighlightTextColorName = HighlightTextColorComboBox.SelectedItem.ToString();
-            Default.CropColorName = CropColorComboBox.SelectedItem.ToString();
-            Default.CropFillColorName = CropFillColorComboBox.SelectedItem.ToString();
+            Default.MainColorName = MainColorPicker.SelectedColorText;
+            Default.HighlightColorName = HighlightColorPicker.SelectedColorText;
+            Default.MainTextColorName = MainTextColorPicker.SelectedColorText;
+            Default.HighlightTextColorName = HighlightTextColorPicker.SelectedColorText;
+            Default.CropColorName = CropColorPicker.SelectedColorText;
+            Default.CropFillColorName = CropFillColorPicker.SelectedColorText;
 
             Default.Save();
             this.DialogResult = true;
