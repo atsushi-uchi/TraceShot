@@ -75,7 +75,18 @@
 
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Border x:Name="ItemBorder" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="3" Padding="5">
+                    <Border x:Name="IndicatorBorder" 
+                            Background="Transparent" 
+                            BorderThickness="0,0,0,2" 
+                            Padding="5">
+                        <Border.BorderBrush>
+                            <LinearGradientBrush x:Name="LineBrush" StartPoint="0,0.5" EndPoint="1,0.5">
+                                <GradientStop Color="Transparent" Offset="0.0" />
+                                <GradientStop x:Name="LightPoint" Color="Cyan" Offset="-0.2" />
+                                <GradientStop Color="Transparent" Offset="1.0" />
+                            </LinearGradientBrush>
+                        </Border.BorderBrush>
+
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding Icon}" Foreground="Black" />
                             <TextBlock Text=" " />
@@ -88,19 +99,23 @@
                     <DataTemplate.Triggers>
                         <DataTrigger Binding="{Binding IsListening}" Value="True">
                             <DataTrigger.EnterActions>
-                                <BeginStoryboard x:Name="BlinkStoryboard">
+                                <BeginStoryboard x:Name="FlowStoryboardAction">
                                     <Storyboard>
-                                        <ColorAnimation 
-                                Storyboard.TargetName="ItemBorder"
-                                Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                From="Transparent" To="#50FF0000" 
-                                Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" />
+                                        <DoubleAnimation 
+                                Storyboard.TargetName="LightPoint"
+                                Storyboard.TargetProperty="Offset"
+                                From="-0.2" To="1.2" 
+                                Duration="0:0:1.2" RepeatBehavior="Forever" />
                                     </Storyboard>
                                 </BeginStoryboard>
                             </DataTrigger.EnterActions>
                             <DataTrigger.ExitActions>
-                                <StopStoryboard BeginStoryboardName="BlinkStoryboard" />
+                                <StopStoryboard BeginStoryboardName="FlowStoryboardAction" />
                             </DataTrigger.ExitActions>
+                        </DataTrigger>
+
+                        <DataTrigger Binding="{Binding IsListening}" Value="False">
+                            <Setter TargetName="IndicatorBorder" Property="BorderBrush" Value="Transparent" />
                         </DataTrigger>
                     </DataTemplate.Triggers>
                 </DataTemplate>

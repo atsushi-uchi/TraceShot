@@ -2014,6 +2014,9 @@ namespace TraceShot.Features
         {
             if (!_isRecording) return;
 
+            // 1. ボタンを無効化して連打を防ぐ
+            VoiceMemoButton.IsEnabled = false;
+
             // 「アスタリスク」音（情報音）を鳴らす
             System.Media.SystemSounds.Beep.Play(); // 開始音
 
@@ -2053,6 +2056,7 @@ namespace TraceShot.Features
                 soundMemo.IsListening = false;
                 System.Media.SystemSounds.Asterisk.Play();
                 UpdateBookmarkMarkers();
+                VoiceMemoButton.IsEnabled = true;
             }
         }
     }
