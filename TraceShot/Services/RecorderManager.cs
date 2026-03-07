@@ -20,7 +20,7 @@ namespace TraceShot.Services
         private Stopwatch _stopwatch = new Stopwatch();
         private DispatcherTimer _timer;
         private Recorder? _recorder;
-        private List<BookMark> _currentBookmarks = [];
+        private List<Bookmark> _currentBookmarks = [];
         private DateTime _actualStartTime;
         public string RecordingTime { get; private set; } = "00:00:00";
         public List<string> TraceLogs { get; private set; } = new List<string>();
@@ -45,7 +45,7 @@ namespace TraceShot.Services
             };
         }
 
-        public string? SaveBackupFromWriteableBitmap(BookMark bm, WriteableBitmap source)
+        public string? SaveBackupFromWriteableBitmap(Bookmark bm, WriteableBitmap source)
         {
             if (string.IsNullOrEmpty(CurrentFolder) || source == null) return null;
 
@@ -81,7 +81,7 @@ namespace TraceShot.Services
         }
 
         // 引数に double scale を追加 (例: 0.5 = 50%, 1.0 = 100%)
-        public (string? Path, BitmapSource? Bitmap)? SaveSingleBookmarkImage(BookMark bm, MediaElement videoPlayer, double scale = 0.5)
+        public (string? Path, BitmapSource? Bitmap)? SaveSingleBookmarkImage(Bookmark bm, MediaElement videoPlayer, double scale = 0.5)
         {
             if (string.IsNullOrEmpty(CurrentFolder)) return (null, null);
 
@@ -210,7 +210,7 @@ namespace TraceShot.Services
         }
 
         // ⭐ 【修正点1】: 引数に cropRectRel (相対座標の切り出し矩形) を追加
-        public (string? Path, BitmapSource? Bitmap)? SaveCroppedBookmarkImage(BookMark bm, MediaElement videoPlayer, MarkRect cropRectRel, double scale = 1.0)
+        public (string? Path, BitmapSource? Bitmap)? SaveCroppedBookmarkImage(Bookmark bm, MediaElement videoPlayer, MarkRect cropRectRel, double scale = 1.0)
         {
             if (string.IsNullOrEmpty(CurrentFolder)) return null;
 
@@ -386,7 +386,7 @@ namespace TraceShot.Services
             }
         }
 
-        public List<BookMark> AddBookmark(BookMark bookmark)
+        public List<Bookmark> AddBookmark(Bookmark bookmark)
         {
             _currentBookmarks.Add(bookmark);
             var sorted = _currentBookmarks.OrderBy(b => b.Time).ToList();
@@ -399,15 +399,14 @@ namespace TraceShot.Services
             return _currentBookmarks;
         }
 
-        public BookMark? AddBookmark(string note = " - Screenshot")
+        public Bookmark? AddBookmark(string note = " - Screenshot")
         {
             if (_stopwatch.IsRunning)
             {
-                var elapsed = _stopwatch.Elapsed;
-                string timestamp = elapsed.ToString(@"mm\:ss\.fff");
-                var bm = new BookMark
+                var bm = new Bookmark
                 {
                     Time = _stopwatch.Elapsed,
+                    Icon = "📌",
                     Note = note,
                 };
                 _currentBookmarks.Add(bm);

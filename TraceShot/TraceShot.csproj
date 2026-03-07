@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -24,6 +24,7 @@
     <PackageReference Include="NHotkey.Wpf" Version="4.0.0" />
     <PackageReference Include="PuppeteerSharp" Version="21.1.1" />
     <PackageReference Include="ScreenRecorderLib" Version="6.6.0" />
+    <PackageReference Include="System.Speech" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup>

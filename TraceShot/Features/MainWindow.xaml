@@ -71,7 +71,41 @@
 
         <ListBox x:Name="BookmarkListBox" Grid.Column="1" Grid.Row="1" Margin="1" 
                  SelectionMode="Extended"
-                 SelectionChanged="BookmarkListBox_SelectionChanged" />
+                 SelectionChanged="BookmarkListBox_SelectionChanged">
+
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Border x:Name="ItemBorder" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="3" Padding="5">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Icon}" Foreground="Black" />
+                            <TextBlock Text=" " />
+                            <TextBlock Text="{Binding Time, StringFormat=\{0:mm\\:ss\}}" />
+                            <TextBlock Text=" - " />
+                            <TextBlock Text="{Binding Note}" Foreground="Black" />
+                        </StackPanel>
+                    </Border>
+
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsListening}" Value="True">
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard x:Name="BlinkStoryboard">
+                                    <Storyboard>
+                                        <ColorAnimation 
+                                Storyboard.TargetName="ItemBorder"
+                                Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
+                                From="Transparent" To="#50FF0000" 
+                                Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <StopStoryboard BeginStoryboardName="BlinkStoryboard" />
+                            </DataTrigger.ExitActions>
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
 
         <Grid Grid.Column="1" Grid.Row="2" Margin="5">
             <Grid.RowDefinitions>
@@ -149,7 +183,8 @@
                         </StackPanel>
                     </Button>
                     <Button x:Name="AddBookmarkButton" Content="📌 証跡追加" Click="AddBookmarkButton_Click" Width="100" Height="40" Margin="5"/>
-                    <Button x:Name="DeleteBookmarkButton" Content="🗑️ 証跡削除" Click="DeleteBookmarkButton_Click" Width="100" Margin="5" />
+                    <!--<Button x:Name="DeleteBookmarkButton" Content="🗑️ 証跡削除" Click="DeleteBookmarkButton_Click" Width="100" Margin="5" />-->
+                    <Button x:Name="VoiceMemoButton" Content="🎤 音声メモ" Click="VoiceMemoButton_Click" Width="100" Margin="5" />
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">

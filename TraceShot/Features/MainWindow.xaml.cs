@@ -28,6 +28,7 @@ using Point = System.Windows.Point;
 using TextBox = System.Windows.Controls.TextBox;
 using WpfPoint = System.Windows.Point; // WPFの座標
 using WpfRectangle = System.Windows.Shapes.Rectangle;
+using Windows.Media.SpeechRecognition;
 
 namespace TraceShot.Features
 {
@@ -37,9 +38,13 @@ namespace TraceShot.Features
 
     public partial class MainWindow : Window
     {
+        private SpeechRecognizer _winrtRecognizer;
         private SettingsService _setting = SettingsService.Instance;
         private bool _isPlaying = false;
         private bool _isRecording = false;
+        private bool _isListening = false;
+
+
         public RecorderManager RecorderMgr { get; private set; }  = new ();
 
         private string _currentVideoPath = "";
@@ -69,6 +74,8 @@ namespace TraceShot.Features
         public MainWindow()
         {
             InitializeComponent();
+
+            InitSpeechRecognition();
 
             DataContext = _setting;
 
@@ -642,7 +649,7 @@ namespace TraceShot.Features
             double offsetX = (containerW - dispW) / 2.0;
             double offsetY = (containerH - dispH) / 2.0;
 
-            if (BookmarkListBox.SelectedItem is BookMark selected)
+            if (BookmarkListBox.SelectedItem is Bookmark selected)
             {
                 // --- 1. 矩形 (MarkRects) の描画 ---
                 if (selected.MarkRects != null)
@@ -871,7 +878,7 @@ namespace TraceShot.Features
                 _isDrawing = false;
                 _currentRectangle = null;
 
-                BookMark? selectedBm = BookmarkListBox.SelectedItem as BookMark;
+                Bookmark? selectedBm = BookmarkListBox.SelectedItem as Bookmark;
                 if (selectedBm == null) return;
 
                 var mousePos = e.GetPosition(DrawingCanvas);
@@ -1236,7 +1243,7 @@ namespace TraceShot.Features
 
         private void ConfirmBalloon(WpfPoint start, WpfPoint end, string text)
         {
-            var selectedBm = BookmarkListBox.SelectedItem as BookMark;
+            var selectedBm = BookmarkListBox.SelectedItem as Bookmark;
 
             if (!string.IsNullOrWhiteSpace(text))
             {
@@ -1300,14 +1307,14 @@ namespace TraceShot.Features
             if (VideoPlayer.NaturalVideoWidth == 0) return;
 
             // --- 3. 【共通】ブックマークを探す、または自動作成する ---
-            var selectedBm = BookmarkListBox.SelectedItem as BookMark;
+            var selectedBm = BookmarkListBox.SelectedItem as Bookmark;
             TimeSpan currentTime = VideoPlayer.Position;
 
             // 現在選択中のブックマークがない、または再生時間とズレている場合に新規作成
             if (selectedBm == null || Math.Abs(selectedBm.Time.TotalSeconds - currentTime.TotalSeconds) > 0.1)
             {
                 // A. 既に登録されているブックマークの中に、現在の再生時間と一致するものがあるか探す
-                var existingBm = BookmarkListBox.Items.Cast<BookMark>()
+                var existingBm = BookmarkListBox.Items.Cast<Bookmark>()
                     .FirstOrDefault(b => Math.Abs(b.Time.TotalSeconds - currentTime.TotalSeconds) <= 0.1);
 
                 if (existingBm != null)
@@ -1319,10 +1326,11 @@ namespace TraceShot.Features
                 else
                 {
                     // B. 一致するものがなければ、新しくブックマークを登録する
-                    BookMark bookmark = new()
+                    Bookmark bookmark = new()
                     {
                         Time = currentTime,
-                        Note = " - Marking"
+                        Icon = "📝",
+                        Note = " - Marking",
                     };
 
                     // リストに追加して選択状態にする
@@ -1395,7 +1403,7 @@ namespace TraceShot.Features
             {
                 // 2. 選択された項目を一度別リストにコピーする
                 // (列挙中に元のコレクションを変更するとエラーになるため)
-                var bookmarks = BookmarkListBox.SelectedItems.Cast<BookMark>().ToList();
+                var bookmarks = BookmarkListBox.SelectedItems.Cast<Bookmark>().ToList();
 
                 foreach (var cp in bookmarks)
                 {
@@ -1665,9 +1673,10 @@ namespace TraceShot.Features
             string imagePath = Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
 
             // 4. ブックマークリストに追加
-            var bookmark = new BookMark
+            var bookmark = new Bookmark
             {
                 Time = currentTime,
+                Icon = "📌",
                 Note = "- Add",
                 ImagePath = imagePath
             };
@@ -1888,7 +1897,7 @@ namespace TraceShot.Features
         {
             try
             {
-                if (BookmarkListBox.SelectedItem is BookMark selected)
+                if (BookmarkListBox.SelectedItem is Bookmark selected)
                 {
                     VideoPlayer.Position = selected.Time;
                     PlayerPause(true);
@@ -1909,7 +1918,7 @@ namespace TraceShot.Features
 
         private void NoteEditBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (BookmarkListBox.SelectedItem is BookMark selected)
+            if (BookmarkListBox.SelectedItem is Bookmark selected)
             {
                 selected.Note = NoteEditBox.Text;
 
@@ -1965,7 +1974,7 @@ namespace TraceShot.Features
         }
         private void Marker_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (sender is FrameworkElement el && el.Tag is BookMark bm)
+            if (sender is FrameworkElement el && el.Tag is Bookmark bm)
             {
                 // 1. 動画をその時間にジャンプ
                 VideoPlayer.Position = bm.Time;
@@ -1982,6 +1991,69 @@ namespace TraceShot.Features
         private void BookmarkCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             UpdateBookmarkMarkers();
+        }
+
+        // 音声認識の初期化（コンストラクタなどで呼ぶ）
+        private async void InitSpeechRecognition()
+        {
+            try
+            {
+                // 日本語エンジンで初期化
+                _winrtRecognizer = new SpeechRecognizer(new Windows.Globalization.Language("ja-JP"));
+
+                // 文法のコンパイル（必須）
+                await _winrtRecognizer.CompileConstraintsAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("WinRT音声認識の初期化に失敗しました。");
+            }
+        }
+        
+        private async void VoiceMemoButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_isRecording) return;
+
+            // 「アスタリスク」音（情報音）を鳴らす
+            System.Media.SystemSounds.Beep.Play(); // 開始音
+
+
+            // 1. ブックマークを先行作成
+            var soundMemo = RecorderMgr.AddBookmark("音声入力待ち...");
+            if (soundMemo is null) return;
+            soundMemo.Icon = "🎤";
+            soundMemo.IsListening = true;
+
+            // UI側のリストとシークバーの▲を更新
+            BookmarkListBox.ScrollIntoView(soundMemo);
+            BookmarkListBox.Items.Add(soundMemo);
+            UpdateBookmarkMarkers();
+            try
+            {
+                // 2. 認識開始（Windows標準のUIを表示せずバックグラウンドで認識）
+                var result = await _winrtRecognizer.RecognizeAsync();
+
+                if (result.Status == SpeechRecognitionResultStatus.Success)
+                {
+                    soundMemo.Note = result.Text;
+                    Debug.WriteLine($"音声入力：{result.Text}");
+                }
+                else
+                {
+                    soundMemo.Note = "(認識失敗)";
+                    Debug.WriteLine($"音声入力：(認識失敗)");
+                }
+            }
+            catch (Exception ex)
+            {
+                soundMemo.Note = "(エラー発生)";
+            }
+            finally
+            {
+                soundMemo.IsListening = false;
+                System.Media.SystemSounds.Asterisk.Play();
+                UpdateBookmarkMarkers();
+            }
         }
     }
 }

@@ -1,9 +1,17 @@
-﻿namespace TraceShot.Models
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+
+namespace TraceShot.Models
 {
-    public class BookMark
+    public partial class Bookmark : ObservableObject
     {
         public TimeSpan Time { get; set; }
-        public string? Note { get; set; }
+
+        [ObservableProperty] private string? _icon;
+
+        [ObservableProperty] private string? _note;
+
+        [ObservableProperty]  private bool _isListening;
+
         public string? ImagePath { get; set; }
         public List<MarkRect> MarkRects { get; set; } = new();
 
