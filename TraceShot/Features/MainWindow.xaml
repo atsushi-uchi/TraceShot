@@ -75,51 +75,44 @@
 
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Border x:Name="IndicatorBorder" 
-                            Background="Transparent" 
-                            BorderThickness="0,0,0,2" 
-                            Padding="5">
-                        <Border.BorderBrush>
-                            <LinearGradientBrush x:Name="LineBrush" StartPoint="0,0.5" EndPoint="1,0.5">
-                                <GradientStop Color="Transparent" Offset="0.0" />
-                                <GradientStop x:Name="LightPoint" Color="Cyan" Offset="-0.2" />
-                                <GradientStop Color="Transparent" Offset="1.0" />
-                            </LinearGradientBrush>
-                        </Border.BorderBrush>
-
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Icon}" Foreground="Black" />
-                            <TextBlock Text=" " />
-                            <TextBlock Text="{Binding Time, StringFormat=\{0:mm\\:ss\}}" />
-                            <TextBlock Text=" - " />
-                            <TextBlock Text="{Binding Note}" Foreground="Black" />
+                    <Grid x:Name="ItemRoot" Margin="0,0,0,4">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,5,5,5">
+                            <TextBlock x:Name="IconTxt" Text="{Binding Icon}" Foreground="Black" />
+                            <TextBlock x:Name="SpaceTxt" Text=" " Foreground="Black" />
+                            <TextBlock x:Name="TimeTxt" Text="{Binding Time, StringFormat=\{0:mm\\:ss\}}" Foreground="Black" />
+                            <TextBlock x:Name="SepTxt" Text=" - " Foreground="Black" />
+                            <TextBlock x:Name="NoteTxt" Text="{Binding Note}" Foreground="Black" />
                         </StackPanel>
-                    </Border>
+                    </Grid>
 
                     <DataTemplate.Triggers>
                         <DataTrigger Binding="{Binding IsListening}" Value="True">
                             <DataTrigger.EnterActions>
-                                <BeginStoryboard x:Name="FlowStoryboardAction">
+                                <BeginStoryboard x:Name="RedBlink">
                                     <Storyboard>
-                                        <DoubleAnimation 
-                                Storyboard.TargetName="LightPoint"
-                                Storyboard.TargetProperty="Offset"
-                                From="-0.2" To="1.2" 
-                                Duration="0:0:1.2" RepeatBehavior="Forever" />
+                                        <ColorAnimation Storyboard.TargetName="IconTxt" Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)" From="Black" To="Red" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" />
+                                        <ColorAnimation Storyboard.TargetName="TimeTxt" Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)" From="Black" To="Red" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" />
+                                        <ColorAnimation Storyboard.TargetName="SepTxt" Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)" From="Black" To="Red" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" />
+                                        <ColorAnimation Storyboard.TargetName="NoteTxt" Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)" From="Black" To="Red" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" />
                                     </Storyboard>
                                 </BeginStoryboard>
                             </DataTrigger.EnterActions>
                             <DataTrigger.ExitActions>
-                                <StopStoryboard BeginStoryboardName="FlowStoryboardAction" />
+                                <StopStoryboard BeginStoryboardName="RedBlink" />
                             </DataTrigger.ExitActions>
                         </DataTrigger>
 
                         <DataTrigger Binding="{Binding IsListening}" Value="False">
-                            <Setter TargetName="IndicatorBorder" Property="BorderBrush" Value="Transparent" />
+                            <Setter TargetName="IconTxt" Property="Foreground" Value="Black" />
+                            <Setter TargetName="TimeTxt" Property="Foreground" Value="Black" />
+                            <Setter TargetName="SepTxt" Property="Foreground" Value="Black" />
+                            <Setter TargetName="NoteTxt" Property="Foreground" Value="Black" />
                         </DataTrigger>
                     </DataTemplate.Triggers>
                 </DataTemplate>
             </ListBox.ItemTemplate>
+
+
         </ListBox>
 
         <Grid Grid.Column="1" Grid.Row="2" Margin="5">
