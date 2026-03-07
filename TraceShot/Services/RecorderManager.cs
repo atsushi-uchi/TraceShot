@@ -450,7 +450,7 @@ namespace TraceShot.Services
             Evidence = new RecordingEvidence
             {
                 VideoFileName = CurrentVideoName,
-                RecordingDate = _actualStartTime,
+                RecordingDate = DateTime.Now,
                 Mode = mode,
                 Bookmarks = _currentBookmarks,
                 IsCropLocked =  IsCropLocked,
@@ -640,7 +640,7 @@ namespace TraceShot.Services
             _recorder.OnRecordingComplete += (s, e) => TraceLogs.Add("Window Recording Complete");
             _recorder.OnRecordingFailed += (s, e) => TraceLogs.Add("Window Recording Failed: " + e.Error);
 
-            _actualStartTime = DateTime.Now;
+            _actualStartTime = Evidence.RecordingDate;
             _currentBookmarks.Clear();
             _timer.Start();
             _stopwatch.Restart();

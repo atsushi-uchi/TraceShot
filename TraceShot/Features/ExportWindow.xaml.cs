@@ -153,33 +153,60 @@ namespace TraceShot.Features
             });
         }
 
-        private string GenerateHtmlFile(RecordingEvidence evidence)
+        private string GenerateHtmlFile(RecordingEvidence evidence, bool isPdf = false)
         {
             var sb = new StringBuilder();
 
-            // --- HTML ヘッダー・スタイル部分は変更なし ---
-            sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
-            sb.AppendLine("<title>エビデンス報告書</title>");
-            sb.AppendLine("<style>");
-            sb.AppendLine("body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }");
-            sb.AppendLine(".container { max-width: 98%; margin: auto; background: white; padding: 20px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }");
-            sb.AppendLine("table { width: 100%; border-collapse: collapse; }");
-            sb.AppendLine(".col-time { width: 80px; text-align: center; }");
-            sb.AppendLine(".col-note { width: 150px; }");
-            sb.AppendLine("th, td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }");
-            sb.AppendLine("th { background-color: #4472C4; color: white; }");
-
-            sb.AppendLine(".ss-image { width: 100%; height: auto; display: block; border: 1px solid #ccc; }");
-            sb.AppendLine("</style></head><body><div class='container'>");
-
-            sb.AppendLine("<table>");
-            sb.AppendLine("<tr><th class='col-time'>経過時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr>");
-
+            if (isPdf)
+            {
+                // --- PDF用L ヘッダー ---
+                sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
+                sb.AppendLine("<title>エビデンス報告書</title>");
+                sb.AppendLine("<style>");
+                sb.AppendLine("body { font-family: sans-serif; margin: 0; padding: 0; background: #f0f2f5; }");
+                sb.AppendLine(".container { width: 100%; margin: 0; background: white; padding: 10px; box-sizing: border-box; }");
+                sb.AppendLine("table { width: 100%; border-collapse: collapse; table-layout: fixed; }"); // table-layout: fixed が重要
+                sb.AppendLine(".col-time { width: 100px; text-align: center; font-size: 0.9em; }");
+                sb.AppendLine(".col-note { width: 150px; word-wrap: break-word; }");
+                sb.AppendLine(".col-ss { width: auto; }");
+                sb.AppendLine("th, td { border: 1px solid #dee2e6; padding: 8px; vertical-align: top; }");
+                sb.AppendLine("th { background-color: #4472C4; color: white; }");
+                sb.AppendLine(".ss-image { width: 100%; height: auto; display: block; }");
+                sb.AppendLine("@media print {");
+                sb.AppendLine("  body { background: white; }");
+                sb.AppendLine("  .container { padding: 0; box-shadow: none; }");
+                sb.AppendLine("  th { -webkit-print-color-adjust: exact; }");
+                sb.AppendLine("}");
+                sb.AppendLine("</style></head><body><div class='container'>");
+                sb.AppendLine("<table>");
+                sb.AppendLine("<thead><tr><th class='col-time'>実行時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr></thead>");
+                sb.AppendLine("<tbody>");
+            }
+            else
+            {
+                // --- HTML ヘッダー ---
+                sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
+                sb.AppendLine("<title>エビデンス報告書</title>");
+                sb.AppendLine("<style>");
+                sb.AppendLine("body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }");
+                sb.AppendLine(".container { max-width: 98%; margin: auto; background: white; padding: 20px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }");
+                sb.AppendLine("table { width: 100%; border-collapse: collapse; }");
+                sb.AppendLine(".col-time { width: 80px; text-align: center; }");
+                sb.AppendLine(".col-note { width: 150px; }");
+                sb.AppendLine("th, td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }");
+                sb.AppendLine("th { background-color: #4472C4; color: white; }");
+                sb.AppendLine(".ss-image { width: 100%; height: auto; display: block; border: 1px solid #ccc; }");
+                sb.AppendLine("</style></head><body><div class='container'>");
+                sb.AppendLine("<table>");
+                sb.AppendLine("<tr><th class='col-time'>実行時間</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr>");
+            }
+            var startAt = evidence.RecordingDate;
             // --- データ行部分の修正：ここがポイント ---
             foreach (var bm in evidence.Bookmarks)
             {
+                var timestamp = startAt.Add(bm.Time);
                 sb.AppendLine("<tr>");
-                sb.AppendLine($"<td class='col-time'>{bm.Time}</td>");
+                sb.AppendLine($"<td class='col-time'>{timestamp:yyyy/MM/dd<br/>hh:mm:ss.fff}</td>");
                 sb.AppendLine($"<td class='col-note'>{bm.Note}</td>");
 
                 // 画像ファイルを読み込んで Base64 に変換
@@ -251,7 +278,7 @@ namespace TraceShot.Features
                 Dispatcher.Invoke(() => StatusText.Text = "一時レポートを作成中...");
                 string htmlContent = "";
                 await Task.Run(() => {
-                    htmlContent = GenerateHtmlFile(evidence);
+                    htmlContent = GenerateHtmlFile(evidence, true);
                 });
                 progress.Report((total + 1) * 100 / (total + 2));
 
@@ -303,6 +330,9 @@ namespace TraceShot.Features
                     // "file:///" はスラッシュ3つが確実です
                     await page.GoToAsync("file:///" + htmlPath.Replace("\\", "/"));
 
+                    // 画面表示モード
+                    await page.EmulateMediaTypeAsync(MediaType.Screen);
+
                     // 💡 念のため、画像などの読み込み完了を少し待つ
                     await page.WaitForNetworkIdleAsync();
 
@@ -311,13 +341,6 @@ namespace TraceShot.Features
                     {
                         Format = PaperFormat.A4,
                         PrintBackground = true, // 背景色やヘッダーの色を出す
-                        MarginOptions = new MarginOptions
-                        {
-                            Top = "10mm",
-                            Bottom = "10mm",
-                            Left = "10mm",
-                            Right = "10mm"
-                        }
                     });
                 }
             }
@@ -399,7 +422,7 @@ namespace TraceShot.Features
                     var ws = workbook.Worksheets.Add(sheetName);
 
                     // 2. テキスト情報の配置
-                    ws.Cell(1, 1).Value = "経過時間";
+                    ws.Cell(1, 1).Value = "タイムスタンプ";
                     ws.Cell(1, 2).Value = bm.Time;
                     ws.Cell(2, 1).Value = "コメント";
                     ws.Cell(2, 2).Value = bm.Note;
