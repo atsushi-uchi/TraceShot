@@ -18,7 +18,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
                         <Grid>
-                            <Rectangle x:Name="Back" RadiusX="10" RadiusY="10" Fill="#D0D0D0" Stroke="#BCBCBC" StrokeThickness="1"/>
+                            <Rectangle x:Name="Back" RadiusX="10" RadiusY="10" Fill="#999999" Stroke="#BCBCBC" StrokeThickness="1"/>
 
                             <Ellipse x:Name="Dot" Width="16" Height="16" Fill="White" HorizontalAlignment="Left" Margin="2">
                                 <Ellipse.Effect>
@@ -333,9 +333,20 @@
                     </TextBlock>
 
                     <ToggleButton x:Name="ModeToggleButton" 
-                      Cursor="Hand"
-                      IsChecked="{Binding IsPlayerMode, Mode=TwoWay}"
-                      Style="{StaticResource StandardToggleSwitchStyle}"/>
+                                  Cursor="Hand"
+                                  IsChecked="{Binding IsPlayerMode, Mode=TwoWay}">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton" BasedOn="{StaticResource StandardToggleSwitchStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRecording, Source={x:Static service:RecManager.Instance}}" Value="True">
+                                        <Setter Property="IsEnabled" Value="False" />
+                                        <Setter Property="Opacity" Value="0.5" />
+                                        <Setter Property="ToolTip" Value="録画中はモードを切り替えられません" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
 
                     <TextBlock Text="再生" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11">
                         <TextBlock.Style>
