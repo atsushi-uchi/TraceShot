@@ -912,33 +912,26 @@ namespace TraceShot.Features
         {
             if (e.ChangedButton == MouseButton.Right)
             {
-                // ⭐ 最優先：入力中（TextBoxがある）なら、キャンセルして即座に抜ける
+                // 最優先：入力中（TextBoxがある）なら、キャンセルして即座に抜ける
                 if (_activeBalloonInput != null)
                 {
                     CancelBalloonInput();
                     e.Handled = true;
-                    return; // 💡 これより下の「削除ロジック」には行かせない！
+                    return;
                 }
-
-                // --- 既存の削除ロジック（ここからは入力中でない時だけ実行される） ---
                 _isDrawing = false;
-                // ... (以下、selectedBm.Balloons から RemoveAt するループなど) ...
             }
-            // 💡 吹き出し入力中に、TextBox以外を左クリックしたら確定
+            // 吹き出し入力中に、TextBox以外を左クリックしたら確定
             if (_activeBalloonInput != null)
             {
-                // クリックされたのが TextBox 本人でないことを確認
                 if (!Equals(e.OriginalSource, _activeBalloonInput) && e.LeftButton == MouseButtonState.Pressed)
                 {
-                    // 保存しておいた座標を使って確定！
                     ConfirmBalloon(_startPoint, _endPoint, _activeBalloonInput.Text);
-
-                    // 💡 確定後は TextBox を消すので、ここでの処理は終了
                     e.Handled = true;
                     return;
                 }
             }
-            // 💡 1. 右クリック：削除処理
+            // 右クリック：削除処理
             if (e.ChangedButton == MouseButton.Right)
             {
                 _isDrawing = false;
@@ -989,6 +982,11 @@ namespace TraceShot.Features
                 {
                     var r = selectedBm.MarkRects[i];
                     var absRect = new Rect(r.X * dispW + offsetX, r.Y * dispH + offsetY, r.Width * dispW, r.Height * dispH);
+
+                    if (r.IsCropArea && RecManager.Instance.Evidence.IsCropLocked)
+                    {
+                        continue;
+                    }
 
                     if (absRect.Contains(mousePos))
                     {
