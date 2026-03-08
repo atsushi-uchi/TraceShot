@@ -126,6 +126,29 @@ namespace TraceShot.Features
             {
                 Dispatcher.Invoke(() => _setting.IsPlayerMode = true);
             };
+
+            _setting.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(SettingsService.IsPlayerMode))
+                {
+                    // 録画モード（IsPlayerMode == false）に切り替わった場合
+                    if (_setting.IsPlayerMode)
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            RefreshCanvas();
+                            RefreshBookmarkCanvas();
+                        });
+                    }
+                    else
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            DrawingCanvas.Children.Clear();
+                        });
+                    }
+                }
+            };
         }
 
         private void ApplyCurrentSettings()
