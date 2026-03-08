@@ -29,7 +29,6 @@
                 <MenuItem Header="終了(_X)" Click="Exit_Click" />
             </MenuItem>
             <MenuItem Header="設定(_P)" Click="OpenSettings_Click" />
-            <MenuItem Header="証跡クリア" Click="ClearBookmark_Click" />
             <MenuItem Header="モード(_M)">
                 <MenuItem x:Name="RecordModeMenuItem" Header="録音モード" IsCheckable="True" IsChecked="True" Click="SwitchToRecordMode_Click"/>
                 <MenuItem x:Name="PlayerModeMenuItem" Header="再生モード" IsCheckable="True" IsChecked="False" Click="SwitchToPlayerMode_Click"/>
@@ -70,7 +69,8 @@
                         <RowDefinition Height="180" />
                     </Grid.RowDefinitions>
 
-                    <ListBox x:Name="BookmarkListBox" Grid.Row="0" Margin="2" SelectionChanged="BookmarkListBox_SelectionChanged">
+                    <ListBox x:Name="BookmarkListBox" Grid.Row="0" Margin="2" SelectionChanged="BookmarkListBox_SelectionChanged"
+                             SelectionMode="Extended">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="5,2">
@@ -113,57 +113,49 @@
                 </Grid>
             </Border>
         </Grid>
+        
+        <!-- コントロールエリア -->
+        <Border Grid.Row="2" Height="60" Background="White" BorderBrush="#DDD" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid x:Name="RecordingTimerArea" Visibility="Visible">
+                    <Grid VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="100" />
+                        </Grid.ColumnDefinitions>
 
-        <Grid x:Name="RecordingTimerArea" Grid.Row="2" Height="60" Background="#E0E0E0" Visibility="Collapsed">
-            <Grid HorizontalAlignment="Center">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="100" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="100" />
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="0" Text="● REC" Foreground="Red" FontWeight="Bold" FontSize="20" 
+                        <TextBlock Grid.Column="0" Text="● REC" Foreground="Red" FontWeight="Bold" FontSize="20" 
                            VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,15,0">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsRecording, Source={x:Static service:RecManager.Instance}}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                    <DataTrigger.EnterActions>
-                                        <BeginStoryboard x:Name="BlinkStoryboard">
-                                            <Storyboard RepeatBehavior="Forever">
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0" Duration="0:0:0.5" AutoReverse="True"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                    <DataTrigger.ExitActions>
-                                        <StopStoryboard BeginStoryboardName="BlinkStoryboard"/>
-                                    </DataTrigger.ExitActions>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRecording, Source={x:Static service:RecManager.Instance}}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
 
-                <TextBlock x:Name="BigRecordingTimerText" Grid.Column="1" 
+                        <TextBlock x:Name="BigRecordingTimerText" Grid.Column="1" 
                            Text="{Binding RecordingTime, Source={x:Static service:RecManager.Instance}}"
                            FontFamily="Consolas" FontSize="40" FontWeight="Bold" VerticalAlignment="Center"/>
-            </Grid>
-        </Grid>
+                    </Grid>
+                </Grid>
 
-        <Border Grid.Row="3" Background="White" Padding="10" BorderBrush="#DDD" BorderThickness="0,1,0,0">
-            <StackPanel>
-                <StackPanel x:Name="PlayerControlsArea" Visibility="Collapsed" Margin="0,0,0,10">
-                    <TextBlock x:Name="TimeText" Text="00:00 / 00:00" HorizontalAlignment="Right" FontSize="11" Margin="0,0,10,2"/>
-                    <Slider x:Name="TimelineSlider" Margin="10,0" 
-        Minimum="0" 
-        Maximum="{Binding VideoDurationTotalSeconds}" 
-        Value="{Binding CurrentPositionSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-        Thumb.DragStarted="Slider_DragStarted" 
-        Thumb.DragCompleted="Slider_DragCompleted" 
-        ValueChanged="Slider_ValueChanged" 
-        PreviewMouseMove="Slider_PreviewMouseMove">
+                <StackPanel x:Name="PlayerControlsArea" Visibility="Collapsed" VerticalAlignment="Center">
+                    <TextBlock x:Name="TimeText" Text="00:00 / 00:00" HorizontalAlignment="Right" FontSize="11" Margin="0,0,20,2"/>
+
+                    <Slider x:Name="TimelineSlider" Margin="20,0" 
+                            Minimum="0" 
+                            Maximum="{Binding VideoDurationTotalSeconds}" 
+                            Value="{Binding CurrentPositionSeconds, Mode=TwoWay}"
+                            Thumb.DragStarted="Slider_DragStarted" 
+                            Thumb.DragCompleted="Slider_DragCompleted" 
+                            ValueChanged="Slider_ValueChanged" 
+                            PreviewMouseMove="Slider_PreviewMouseMove">
                         <Slider.ToolTip>
                             <ToolTip x:Name="SliderToolTip">
                                 <TextBlock x:Name="ToolTipText" Text="00:00.000" FontWeight="Bold" />
@@ -172,41 +164,42 @@
                     </Slider>
                     <Canvas x:Name="BookmarkCanvas" Height="10" Margin="10,-2,10,0" Background="Transparent" />
                 </StackPanel>
-
-                <Grid>
-                    <StackPanel x:Name="RecordingPanel" Orientation="Horizontal" Visibility="Visible">
-                        <Button x:Name="RecordingButton" Click="RecordingButton_Click" Padding="15,5" Margin="10,0,5,0" Width="100">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock x:Name="RecordingIcon" Text="●" Foreground="Red" Margin="0,0,5,0"/>
-                                <TextBlock x:Name="RecordingText" Text="録画開始"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Click="AddBookmarkWhileRecording_Click" Content="📌 証跡追加" Padding="10,5" Margin="0,0,5,0" Width="100"/>
-                        <Button Click="AddVoiceMemoRecording_Click" Content="🎤 音声メモ" Padding="10,5" Margin="0,0,5,0" Width="100"/>
-                        <TextBlock Text="録画範囲：" VerticalAlignment="Center" Margin="5,0"/>
-                        <ComboBox x:Name="ModeComboBox" VerticalAlignment="Center" SelectedIndex="0" Margin="0,0,0,0" Width="90" Height="Auto" >
-                            <ComboBoxItem Content="画面全体"/>
-                            <ComboBoxItem Content="矩形選択"/>
-                            <ComboBoxItem Content="ウインドウ"/>
-                        </ComboBox>
-                        <Button x:Name="SelectRegionButton" Content="範囲選択" Click="SelectRegionButton_Click" Margin="0,0,10,0" Width="70" Height="22"/>
-                    </StackPanel>
-
-                    <StackPanel x:Name="PlayerPanel" Orientation="Horizontal" Visibility="Collapsed">
-                        <CheckBox x:Name="StopAtBookmarkCheckBox" Content="ポイント停止" IsChecked="True" VerticalAlignment="Center" Margin="10,0"/>
-                        <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click" Padding="15,5" Margin="10,0,5,0" Width="100">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock x:Name="PlayPauseIcon" Text="▶" Margin="0,0,5,0"/>
-                                <TextBlock x:Name="PlayPauseText" Text="再生"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Click="AddBookmarkWhilePlaying_Click" Content="📝 証跡追加" Padding="10,5" Margin="0,0,5,0" Width="100"/>
-                        <Button Click="AddVoiceMemoWhilePlaying_Click" Content="💭 音声メモ" Padding="10,5" Margin="0,0,5,0" Width="100"/>
-                    </StackPanel>
-                </Grid>
-            </StackPanel>
+            </Grid>
         </Border>
+        <Border Grid.Row="3" Background="#F9F9F9" Padding="10" BorderBrush="#DDD" BorderThickness="0,1,0,0">
+            <Grid>
+                <StackPanel x:Name="RecordingPanel" Orientation="Horizontal" Visibility="Visible">
+                    <Button x:Name="RecordingButton" Click="RecordingButton_Click" Padding="15,5" Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="RecordingIcon" Text="●" Foreground="Red" Margin="0,0,5,0"/>
+                            <TextBlock x:Name="RecordingText" Text="録画開始"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Click="AddBookmarkWhileRecording_Click" Content="📌 証跡追加" Padding="10,5" Margin="0,0,5,0"/>
+                    <Button Click="AddVoiceMemoRecording_Click" Content="🎙 音声メモ" Padding="10,5" Margin="0,0,5,0"/>
+                    <TextBlock Text="録画範囲：" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                    <ComboBox x:Name="ModeComboBox" SelectedIndex="0" Width="100" Margin="0,0,10,0">
+                        <ComboBoxItem Content="画面全体"/>
+                        <ComboBoxItem Content="矩形選択"/>
+                        <ComboBoxItem Content="ウインドウ"/>
+                    </ComboBox>
+                    <Button x:Name="SelectRegionButton" Content="範囲選択" Click="SelectRegionButton_Click" Padding="10,5"/>
+                </StackPanel>
 
+                <StackPanel x:Name="PlayerPanel" Orientation="Horizontal" Visibility="Collapsed">
+                    <CheckBox x:Name="StopAtBookmarkCheckBox" Content="ポイント停止" IsChecked="True" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                    <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click" Padding="15,5" Margin="0,0,5,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="PlayPauseIcon" Text="▶" Margin="0,0,5,0"/>
+                            <TextBlock x:Name="PlayPauseText" Text="再生"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Click="AddBookmarkWhilePlaying_Click" Content="📝 証跡追加" Padding="10,5" Margin="0,0,5,0"/>
+                    <Button Click="AddVoiceMemoWhilePlaying_Click" Content="🎤 音声メモ" Padding="10,5" Margin="0,0,5,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
         <StatusBar Grid.Row="4" Background="#F0F0F0" BorderBrush="#CCC" BorderThickness="0,1,0,0">
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">

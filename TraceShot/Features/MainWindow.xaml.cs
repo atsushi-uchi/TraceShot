@@ -255,11 +255,6 @@ namespace TraceShot.Features
             System.Windows.Application.Current.Shutdown();
         }
 
-        // ブックマークをクリア
-        private void ClearBookmark_Click(object sender, RoutedEventArgs e)
-        {
-            BookmarkListBox.Items.Clear();
-        }
 
         private void SaveEvidence_Click(object? sender, RoutedEventArgs? e)
         {
