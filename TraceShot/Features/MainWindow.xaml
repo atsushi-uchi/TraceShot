@@ -11,18 +11,18 @@
         <TaskbarItemInfo x:Name="taskbarInfo" />
     </Window.TaskbarItemInfo>
     <Window.Resources>
-        <Style x:Key="ToggleSwitchStyle" TargetType="ToggleButton">
-            <Setter Property="Width" Value="45"/>
-            <Setter Property="Height" Value="22"/>
+        <Style x:Key="StandardToggleSwitchStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="20"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
                         <Grid>
-                            <Rectangle x:Name="Back" RadiusX="11" RadiusY="11" Fill="#FF4B4B"/>
+                            <Rectangle x:Name="Back" RadiusX="10" RadiusY="10" Fill="#D0D0D0" Stroke="#BCBCBC" StrokeThickness="1"/>
 
-                            <Ellipse x:Name="Dot" Width="18" Height="18" Fill="White" HorizontalAlignment="Left" Margin="2">
+                            <Ellipse x:Name="Dot" Width="16" Height="16" Fill="White" HorizontalAlignment="Left" Margin="2">
                                 <Ellipse.Effect>
-                                    <DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.3"/>
+                                    <DropShadowEffect BlurRadius="2" ShadowDepth="1" Opacity="0.2"/>
                                 </Ellipse.Effect>
                                 <Ellipse.RenderTransform>
                                     <TranslateTransform x:Name="Trans" X="0"/>
@@ -31,26 +31,17 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Back" Property="Fill" Value="#4CD964"/>
                                 <Trigger.EnterActions>
                                     <BeginStoryboard>
                                         <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="Trans" Storyboard.TargetProperty="X" To="23" Duration="0:0:0.15">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <QuadraticEase EasingMode="EaseOut"/>
-                                                </DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="Trans" Storyboard.TargetProperty="X" To="20" Duration="0:0:0.1"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.EnterActions>
                                 <Trigger.ExitActions>
                                     <BeginStoryboard>
                                         <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="Trans" Storyboard.TargetProperty="X" To="0" Duration="0:0:0.15">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <QuadraticEase EasingMode="EaseOut"/>
-                                                </DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="Trans" Storyboard.TargetProperty="X" To="0" Duration="0:0:0.1"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.ExitActions>
@@ -80,11 +71,7 @@
                 <MenuItem Header="終了(_X)" Click="Exit_Click" />
             </MenuItem>
             <MenuItem Header="設定(_P)" Click="OpenSettings_Click" />
-            <MenuItem Header="モード(_M)">
-                <MenuItem x:Name="RecordModeMenuItem" Header="録音モード" IsCheckable="True" IsChecked="True" Click="SwitchToRecordMode_Click"/>
-                <MenuItem x:Name="PlayerModeMenuItem" Header="再生モード" IsCheckable="True" IsChecked="False" Click="SwitchToPlayerMode_Click"/>
-            </MenuItem>
-            <MenuItem x:Name="DebugMenuItem" Header="デバッグ ON" IsCheckable="True" Click="DebugButton_Click" />
+            <!--<MenuItem x:Name="DebugMenuItem" Header="デバッグ ON" IsCheckable="True" Click="DebugButton_Click" />-->
         </Menu>
 
         <Grid Grid.Row="1">
@@ -95,19 +82,41 @@
 
             <Grid Grid.Column="0" Background="Black">
                 <MediaElement x:Name="VideoPlayer" 
-                      Visibility="Collapsed" 
                       Stretch="Uniform"
                       LoadedBehavior="Manual" 
                       UnloadedBehavior="Stop" 
                       ScrubbingEnabled="True"
                       MediaOpened="VideoPlayer_MediaOpened"
                       MediaFailed="VideoPlayer_MediaFailed"
-                      SizeChanged="DrawingCanvas_SizeChanged" />
-                <Canvas x:Name="DrawingCanvas" Background="#01FFFFFF" MouseDown="DrawingCanvas_MouseDown"
-                        SizeChanged="DrawingCanvas_SizeChanged"
+                      SizeChanged="DrawingCanvas_SizeChanged" >
+                    <MediaElement.Style>
+                        <Style TargetType="MediaElement">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </MediaElement.Style>
+                </MediaElement>
+                <Canvas x:Name="DrawingCanvas" Background="#01FFFFFF" 
+                        MouseDown="DrawingCanvas_MouseDown"
                         MouseMove="DrawingCanvas_MouseMove"
-                        MouseUp="DrawingCanvas_MouseUp" />                        
-                <Grid x:Name="RecordingOverlay" Visibility="Visible">
+                        MouseUp="DrawingCanvas_MouseUp" 
+                        SizeChanged="DrawingCanvas_SizeChanged"/>
+
+                <Grid x:Name="RecordingOverlay">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
                     <Image x:Name="PreviewImage" Stretch="Uniform" />
                 </Grid>
             </Grid>
@@ -168,7 +177,17 @@
         <!-- コントロールエリア -->
         <Border Grid.Row="2" Height="60" Background="White" BorderBrush="#DDD" BorderThickness="0,1,0,0">
             <Grid>
-                <Grid x:Name="RecordingTimerArea" Visibility="Visible">
+                <StackPanel x:Name="RecordingTimerArea">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <Grid VerticalAlignment="Center" HorizontalAlignment="Center">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="100" />
@@ -206,9 +225,19 @@
                            Text="{Binding RecordingTime, Source={x:Static service:RecManager.Instance}}"
                            FontFamily="Consolas" FontSize="40" FontWeight="Bold" VerticalAlignment="Center"/>
                     </Grid>
-                </Grid>
+                </StackPanel>
 
-                <StackPanel x:Name="PlayerControlsArea" Visibility="Collapsed" VerticalAlignment="Center">
+                <StackPanel x:Name="PlayerControlsArea" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <TextBlock x:Name="TimeText" Text="00:00 / 00:00" HorizontalAlignment="Right" FontSize="11" Margin="0,0,20,2"/>
 
                     <Slider x:Name="TimelineSlider" Margin="20,0" 
@@ -231,7 +260,17 @@
         </Border>
         <Border Grid.Row="3" Background="#F9F9F9" Padding="10" BorderBrush="#DDD" BorderThickness="0,1,0,0">
             <Grid>
-                <StackPanel x:Name="RecordingPanel" Orientation="Horizontal" Visibility="Visible">
+                <StackPanel x:Name="RecordingPanel" Orientation="Horizontal">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <Button x:Name="RecordingButton" Click="RecordingButton_Click" Padding="15,5" Margin="0,0,10,0" Width="100">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock x:Name="RecordingIcon" Text="●" Foreground="Red" Margin="0,0,5,0"/>
@@ -249,7 +288,18 @@
                     <Button x:Name="SelectRegionButton" Content="範囲選択" Click="SelectRegionButton_Click" Padding="10,5"/>
                 </StackPanel>
 
-                <StackPanel x:Name="PlayerPanel" Orientation="Horizontal" Visibility="Collapsed">
+                <StackPanel x:Name="PlayerPanel" Orientation="Horizontal">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
                     <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click" Padding="15,5" Margin="0,0,10,0" Width="100">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock x:Name="PlayPauseIcon" Text="▶" Margin="0,0,5,0"/>
@@ -264,17 +314,46 @@
         </Border>
         
         <StatusBar Grid.Row="4" Background="#F0F0F0" BorderBrush="#CCC" BorderThickness="0,1,0,0">
+
             <StatusBarItem Margin="5,0">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="録画" VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11" Foreground="#555"/>
+                    <TextBlock Text="録画" VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#888"/>
+                                <Setter Property="FontWeight" Value="Normal"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=ModeToggleButton}" Value="False">
+                                        <Setter Property="Foreground" Value="Red"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
                     <ToggleButton x:Name="ModeToggleButton" 
-                          Cursor="Hand"
-                          IsChecked="{Binding IsPlayerMode, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}"
-                          Click="ModeToggleButton_Click"
-                          Style="{StaticResource ToggleSwitchStyle}"/>
-                    <TextBlock Text="再生" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11" Foreground="#555"/>
+                      Cursor="Hand"
+                      IsChecked="{Binding IsPlayerMode, Mode=TwoWay}"
+                      Style="{StaticResource StandardToggleSwitchStyle}"/>
+
+                    <TextBlock Text="再生" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#888"/>
+                                <Setter Property="FontWeight" Value="Normal"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=ModeToggleButton}" Value="True">
+                                        <Setter Property="Foreground" Value="#4CD964"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </StatusBarItem>
+
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="📁 保存先: " Foreground="#555"/>

@@ -39,49 +39,13 @@ namespace TraceShot.Features
 
     public partial class MainWindow : Window
     {
-        private bool _isRecordMode = true;
-
-        public bool IsRecordMode
-        {
-            get => _isRecordMode;
-            set
-            {
-                _isRecordMode = value;
-                UpdateModeUI(); // 💡 値が変わったらUIを強制更新する
-            }
-        }
-
-        // 💡 モードに合わせてコントロールの表示・非表示を一括制御
         private void UpdateModeUI()
         {
-            if (_isRecordMode)
-            {
-                VideoPlayer.Visibility = Visibility.Collapsed;
-                PlayerPanel.Visibility = Visibility.Collapsed;
-                PlayerControlsArea.Visibility = Visibility.Collapsed;
-
-                RecordingOverlay.Visibility = Visibility.Visible;
-                RecordingTimerArea.Visibility = Visibility.Visible;
-                RecordingPanel.Visibility = Visibility.Visible;
-                RecordModeMenuItem.IsChecked = true;
-                PlayerModeMenuItem.IsChecked = false;
-            }
-            else
-            {
-                VideoPlayer.Visibility = Visibility.Visible;
-                PlayerPanel.Visibility = Visibility.Visible;
-                PlayerControlsArea.Visibility = Visibility.Visible;
-
-                RecordingOverlay.Visibility = Visibility.Collapsed;
-                RecordingTimerArea.Visibility = Visibility.Collapsed;
-                RecordingPanel.Visibility = Visibility.Collapsed;
-                RecordModeMenuItem.IsChecked = false;
-                PlayerModeMenuItem.IsChecked = true;
-            }
+            Debug.WriteLine("UpdateModeUI()");
         }
 
         private SpeechRecognizer? _winrtRecognizer;
-        private SettingsService _setting = SettingsService.Instance;
+        private readonly SettingsService _setting = SettingsService.Instance;
         private bool _isPlaying = false;
         private bool _isRecording = false;
         private bool _isInternalSelectionChange = false;
@@ -160,11 +124,7 @@ namespace TraceShot.Features
 
             RecManager.Instance.OnRecordingStopped = () =>
             {
-                // UIスレッドで実行する必要があるため Dispatcher を使用
-                Dispatcher.Invoke(() =>
-                {
-                    IsRecordMode = false;
-                });
+                Dispatcher.Invoke(() => _setting.IsPlayerMode = true);
             };
         }
 
@@ -309,8 +269,6 @@ namespace TraceShot.Features
                             {
                                 // 4. 再生準備
                                 VideoPlayer.Source = new Uri(videoPath);
-                                VideoPlayer.Visibility = Visibility.Visible;
-                                RecordingOverlay.Visibility = Visibility.Collapsed;
 
                                 PlayerPause(true);
 
@@ -331,7 +289,7 @@ namespace TraceShot.Features
                                     }
                                 }
                                 RefreshBookmarkCanvas();
-                                IsRecordMode = false;
+                                _setting.IsPlayerMode = true;
 
                                 // 選択状態の管理
                                 if (RecManager.Instance.Bookmarks.Count > 0)
@@ -1509,8 +1467,6 @@ namespace TraceShot.Features
             // 3. ユーザーへの通知
             MessageBox.Show(errorMessage, "再生エラー", MessageBoxButton.OK, MessageBoxImage.Error);
 
-            // 4. UIの状態をリセット
-            VideoPlayer.Visibility = Visibility.Collapsed;
             // 必要に応じて代替のプレビュー画像などを表示
             PreviewImage.Source = null;
         }
@@ -1664,7 +1620,6 @@ namespace TraceShot.Features
                 }
             }
         }
-
 
         private void PlayPauseButton_Click(object? sender, RoutedEventArgs? e)
         {
@@ -2163,26 +2118,15 @@ namespace TraceShot.Features
             }
         }
 
-        private void SwitchToRecordMode_Click(object sender, RoutedEventArgs e)
-        {
-            IsRecordMode = true;
-        }
-
-        private void SwitchToPlayerMode_Click(object sender, RoutedEventArgs e)
-        {
-            IsRecordMode = false;
-        }
         private void ModeToggleButton_Click(object sender, RoutedEventArgs e)
         {
             if (ModeToggleButton.IsChecked == true)
             {
-                // 再生モードへ
-                SwitchToPlayerMode_Click(sender, e);
+                _setting.IsPlayerMode = true;
             }
             else
             {
-                // 録画モードへ
-                SwitchToRecordMode_Click(sender, e);
+                _setting.IsPlayerMode = false;
             }
         }
     }

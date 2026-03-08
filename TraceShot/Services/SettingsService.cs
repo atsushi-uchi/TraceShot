@@ -10,6 +10,8 @@ namespace TraceShot.Services
         private static readonly SettingsService _instance = new();
         public static SettingsService Instance => _instance;
 
+        [ObservableProperty] private bool _isPlayerMode = false;
+
         [ObservableProperty] private bool _isVoiceEnabled = false;
 
         // --- Colors (Source of truth) ---
@@ -103,6 +105,11 @@ namespace TraceShot.Services
             Default.CropFillColorName = CropFillColor.ToString();
             Default.IsVoiceEnabled = IsVoiceEnabled;
             Default.Save(); // 物理ファイルへ書き込み
+        }
+        partial void OnIsPlayerModeChanged(bool value)
+        {
+            // 必要であればここでログ出力やモード切替時の共通処理を行う
+            System.Diagnostics.Debug.WriteLine($"Mode changed to: {(value ? "Player" : "Record")}");
         }
     }
 }
