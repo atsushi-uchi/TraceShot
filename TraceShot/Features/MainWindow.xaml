@@ -175,7 +175,7 @@
         </Grid>
         
         <!-- コントロールエリア -->
-        <Border Grid.Row="2" Height="60" Background="White" BorderBrush="#DDD" BorderThickness="0,1,0,0">
+        <Border Grid.Row="2" Height="60" Background="LightGray" BorderBrush="#DDD" BorderThickness="0,1,0,0">
             <Grid>
                 <StackPanel x:Name="RecordingTimerArea">
                     <StackPanel.Style>
@@ -240,13 +240,15 @@
                     </StackPanel.Style>
                     <TextBlock x:Name="TimeText" Text="00:00 / 00:00" HorizontalAlignment="Right" FontSize="11" Margin="0,0,20,2"/>
 
-                    <Slider x:Name="TimelineSlider" Margin="20,0" 
+                    <Slider x:Name="TimelineSlider" Margin="20,0"
+                            IsMoveToPointEnabled ="True"
                             Minimum="0" 
                             Maximum="{Binding VideoDurationTotalSeconds}" 
-                            Value="{Binding CurrentPositionSeconds, Mode=TwoWay}"
+                            Value="{Binding CurrentPositionSeconds}"
                             Thumb.DragStarted="Slider_DragStarted" 
                             Thumb.DragCompleted="Slider_DragCompleted" 
                             ValueChanged="Slider_ValueChanged" 
+                            PreviewMouseLeftButtonUp="Slider_PreviewMouseLeftButtonUp"
                             PreviewMouseMove="Slider_PreviewMouseMove">
                         <Slider.ToolTip>
                             <ToolTip x:Name="SliderToolTip">

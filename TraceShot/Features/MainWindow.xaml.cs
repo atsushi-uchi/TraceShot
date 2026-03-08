@@ -1547,10 +1547,9 @@ namespace TraceShot.Features
 
         private void Timer_Tick(object? sender, EventArgs e)
         {
-            if (!_isDragging && VideoPlayer.NaturalDuration.HasTimeSpan)
+            if (!_isDragging)
             {
                 TimelineSlider.Maximum = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
-                TimelineSlider.Value = VideoPlayer.Position.TotalSeconds;
             }
         }
 
@@ -1646,7 +1645,7 @@ namespace TraceShot.Features
 
         private void PlayPauseButton_Click(object? sender, RoutedEventArgs? e)
         {
-            ClearMarkRectangle(); // 再生が始まったら描画を消す
+            //ClearMarkRectangle(); // 再生が始まったら描画を消す
             if (_isPlaying)
             {
                 PlayerPause(false);
@@ -1666,7 +1665,7 @@ namespace TraceShot.Features
 
         public void PlayerPause(bool withReflash)
         {
-            ClearMarkRectangle(); // 再生が始まったら描画を消す
+            //ClearMarkRectangle(); // 再生が始まったら描画を消す
             if (withReflash) VideoPlayer.Play();
 
             // 一時停止処理
@@ -1773,7 +1772,6 @@ namespace TraceShot.Features
 
             StatusText.Text = "保存完了";
 
-            //_recordingTimer.Stop();
             _playerTimer.Start();
 
             VideoPlayer.Source = new Uri(_currentVideoPath);
@@ -2150,6 +2148,18 @@ namespace TraceShot.Features
             else
             {
                 _setting.IsPlayerMode = false;
+            }
+        }
+
+        private void Slider_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            var slider = sender as Slider;
+            if (slider != null)
+            {
+                var pos = TimeSpan.FromSeconds(slider.Value);
+                VideoPlayer.Position = pos;
+                PlayerPause(false);
+                StatusText.Text = $"Seek: {pos}";
             }
         }
     }
