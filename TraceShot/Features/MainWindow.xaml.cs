@@ -42,6 +42,7 @@ namespace TraceShot.Features
         private SettingsService _setting = SettingsService.Instance;
         private bool _isPlaying = false;
         private bool _isRecording = false;
+        private bool _isInternalSelectionChange = false;
 
         public RecorderManager RecorderMgr { get; private set; }  = new ();
 
@@ -1536,6 +1537,46 @@ namespace TraceShot.Features
                 PlayerPause(true);
                 BookmarkListBox.SelectedItem = null;
             }
+            else
+            {
+                double currentSec = VideoPlayer.Position.TotalSeconds;
+
+                // 前方誤差 -0.1s ～ 後方誤差 0.3s
+                var targetBookmark = RecorderMgr.Evidence.Bookmarks.FirstOrDefault(bm =>
+                {
+                    double bmSec = bm.Time.TotalSeconds;
+                    double diff = currentSec - bmSec;
+                    return diff >= -0.1 && diff < 0.3;
+                });
+
+                if (targetBookmark != null)
+                {
+                    // マッチするブックマークがあれば選択
+                    if (BookmarkListBox.SelectedItem != targetBookmark)
+                    {
+                        _isInternalSelectionChange = true;
+                        BookmarkListBox.SelectedItem = targetBookmark;
+                        BookmarkListBox.ScrollIntoView(targetBookmark);
+                        _isInternalSelectionChange = false;
+
+                        // チェックボックスがONなら停止、OFFならそのまま再生
+                        if (StopAtBookmarkCheckBox.IsChecked == true)
+                        {
+                            PlayerPause(true);
+                            StatusText.Text = $"停止（ブックマーク）: {targetBookmark.Time}";
+                        }
+                    }
+                }
+                else
+                {
+                    // 2. どのブックマークの位置でもなければ、選択を解除する
+                    if (BookmarkListBox.SelectedItem != null)
+                    {
+                        BookmarkListBox.SelectedItem = null;
+                    }
+                }
+            }
+
             RefreshCanvas();
         }
 
@@ -1898,21 +1939,17 @@ namespace TraceShot.Features
 
         private void BookmarkListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            try
+            if (BookmarkListBox.SelectedItem is Bookmark selected)
             {
-                if (BookmarkListBox.SelectedItem is Bookmark selected)
+                if (!_isInternalSelectionChange)
                 {
                     VideoPlayer.Position = selected.Time;
                     PlayerPause(true);
-
                     StatusText.Text = $"Seek: {selected.Time}";
-                    RefreshCanvas();
-                    RefreshBookmarkCanvas();
                 }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Error: " + ex.Message);
+
+                RefreshCanvas();
+                RefreshBookmarkCanvas();
             }
         }
 

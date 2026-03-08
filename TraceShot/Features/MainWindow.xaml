@@ -204,6 +204,14 @@
                             <TextBlock x:Name="PlayPauseText" Text="再生"/>
                         </StackPanel>
                     </Button>
+                    <StackPanel Orientation="Horizontal" Margin="10,5">
+                        <CheckBox x:Name="StopAtBookmarkCheckBox" 
+                              Content="ポイント停止" 
+                              IsChecked="True" 
+                              VerticalAlignment="Center" 
+                              Foreground="Black"
+                              Margin="0,0,10,0"/>
+                    </StackPanel>
                     <Button x:Name="AddBookmarkButton" Content="📌 証跡追加" Click="AddBookmarkButton_Click" Width="100" Height="40" Margin="5"/>
                     <!--<Button x:Name="DeleteBookmarkButton" Content="🗑️ 証跡削除" Click="DeleteBookmarkButton_Click" Width="100" Margin="5" />-->
                     <Button x:Name="VoiceMemoButton" Content="🎤 音声メモ" Click="VoiceMemoButton_Click" Width="100" Margin="5" />
