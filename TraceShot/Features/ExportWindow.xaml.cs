@@ -107,7 +107,7 @@ namespace TraceShot.Features
 
             await RunExportTask(async (progress) =>
             {
-                var marks = RecManager.Instance.Evidence.Bookmarks;
+                var marks = RecManager.Instance.Bookmarks;
                 int total = marks.Count;
                 var scale = GetSelectedScale();
 
@@ -115,19 +115,18 @@ namespace TraceShot.Features
                 {
                     var bm = marks[i];
                     Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
-                    await Dispatcher.InvokeAsync(async () => {
-                        main.VideoPlayer.Position = bm.Time;
-                    });
+                    await Dispatcher.InvokeAsync(async () => main.VideoPlayer.Position = bm.Time);
                     await Task.Delay(100);
                     await Dispatcher.InvokeAsync(() => {
+                        var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
                         (string? Path, BitmapSource? Bitmap)? result;
                         if (crop != null)
                         {
-                            result = RecManager.Instance.SaveCroppedBookmarkImage(bm, main.VideoPlayer, crop, scale); ;
+                            result = RecManager.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
                         }
                         else
                         {
-                            result = RecManager.Instance.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                            result = RecManager.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
                         }
 
                         bm.ImagePath = result?.Path;
@@ -154,7 +153,7 @@ namespace TraceShot.Features
             });
         }
 
-        private string GenerateHtmlFile(RecordingEvidence evidence)
+        private string GenerateHtmlFile(RecEvidence evidence)
         {
             var sb = new StringBuilder();
 
@@ -188,7 +187,7 @@ namespace TraceShot.Features
             var startAt = evidence.RecordingDate;
 
             // --- データ行部分 ---
-            foreach (var bm in evidence.Bookmarks)
+            foreach (var bm in evidence.Bookmarks.OrderBy(b => b.Time).ToList())
             {
                 string time = showRelative ?
                     $"+{(int)bm.Time.TotalHours:D2}:{bm.Time.Minutes:D2}:{bm.Time.Seconds:D2}"
@@ -259,7 +258,7 @@ namespace TraceShot.Features
             return sb.ToString();
         }
 
-        private string GenerateHtmlFileForPdf(RecordingEvidence evidence)
+        private string GenerateHtmlFileForPdf(RecEvidence evidence)
         {
             var sb = new StringBuilder();
 
@@ -291,7 +290,7 @@ namespace TraceShot.Features
             sb.AppendLine("<tbody>");
             var startAt = evidence.RecordingDate;
             // --- データ行部分の修正：ここがポイント ---
-            foreach (var bm in evidence.Bookmarks)
+            foreach (var bm in evidence.Bookmarks.OrderBy(b => b.Time).ToList())
             {
                 string time = showRelative ? 
                     $"+{(int)bm.Time.TotalHours:D2}:{bm.Time.Minutes:D2}:{bm.Time.Seconds:D2}"
@@ -343,19 +342,18 @@ namespace TraceShot.Features
                 {
                     var bm = marks[i];
                     Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
-                    await Dispatcher.InvokeAsync(async () => {
-                        main.VideoPlayer.Position = bm.Time;
-                    });
+                    await Dispatcher.InvokeAsync(async () => main.VideoPlayer.Position = bm.Time);
                     await Task.Delay(100);
                     await Dispatcher.InvokeAsync(() => {
+                        var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
                         (string? Path, BitmapSource? Bitmap)? result;
                         if (crop != null)
                         {
-                            result = RecManager.Instance.SaveCroppedBookmarkImage(bm, main.VideoPlayer, crop, scale); ;
+                            result = RecManager.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
                         }
                         else
                         {
-                            result = RecManager.Instance.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                            result = RecManager.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
                         }
                         bm.ImagePath = result?.Path;
                         if (result?.Bitmap != null)
@@ -460,19 +458,18 @@ namespace TraceShot.Features
                 {
                     var bm = marks[i];
                     Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
-                    await Dispatcher.InvokeAsync(async () => {
-                        main.VideoPlayer.Position = bm.Time;
-                    });
+                    await Dispatcher.InvokeAsync(async () => main.VideoPlayer.Position = bm.Time);
                     await Task.Delay(100);
                     await Dispatcher.InvokeAsync(() => {
+                        var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
                         (string? Path, BitmapSource? Bitmap)? result;
                         if (crop != null)
                         {
-                            result = RecManager.Instance.SaveCroppedBookmarkImage(bm, main.VideoPlayer, crop, scale); ;
+                            result = RecManager.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
                         }
                         else
                         {
-                            result = RecManager.Instance.SaveSingleBookmarkImage(bm, main.VideoPlayer, scale);
+                            result = RecManager.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
                         }
                         bm.ImagePath = result?.Path;
                         if (result?.Bitmap != null)
@@ -501,13 +498,14 @@ namespace TraceShot.Features
                 progress.Report(100);
             });
         }
-        private void SaveAsExcel(RecordingEvidence evidence, string fullPath, double selectedScale)
+        private void SaveAsExcel(RecEvidence evidence, string fullPath, double selectedScale)
         {
             using (var workbook = new ClosedXML.Excel.XLWorkbook())
             {
-                for (int i = 0; i < evidence.Bookmarks.Count; i++)
+                var bookmarks = evidence.Bookmarks.OrderBy(b => b.Time).ToList();
+                for (int i = 0; i < bookmarks.Count; i++)
                 {
-                    var bm = evidence.Bookmarks[i];
+                    var bm = bookmarks[i];
                     if (bm == null) continue;
                     // ※シート名に使えない記号を置換します
                     string sheetName = $"{i + 1}_{bm.Time:HH-mm-ss_fff}";

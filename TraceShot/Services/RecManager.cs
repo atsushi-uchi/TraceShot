@@ -1,34 +1,37 @@
-﻿using ScreenRecorderLib;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using ScreenRecorderLib;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using TraceShot.Models;
 using Brushes = System.Windows.Media.Brushes;
-using MessageBox = System.Windows.MessageBox;
 
 namespace TraceShot.Services
 {
-    public class RecManager
+    public partial class RecManager : ObservableObject
     {
         public static RecManager Instance { get; } = new RecManager();
+
+        [ObservableProperty][NotifyPropertyChangedFor(nameof(Bookmarks))]
+        private RecEvidence _evidence = new();
+
+        public ObservableCollection<Bookmark> Bookmarks => Evidence.Bookmarks;
 
         private Stopwatch _stopwatch = new Stopwatch();
         private DispatcherTimer _timer;
         private Recorder? _recorder;
-        private List<Bookmark> _currentBookmarks = [];
         private DateTime _actualStartTime;
         public string RecordingTime { get; private set; } = "00:00:00";
         public List<string> TraceLogs { get; private set; } = new List<string>();
         public string CurrentVideoName { get; private set; } = "";
         public string CurrentFolder { get; set; } = "";
-        public RecordingEvidence? Evidence { get; set; }
         public string? JsonPath { get; set; }
         public int FrameRate { get; set; }
         public bool UseHardwareAccel { get; set; }
@@ -43,7 +46,7 @@ namespace TraceShot.Services
             _timer.Tick += (s, e) =>
             {
                 RecordingTime = _stopwatch.Elapsed.ToString(@"hh\:mm\:ss");
-                Debug.WriteLine($"Recording... {RecordingTime}");
+                //Debug.WriteLine($"Recording... {RecordingTime}");
             };
         }
 
@@ -83,19 +86,18 @@ namespace TraceShot.Services
         }
 
         // 引数に double scale を追加 (例: 0.5 = 50%, 1.0 = 100%)
-        public (string? Path, BitmapSource? Bitmap)? SaveSingleBookmarkImage(Bookmark bm, MediaElement videoPlayer, double scale = 0.5)
+        public (string? Path, BitmapSource? Bitmap)? SaveSingleBookmarkImage(Bookmark bm, VideoSnapshotInfo? info, double scale = 0.5)
         {
             if (string.IsNullOrEmpty(CurrentFolder)) return (null, null);
 
             string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot");
             if (!Directory.Exists(screenshotFolder)) Directory.CreateDirectory(screenshotFolder);
 
-            // 1. 動画の本来の解像度を取得
-            int originalWidth = videoPlayer.NaturalVideoWidth;
-            int originalHeight = videoPlayer.NaturalVideoHeight;
+            // 1. infoクラスから解像度を取得
+            int originalWidth = info.NaturalWidth;
+            int originalHeight = info.NaturalHeight;
             if (originalWidth == 0 || originalHeight == 0) return (null, null);
 
-            // 2. 出力先の解像度を計算
             int renderWidth = (int)(originalWidth * scale);
             int renderHeight = (int)(originalHeight * scale);
 
@@ -105,9 +107,8 @@ namespace TraceShot.Services
                 // ⭐ ポイント1：全体スケーリングを適用開始
                 drawingContext.PushTransform(new ScaleTransform(scale, scale));
 
-                // 배경의描画
-                VisualBrush visualBrush = new VisualBrush(videoPlayer) { Stretch = Stretch.Uniform };
-                drawingContext.DrawRectangle(visualBrush, null, new Rect(0, 0, originalWidth, originalHeight));
+                // 2. infoクラスの VisualBrush を使用
+                drawingContext.DrawRectangle(info.VideoBrush, null, new Rect(0, 0, originalWidth, originalHeight));
 
                 // 矩形の合成 (ここまでは自動スケーリングでOK)
                 if (bm.MarkRects != null && bm.MarkRects.Count > 0)
@@ -153,8 +154,8 @@ namespace TraceShot.Services
                         System.Windows.FlowDirection.LeftToRight,
                         new Typeface("Verdana"),
                         dynamicFontSize,
-                        System.Windows.Media.Brushes.White,
-                        VisualTreeHelper.GetDpi(videoPlayer).PixelsPerDip);
+                        Brushes.White,
+                        info.DpiScale);
 
                     // 背景矩形のサイズを確定させる
                     Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
@@ -211,21 +212,19 @@ namespace TraceShot.Services
             return (filePath, bmp);
         }
 
-        // ⭐ 【修正点1】: 引数に cropRectRel (相対座標の切り出し矩形) を追加
-        public (string? Path, BitmapSource? Bitmap)? SaveCroppedBookmarkImage(Bookmark bm, MediaElement videoPlayer, MarkRect cropRectRel, double scale = 1.0)
+        public (string? Path, BitmapSource? Bitmap)? SaveCroppedBookmarkImage(Bookmark bm, VideoSnapshotInfo info, MarkRect cropRectRel, double scale = 1.0)
         {
             if (string.IsNullOrEmpty(CurrentFolder)) return null;
 
-            string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot"); // フォルダ名を分ける
+            string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot");
             if (!Directory.Exists(screenshotFolder)) Directory.CreateDirectory(screenshotFolder);
 
-            // 1. 動画の本来の解像度を取得
-            int originalWidth = videoPlayer.NaturalVideoWidth;
-            int originalHeight = videoPlayer.NaturalVideoHeight;
+            // 1. info クラスから元の解像度を取得
+            int originalWidth = info.NaturalWidth;
+            int originalHeight = info.NaturalHeight;
             if (originalWidth == 0 || originalHeight == 0) return null;
 
-            // --- ⭐ 【修正点2】: クロップ範囲のピクセルサイズを計算 ---
-            // 相対座標をピクセルに変換
+            // クロップ範囲のピクセルサイズを計算
             Rect cropRectPix = new Rect(
                 cropRectRel.X * originalWidth,
                 cropRectRel.Y * originalHeight,
@@ -233,95 +232,63 @@ namespace TraceShot.Services
                 cropRectRel.Height * originalHeight
             );
 
-            // ⭐ 【修正点3】: 出力先の解像度を「クロップ範囲」に基づいて計算
+            // 出力先のサイズ（クロップ範囲 × スケール）
             int renderWidth = (int)(cropRectPix.Width * scale);
             int renderHeight = (int)(cropRectPix.Height * scale);
-
-            // サイズが0になる場合は防ぐ
             if (renderWidth <= 0 || renderHeight <= 0) return null;
 
             DrawingVisual drawingVisual = new DrawingVisual();
             using (DrawingContext drawingContext = drawingVisual.RenderOpen())
             {
                 // --- 描画キャンバスのトランスフォーム設定 ---
-
-                // ⭐ 【修正点4】: 全体スケーリングの『内側』に平移(Translate)を挿入
-                // 描画 Context のスタックは Pop で解除されるため、PushTransform は順番に適用される。
-                // 結果として、 (全体スケール) * (平移) のトランスフォームが動画全体に掛かる。
-
-                // 1. 全体スケール
+                // 1. 全体スケールを適用
                 drawingContext.PushTransform(new ScaleTransform(scale, scale));
-
-                // 2. ⭐ 平移: 切り出し矩形の左上端 (X, Y) を (0, 0) に持ってくる
-                // (X, Y) の分だけ『負の方向』に動画全体をずらす。
+                // 2. 平移: クロップ範囲の左上(X, Y)が(0, 0)に来るように、全体を負の方向にずらす
                 drawingContext.PushTransform(new TranslateTransform(-cropRectPix.X, -cropRectPix.Y));
 
+                // 動画全体の描画（info.VideoBrush を使用）
+                drawingContext.DrawRectangle(info.VideoBrush, null, new Rect(0, 0, originalWidth, originalHeight));
 
-                // --- 背景の描画 (動画全体を描画するが、トランスフォームで矩形範囲だけが見えるようになる) ---
-                VisualBrush visualBrush = new VisualBrush(videoPlayer) { Stretch = Stretch.Uniform };
-                // 動画全体を描画 (Rect のサイズは originalWidth, originalHeight のまま)
-                drawingContext.DrawRectangle(visualBrush, null, new Rect(0, 0, originalWidth, originalHeight));
-
-
-                // --- 矩形の合成 (自動スケーリングと平移で矩形も自動的に合う) ---
-                if (bm.MarkRects != null && bm.MarkRects.Count > 0)
+                // 矩形（赤枠）の合成
+                if (bm.MarkRects != null)
                 {
                     foreach (var relRect in bm.MarkRects)
                     {
                         if (relRect.IsCropArea) continue;
-
                         Rect scaledRect = new Rect(
-                            relRect.X * originalWidth,
-                            relRect.Y * originalHeight,
-                            relRect.Width * originalWidth,
-                            relRect.Height * originalHeight
+                            relRect.X * originalWidth, relRect.Y * originalHeight,
+                            relRect.Width * originalWidth, relRect.Height * originalHeight
                         );
-
                         double penThickness = Math.Max(2.0, originalWidth / 400.0);
-                        drawingContext.DrawRectangle(null, new System.Windows.Media.Pen(Brushes.Red, penThickness), scaledRect);
+                        drawingContext.DrawRectangle(null, new System.Windows.Media.Pen(System.Windows.Media.Brushes.Red, penThickness), scaledRect);
                     }
                 }
 
-                // ⭐ トランスフォームをPop解除 (PopはPushの逆順)
-                drawingContext.Pop(); // TranslateTransform を Pop
-                drawingContext.Pop(); // ScaleTransform を Pop
+                drawingContext.Pop(); // TranslateTransform を解除
+                drawingContext.Pop(); // ScaleTransform を解除
 
-
-                // -------------------------------------------------------
-                // ⭐ ここから下はスケーリング・平移の『外側』＝出力画像の実際のピクセルサイズで描画
-                // -------------------------------------------------------
-
-                // --- ⭐ 【修正点5】: バルーンノートの再計算 ---
+                // --- バルーンノートの描画 (出力ピクセル基準) ---
                 foreach (var note in bm.Balloons)
                 {
-                    // バルーンノートの相対座標を、切り出した画像内の相対座標に変換する
-                    // 例: 元動画 X=0.5, 切り出し範囲 X=0.0~0.5 の場合、切り出し後 X=1.0
+                    // クロップ後の座標系における相対位置を計算
+                    var croppedRelTargetPt = new System.Windows.Point(
+                        (note.TargetPoint.X * originalWidth - cropRectPix.X) / cropRectPix.Width,
+                        (note.TargetPoint.Y * originalHeight - cropRectPix.Y) / cropRectPix.Height
+                    );
+                    var croppedRelTextPt = new System.Windows.Point(
+                        (note.TextPoint.X * originalWidth - cropRectPix.X) / cropRectPix.Width,
+                        (note.TextPoint.Y * originalHeight - cropRectPix.Y) / cropRectPix.Height
+                    );
 
-                    // 元動画全体のピクセル座標を出す
-                    System.Windows.Point noteTargetPix = new System.Windows.Point(note.TargetPoint.X * originalWidth, note.TargetPoint.Y * originalHeight);
-                    System.Windows.Point noteTextPix = new System.Windows.Point(note.TextPoint.X * originalWidth, note.TextPoint.Y * originalHeight);
-
-                    // クロップ範囲内のピクセル座標に変換 ( cropRectPix.X, Y を引く)
-                    System.Windows.Point noteTargetPixInCrop = new System.Windows.Point(noteTargetPix.X - cropRectPix.X, noteTargetPix.Y - cropRectPix.Y);
-                    System.Windows.Point noteTextPixInCrop = new System.Windows.Point(noteTextPix.X - cropRectPix.X, noteTextPix.Y - cropRectPix.Y);
-
-                    // 切り出した画像全体を基準とした相対座標 (0~1) に直す
-                    var croppedRelTargetPt = new System.Windows.Point(noteTargetPixInCrop.X / cropRectPix.Width, noteTargetPixInCrop.Y / cropRectPix.Height);
-                    var croppedRelTextPt = new System.Windows.Point(noteTextPixInCrop.X / cropRectPix.Width, noteTextPixInCrop.Y / cropRectPix.Height);
-
-
-                    // --- ここから下は元の計算ロジックをベースに、基準点を変えて計算 ---
-                    double outW = renderWidth;  // 計算後の出力幅
-                    double outH = renderHeight; // 計算後の出力高
+                    double outW = renderWidth;
+                    double outH = renderHeight;
                     var outputStartPt = new System.Windows.Point(croppedRelTargetPt.X * outW, croppedRelTargetPt.Y * outH);
                     var outputEndPt = new System.Windows.Point(croppedRelTextPt.X * outW, croppedRelTextPt.Y * outH);
 
-                    // フォントサイズ等は元のロジックを維持
                     double dynamicFontSize = Math.Max(16.0, outH * 0.03);
                     double padding = dynamicFontSize * 0.3;
                     double thickness = Math.Max(2.0, outW / 500.0);
 
-                    // FormattedText 
                     FormattedText ft = new FormattedText(
                         note.Text,
                         System.Globalization.CultureInfo.CurrentCulture,
@@ -329,44 +296,34 @@ namespace TraceShot.Services
                         new Typeface("Verdana"),
                         dynamicFontSize,
                         System.Windows.Media.Brushes.White,
-                        VisualTreeHelper.GetDpi(videoPlayer).PixelsPerDip);
+                        info.DpiScale); // info から取得
 
-                    // 背景矩形のサイズ
                     Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
 
-                    // 下地を描画
+                    // 背景とラインの描画
                     var linePen = new System.Windows.Media.Pen(System.Windows.Media.Brushes.Red, thickness);
                     linePen.DashStyle = new System.Windows.Media.DashStyle(new double[] { 4, 2 }, 0);
                     drawingContext.DrawLine(linePen, outputStartPt, outputEndPt);
                     drawingContext.DrawEllipse(System.Windows.Media.Brushes.Red, null, outputStartPt, thickness * 2, thickness * 2);
 
-                    // 赤い背景箱
-                    drawingContext.DrawRoundedRectangle(
-                        new SolidColorBrush(System.Windows.Media.Color.FromArgb(220, 255, 0, 0)),
-                        null, textRect, padding * 0.5, padding * 0.5);
+                    drawingContext.DrawRoundedRectangle(new SolidColorBrush(System.Windows.Media.Color.FromArgb(220, 255, 0, 0)), null, textRect, padding * 0.5, padding * 0.5);
 
-                    // 最前面に袋文字を描画
+                    // 袋文字の描画
                     var textPos = new System.Windows.Point(textRect.X + padding, textRect.Y + padding);
                     Geometry textGeometry = ft.BuildGeometry(textPos);
-
-                    double outlineThickness = dynamicFontSize * 0.15;
-                    var outlinePen = new System.Windows.Media.Pen(System.Windows.Media.Brushes.Black, outlineThickness)
-                    {
-                        LineJoin = PenLineJoin.Round
-                    };
-                    drawingContext.DrawGeometry(null, outlinePen, textGeometry);
+                    drawingContext.DrawGeometry(null, new System.Windows.Media.Pen(System.Windows.Media.Brushes.Black, dynamicFontSize * 0.15) { LineJoin = PenLineJoin.Round }, textGeometry);
                     drawingContext.DrawGeometry(System.Windows.Media.Brushes.White, null, textGeometry);
                 }
             }
 
-            // 3. RenderTargetBitmap のサイズを「計算後のサイズ」にする
+            // 画像生成
             RenderTargetBitmap bmp = new RenderTargetBitmap(renderWidth, renderHeight, 96, 96, PixelFormats.Pbgra32);
             bmp.Render(drawingVisual);
 
-            // --- 保存処理 ---
+            // ファイル保存
             DateTime startDate = Evidence?.RecordingDate ?? DateTime.Now;
             DateTime timestamp = startDate.Add(bm.Time);
-            string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
+            string fileName = $"SS_Crop_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
             string filePath = Path.Combine(screenshotFolder, fileName);
 
             using (FileStream fs = new FileStream(filePath, FileMode.Create))
@@ -374,41 +331,39 @@ namespace TraceShot.Services
                 PngBitmapEncoder encoder = new PngBitmapEncoder();
                 encoder.Frames.Add(BitmapFrame.Create(bmp));
                 encoder.Save(fs);
-                fs.Flush();
             }
 
             return (filePath, bmp);
         }
 
-        public void SyncBookmark()
-        {
-            if (Evidence != null && Evidence.Bookmarks != null)
-            {
-                _currentBookmarks = Evidence.Bookmarks;
-            }
-        }
+        //private void SortBookmarks()
+        //{
+        //    if (Evidence == null) return;
 
-        public List<Bookmark> GetBookmarks()
-        {
-            return _currentBookmarks.OrderBy(b => b.Time).ToList();
-        }
+        //    var sorted = Evidence.Bookmarks.OrderBy(b => b.Time).ToList();
 
+        //    //Evidence.Bookmarks.Clear();
+        //    //foreach (var b in sorted) Evidence.Bookmarks.Add(b);
+        //    // UIの更新を伴う操作（Clear/Add）を UI スレッドに強制する
+        //    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        //    {
+        //        Evidence.Bookmarks.Clear();
+        //        foreach (var b in sorted) Evidence.Bookmarks.Add(b);
+        //    });
+        //}
 
-        public List<Bookmark> AddBookmark(Bookmark bookmark)
+        public void AddBookmark(Bookmark bookmark)
         {
-            _currentBookmarks.Add(bookmark);
-            var sorted = _currentBookmarks.OrderBy(b => b.Time).ToList();
-            _currentBookmarks.Clear();
-            foreach (var b in sorted)
-            {
-                _currentBookmarks.Add(b);
-            }
-            if (Evidence is not null) Evidence.Bookmarks = _currentBookmarks;
-            return _currentBookmarks;
+            if (Evidence == null) return;
+
+            Bookmarks.Add(bookmark);
+            //SortBookmarks();
         }
 
         public Bookmark? AddBookmark(string note = " - Screenshot")
         {
+            if (Evidence == null) return null;
+
             if (_stopwatch.IsRunning)
             {
                 var bm = new Bookmark
@@ -417,10 +372,8 @@ namespace TraceShot.Services
                     Icon = "📌",
                     Note = note,
                 };
-                _currentBookmarks.Add(bm);
-
-                if (Evidence is not null) Evidence.Bookmarks = _currentBookmarks;
-
+                Bookmarks.Add(bm);
+                //SortBookmarks();
                 return bm;
             }
             return null;
@@ -442,26 +395,22 @@ namespace TraceShot.Services
             return videoPath;
         }
 
-        public void UpdateJson()
-        {
-            if (Evidence is not null && Evidence.Bookmarks != null)
-            {
-                Evidence.Bookmarks = _currentBookmarks;
-                SaveEvidenceJson();
-            }
-        }
 
         // 録画完了イベントなどで呼び出す
         private void SaveJson(string mode, string timestamp)
         {
-            Evidence = new RecordingEvidence
-            {
-                VideoFileName = CurrentVideoName,
-                RecordingDate = DateTime.Now,
-                Mode = mode,
-                Bookmarks = _currentBookmarks,
-                IsCropLocked =  IsCropLocked,
-            };
+            Evidence.VideoFileName = CurrentVideoName;
+            Evidence.RecordingDate = DateTime.Now;
+            Evidence.RecMode = mode;
+            Evidence.IsCropLocked = IsCropLocked;
+
+            //Evidence = new RecEvidence
+            //{
+            //    VideoFileName = CurrentVideoName,
+            //    RecordingDate = DateTime.Now,
+            //    RecMode = mode,
+            //    IsCropLocked = IsCropLocked,
+            //};
 
             JsonPath = Path.Combine(CurrentFolder, $"TraceShot_{timestamp}.json");
             SaveEvidenceJson();
@@ -469,11 +418,7 @@ namespace TraceShot.Services
 
         public void SaveEvidenceJson()
         {
-            if (JsonPath == null)
-            {
-                MessageBox.Show("保存データがありません");
-                return;
-            }
+            if (JsonPath == null) return;
 
             var options = new JsonSerializerOptions
             {
@@ -497,11 +442,9 @@ namespace TraceShot.Services
             {
                 screenSource = new DisplayRecordingSource(targetDeviceName);
             }
-
             if (screenSource == null)
             {
-                MessageBox.Show("モニターを選択してください。");
-                return;
+                throw new Exception("録画するモニターが見つかりません。");
             }
 
             var options = new RecorderOptions
@@ -643,12 +586,13 @@ namespace TraceShot.Services
         {
             if (_recorder is null) return;
 
+            Bookmarks.Clear();
             TraceLogs.Clear();
+
             _recorder.OnRecordingComplete += (s, e) => TraceLogs.Add("Window Recording Complete");
             _recorder.OnRecordingFailed += (s, e) => TraceLogs.Add("Window Recording Failed: " + e.Error);
 
             _actualStartTime = Evidence?.RecordingDate ?? DateTime.Now;
-            _currentBookmarks.Clear();
             _timer.Start();
             _stopwatch.Restart();
             _recorder.Record(filePath);

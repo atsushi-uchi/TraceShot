@@ -1,11 +1,13 @@
 ﻿using NHotkey;
 using ScreenRecorderLib;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Media;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -14,6 +16,7 @@ using System.Windows.Shell;
 using System.Windows.Threading;
 using TraceShot.Models;
 using TraceShot.Services;
+using Windows.Media.SpeechRecognition;
 using static TraceShot.Properties.Settings;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
@@ -28,7 +31,6 @@ using Point = System.Windows.Point;
 using TextBox = System.Windows.Controls.TextBox;
 using WpfPoint = System.Windows.Point; // WPFの座標
 using WpfRectangle = System.Windows.Shapes.Rectangle;
-using Windows.Media.SpeechRecognition;
 
 namespace TraceShot.Features
 {
@@ -74,7 +76,8 @@ namespace TraceShot.Features
         {
             InitializeComponent();
 
-            InitSpeechRecognition();
+            // いったん音声認識を停止
+            //InitSpeechRecognition();
 
             DataContext = _setting;
 
@@ -110,6 +113,22 @@ namespace TraceShot.Features
                     _recordingTimer.Start();
                 });
             };
+
+            // 1. 最初の一回だけ紐付けを行う
+            BookmarkListBox.ItemsSource = RecManager.Instance.Bookmarks;
+
+            // 2. ソートの初期設定
+            var view = CollectionViewSource.GetDefaultView(BookmarkListBox.ItemsSource);
+            if (view != null)
+            {
+                view.SortDescriptions.Clear();
+                view.SortDescriptions.Add(new SortDescription("Time", ListSortDirection.Ascending));
+                if (view is ICollectionViewLiveShaping liveView)
+                {
+                    liveView.IsLiveSorting = true;
+                    liveView.LiveSortingProperties.Add("Time");
+                }
+            }
         }
 
         private void ApplyCurrentSettings()
@@ -206,7 +225,7 @@ namespace TraceShot.Features
 
             try
             {
-                RecManager.Instance.UpdateJson();
+                RecManager.Instance.SaveEvidenceJson();
 
                 StatusText.Text = $"[保存完了] {DateTime.Now:HH:mm:ss} エビデンスを保存しました。";
                 MessageBox.Show("エビデンスの内容を保存しました。", "保存完了", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -235,12 +254,11 @@ namespace TraceShot.Features
                     string jsonString = File.ReadAllText(openFileDialog.FileName);
 
                     // 2. デシリアライズ（復元）
-                    var evidence = JsonSerializer.Deserialize<RecordingEvidence>(jsonString);
+                    var evidence = JsonSerializer.Deserialize<RecEvidence>(jsonString);
 
                     if (evidence != null)
                     {
                         RecManager.Instance.Evidence = evidence;
-                        RecManager.Instance.SyncBookmark();
                         RecManager.Instance.JsonPath = openFileDialog.FileName;
 
                         // 3. JSONと同じフォルダ内にある動画ファイルのフルパスを作成
@@ -260,22 +278,28 @@ namespace TraceShot.Features
                                 PlayerPause(true);
 
                                 // 5. UIに情報を反映
-                                StatusText.Text = $"読み込み: {evidence?.Mode} {evidence?.VideoFileName}";
+                                StatusText.Text = $"読み込み: {evidence?.RecMode} {evidence?.VideoFileName}";
 
-                                // リストボックスにブックマーク一覧を表示
-                                BookmarkListBox.Items.Clear();
-                                if (evidence?.Bookmarks != null)
+                                // ビュー（ソート用）の再設定
+                                BookmarkListBox.ItemsSource = RecManager.Instance.Bookmarks;
+                                var view = CollectionViewSource.GetDefaultView(BookmarkListBox.ItemsSource);
+                                if (view != null)
                                 {
-                                    foreach (var bm in evidence.Bookmarks)
+                                    view.SortDescriptions.Clear();
+                                    view.SortDescriptions.Add(new SortDescription("Time", ListSortDirection.Ascending));
+                                    if (view is ICollectionViewLiveShaping liveView)
                                     {
-                                        BookmarkListBox.Items.Add(bm);
+                                        liveView.IsLiveSorting = true;
+                                        liveView.LiveSortingProperties.Add("Time");
                                     }
-                                    // --- 追加：最初のアイテムを選択する ---
-                                    if (BookmarkListBox.Items.Count > 0)
-                                    {
-                                        BookmarkListBox.SelectedIndex = 0; // 0番目を選択
-                                        BookmarkListBox.Focus();           // 必要に応じてフォーカスを当てる
-                                    }
+                                }
+                                RefreshBookmarkCanvas();
+
+                                // 選択状態の管理
+                                if (RecManager.Instance.Bookmarks.Count > 0)
+                                {
+                                    BookmarkListBox.SelectedIndex = 0;
+                                    BookmarkListBox.Focus();
                                 }
 
                                 // 最大リトライ回数（例：100msごとに50回 ＝ 5秒）
@@ -1329,13 +1353,11 @@ namespace TraceShot.Features
                     {
                         Time = currentTime,
                         Icon = "📝",
-                        Note = " - Marking",
+                        Note = "Add",
                     };
 
                     // リストに追加して選択状態にする
-                    var sorted = RecManager.Instance.AddBookmark(bookmark);
-                    BookmarkListBox.Items.Clear();
-                    foreach (var b in sorted) BookmarkListBox.Items.Add(b);
+                    RecManager.Instance.AddBookmark(bookmark);
                     BookmarkListBox.SelectedItem = bookmark;
                     selectedBm = bookmark;
                     RefreshBookmarkCanvas();
@@ -1409,7 +1431,7 @@ namespace TraceShot.Features
                     // 3. データソースから削除
                     RecManager.Instance.Evidence?.Bookmarks.Remove(cp);
 
-                    BookmarkListBox.Items.Remove(cp);
+                    //BookmarkListBox.Items.Remove(cp); 不要
                 }
 
                 // 4. 保存とステータス更新
@@ -1726,14 +1748,12 @@ namespace TraceShot.Features
             {
                 Time = currentTime,
                 Icon = "📌",
-                Note = "- Add",
+                Note = "Add",
                 ImagePath = imagePath
             };
 
-            var sorted = RecManager.Instance.AddBookmark(bookmark);
-            BookmarkListBox.Items.Clear();
-            foreach (var b in sorted) BookmarkListBox.Items.Add(b);
-
+            RecManager.Instance.AddBookmark(bookmark);
+            //BookmarkListBox.Items.Add(bookmark);  不要
             BookmarkListBox.ScrollIntoView(bookmark);
             SystemSounds.Asterisk.Play();
             RefreshBookmarkCanvas();
@@ -1758,7 +1778,7 @@ namespace TraceShot.Features
             var bookmark = RecManager.Instance.AddBookmark();
             if (bookmark is not null)
             {
-                BookmarkListBox.Items.Add(bookmark);
+                //BookmarkListBox.Items.Add(bookmark);  不要
                 BookmarkListBox.ScrollIntoView(bookmark);
                 StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note}";
                 if (_previewBitmap != null)
@@ -1773,7 +1793,7 @@ namespace TraceShot.Features
         private void OnRecordingStarted()
         {
             // ブックマーク削除
-            BookmarkListBox.Items.Clear();
+            //BookmarkListBox.Items.Clear();    不要
 
             // フラグ更新
             _isRecording = true;
@@ -1804,6 +1824,8 @@ namespace TraceShot.Features
             // イベント解除
             RecManager.Instance.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
 
+            RefreshBookmarkCanvas();
+
             // UIの切り替え
             VideoPlayer.Visibility = Visibility.Visible;
             RecordingOverlay.Visibility = Visibility.Collapsed;
@@ -1824,6 +1846,7 @@ namespace TraceShot.Features
             StartStopText.Text = "録画開始";
 
             AddBookmarkButton.Content = "📌 証跡追加";
+
         }
 
         private async void StartStopButton_Click(object sender, RoutedEventArgs e)
@@ -1969,10 +1992,12 @@ namespace TraceShot.Features
             double totalSeconds = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
             if (totalSeconds <= 0) return;
 
-            foreach (var bm in RecManager.Instance.Evidence.Bookmarks)
+            foreach (var bm in RecManager.Instance.Bookmarks)
             {
                 // 時間の割合 (0.0 ～ 1.0)
+                //double ratio = bm.Time.TotalSeconds / totalSeconds;
                 double ratio = bm.Time.TotalSeconds / totalSeconds;
+                ratio = Math.Clamp(ratio, 0.0, 1.0);
 
                 double xPos = (ratio * effectiveWidth) + (ThumbWidth / 2.0);
 
@@ -2079,10 +2104,7 @@ namespace TraceShot.Features
             voiceMemo.Icon = "🎤";
             voiceMemo.IsListening = true;
 
-            var sorted = RecManager.Instance.GetBookmarks();
-            BookmarkListBox.Items.Clear();
-            foreach (var b in sorted) BookmarkListBox.Items.Add(b);
-
+            //BookmarkListBox.Items.Add(voiceMemo); 不要
             BookmarkListBox.ScrollIntoView(voiceMemo);
             RefreshBookmarkCanvas();
             try
