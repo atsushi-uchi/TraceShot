@@ -11,10 +11,11 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
 	<ApplicationIcon>Resources\traceshot_Icon.ico</ApplicationIcon>
+	<PackageIcon>traceshot_icon.ico</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
-    <Resource Include="Resources\traceshot_Icon.ico" />
+    <Resource Include="Resources\traceshot_icon.ico" />
   </ItemGroup>
 
   <ItemGroup>
@@ -41,6 +42,13 @@
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
     <None Update="Resources\shutter.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\traceshot_icon.ico">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Update="Resources\voice_start.wav">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

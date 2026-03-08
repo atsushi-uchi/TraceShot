@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TraceShot"
+        xmlns:service="clr-namespace:TraceShot.Services"
         mc:Ignorable="d"
         Title="TraceShot" Height="500" Width="850">
     <Window.TaskbarItemInfo>
@@ -93,7 +94,7 @@
                         </StackPanel>
                     </Grid>
 
-                    <DataTemplate.Triggers>
+                    <!--<DataTemplate.Triggers>
                         <DataTrigger Binding="{Binding IsListening}" Value="True">
                             <DataTrigger.EnterActions>
                                 <BeginStoryboard x:Name="RedBlink">
@@ -116,7 +117,7 @@
                             <Setter TargetName="SepTxt" Property="Foreground" Value="Black" />
                             <Setter TargetName="NoteTxt" Property="Foreground" Value="Black" />
                         </DataTrigger>
-                    </DataTemplate.Triggers>
+                    </DataTemplate.Triggers>-->
                 </DataTemplate>
             </ListBox.ItemTemplate>
 
@@ -186,47 +187,87 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock x:Name="BigRecordingTimerText" Text="00:00:00" FontFamily="Consolas" FontSize="36" FontWeight="Bold" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="BigRecordingTimerText" 
+                                       Text="{Binding RecordingTime, Source={x:Static service:RecManager.Instance}}"
+                                       FontFamily="Consolas" FontSize="36" FontWeight="Bold" VerticalAlignment="Center"/>
+
                         </StackPanel>
                     </Grid>
                 </Grid>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="StartStopButton" Width="100" Click="StartStopButton_Click" Margin="5">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock x:Name="StartStopIcon" Text="●" Foreground="Red" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="StartStopText" Text="録画開始" VerticalAlignment="Center"/>
+
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
+                    <StackPanel x:Name="RecordingPanel" Orientation="Horizontal" 
+                        Visibility="{Binding IsRecording, 
+                            Source={x:Static service:RecManager.Instance},
+                            Converter={StaticResource BooleanToVisibilityConverter}}">
+
+                        <TextBlock Text="録画範囲：" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="ModeComboBox" SelectedIndex="0" Margin="5,0"
+                              VerticalContentAlignment="Center">
+                            <ComboBoxItem Content="画面全体"/>
+                            <ComboBoxItem Content="矩形選択"/>
+                            <ComboBoxItem Content="ウインドウ"/>
+                        </ComboBox>
+
+                        <Button x:Name="StartStopButton" Click="StartStopButton_Click" Margin="5,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="StartStopIcon" Text="●" Foreground="Red" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="StartStopText" Text="録画開始" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Click="AddBookmarkWhileRecording_Click" Margin="5,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📌" Margin="0,0,5,0"/>
+                                <TextBlock Text="証跡追加 (録画)"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Click="AddVoiceMemoRecording_Click" Margin="5,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="💬" Margin="0,0,5,0"/>
+                                <TextBlock Text="音声メモ (録画)"/>
+                            </StackPanel>
+                        </Button>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5,0">
+                            <Button x:Name="SelectRegionButton" Content="範囲選択" Click="SelectRegionButton_Click"/>
                         </StackPanel>
-                    </Button>
-                    <Button x:Name="PlayPauseButton" Width="100" Click="PlayPauseButton_Click" Margin="5">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock x:Name="PlayPauseIcon" Text="▶" Margin="0,0,5,0"/>
-                            <TextBlock x:Name="PlayPauseText" Text="再生"/>
-                        </StackPanel>
-                    </Button>
-                    <StackPanel Orientation="Horizontal" Margin="10,5">
-                        <CheckBox x:Name="StopAtBookmarkCheckBox" 
+                    </StackPanel>
+
+                    <StackPanel x:Name="PlaybackPanel" Orientation="Horizontal"
+                            Visibility="{Binding IsRecording, 
+                                Source={x:Static service:RecManager.Instance},
+                                Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                        <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="PlayPauseIcon" Text="▶" Margin="0,0,5,0"/>
+                                <TextBlock x:Name="PlayPauseText" Text="再生"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Click="AddBookmarkWhilePlaying_Click" Margin="5,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📝" Margin="0,0,5,0"/>
+                                <TextBlock Text="証跡追加 (再生)"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Click="AddVoiceMemoWhilePlaying_Click" Margin="5,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🎙️" Margin="0,0,5,0"/>
+                                <TextBlock Text="音声メモ (再生)"/>
+                            </StackPanel>
+                        </Button>
+                        <StackPanel Orientation="Horizontal" Margin="10,5">
+                            <CheckBox x:Name="StopAtBookmarkCheckBox" 
                               Content="ポイント停止" 
                               IsChecked="True" 
                               VerticalAlignment="Center" 
                               Foreground="Black"
                               Margin="0,0,10,0"/>
+                        </StackPanel>
                     </StackPanel>
-                    <Button x:Name="AddBookmarkButton" Content="📌 証跡追加" Click="AddBookmarkButton_Click" Width="100" Height="40" Margin="5"/>
-                    <!--<Button x:Name="DeleteBookmarkButton" Content="🗑️ 証跡削除" Click="DeleteBookmarkButton_Click" Width="100" Margin="5" />-->
-                    <Button x:Name="VoiceMemoButton" Content="🎤 音声メモ" Click="VoiceMemoButton_Click" Width="100" Margin="5" />
+
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
-                    <TextBlock Text="録画範囲：" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="ModeComboBox" Width="90" SelectedIndex="0" Height="30" Padding="5"
-                              VerticalContentAlignment="Center">
-                        <ComboBoxItem Content="画面全体"/>
-                        <ComboBoxItem Content="矩形選択"/>
-                        <ComboBoxItem Content="ウインドウ"/>
-                    </ComboBox>
-                    <Button x:Name="SelectRegionButton" Content="範囲選択" Click="SelectRegionButton_Click" Margin="5" Padding="5"/>
-                </StackPanel>
             </StackPanel>
         </Border>
 

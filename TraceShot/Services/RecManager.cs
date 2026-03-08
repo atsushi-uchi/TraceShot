@@ -28,8 +28,12 @@ namespace TraceShot.Services
         private DispatcherTimer _timer;
         private Recorder? _recorder;
         private DateTime _actualStartTime;
-        public string RecordingTime { get; private set; } = "00:00:00";
-        public List<string> TraceLogs { get; private set; } = new List<string>();
+        [ObservableProperty]
+        private bool _isRecording = true;
+        [ObservableProperty]
+        private string _recordingTime = "00:00:00";
+        public List<string> TraceLogs { get; private set; } = [];
+        public TimeSpan CurrentDuration => _stopwatch.Elapsed;
         public string CurrentVideoName { get; private set; } = "";
         public string CurrentFolder { get; set; } = "";
         public string? JsonPath { get; set; }
@@ -42,11 +46,10 @@ namespace TraceShot.Services
         private RecManager()
         {
             _timer = new DispatcherTimer();
-            _timer.Interval = TimeSpan.FromSeconds(1);
+            _timer.Interval = TimeSpan.FromSeconds(0.5);
             _timer.Tick += (s, e) =>
             {
                 RecordingTime = _stopwatch.Elapsed.ToString(@"hh\:mm\:ss");
-                //Debug.WriteLine($"Recording... {RecordingTime}");
             };
         }
 
@@ -75,12 +78,12 @@ namespace TraceShot.Services
                     stream.Flush();
                 }
 
-                System.Diagnostics.Debug.WriteLine($"✅ Backup success: {filePath}");
+                Debug.WriteLine($"Backup success: {filePath}");
                 return filePath;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ Backup Save Error: {ex.Message}");
+                Debug.WriteLine($"Backup Save Error: {ex.Message}");
                 return null;
             }
         }
@@ -336,28 +339,11 @@ namespace TraceShot.Services
             return (filePath, bmp);
         }
 
-        //private void SortBookmarks()
-        //{
-        //    if (Evidence == null) return;
-
-        //    var sorted = Evidence.Bookmarks.OrderBy(b => b.Time).ToList();
-
-        //    //Evidence.Bookmarks.Clear();
-        //    //foreach (var b in sorted) Evidence.Bookmarks.Add(b);
-        //    // UIの更新を伴う操作（Clear/Add）を UI スレッドに強制する
-        //    System.Windows.Application.Current.Dispatcher.Invoke(() =>
-        //    {
-        //        Evidence.Bookmarks.Clear();
-        //        foreach (var b in sorted) Evidence.Bookmarks.Add(b);
-        //    });
-        //}
-
         public void AddBookmark(Bookmark bookmark)
         {
             if (Evidence == null) return;
 
             Bookmarks.Add(bookmark);
-            //SortBookmarks();
         }
 
         public Bookmark? AddBookmark(string note = " - Screenshot")
@@ -373,7 +359,6 @@ namespace TraceShot.Services
                     Note = note,
                 };
                 Bookmarks.Add(bm);
-                //SortBookmarks();
                 return bm;
             }
             return null;
@@ -403,14 +388,6 @@ namespace TraceShot.Services
             Evidence.RecordingDate = DateTime.Now;
             Evidence.RecMode = mode;
             Evidence.IsCropLocked = IsCropLocked;
-
-            //Evidence = new RecEvidence
-            //{
-            //    VideoFileName = CurrentVideoName,
-            //    RecordingDate = DateTime.Now,
-            //    RecMode = mode,
-            //    IsCropLocked = IsCropLocked,
-            //};
 
             JsonPath = Path.Combine(CurrentFolder, $"TraceShot_{timestamp}.json");
             SaveEvidenceJson();
@@ -585,6 +562,7 @@ namespace TraceShot.Services
         private void StartRecording(string filePath)
         {
             if (_recorder is null) return;
+            IsRecording = true;
 
             Bookmarks.Clear();
             TraceLogs.Clear();
@@ -593,6 +571,7 @@ namespace TraceShot.Services
             _recorder.OnRecordingFailed += (s, e) => TraceLogs.Add("Window Recording Failed: " + e.Error);
 
             _actualStartTime = Evidence?.RecordingDate ?? DateTime.Now;
+
             _timer.Start();
             _stopwatch.Restart();
             _recorder.Record(filePath);
@@ -604,6 +583,7 @@ namespace TraceShot.Services
             _stopwatch.Stop();
             _recorder?.Stop();
             SaveEvidenceJson();
+            IsRecording = false;
         }
     }
 }
