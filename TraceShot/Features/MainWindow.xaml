@@ -45,6 +45,16 @@
             </MenuItem>
             <MenuItem Header="設定(_P)" Click="OpenSettings_Click" />
             <MenuItem Header="証跡クリア" Click="ClearBookmark_Click" />
+            <MenuItem Header="モード(_M)">
+
+                <MenuItem x:Name="RecordModeMenuItem" Header="録音モード"
+                          IsCheckable="True" IsChecked="True"
+                          Click="SwitchToRecordMode_Click"/>
+
+                <MenuItem x:Name="PlayerModeMenuItem" Header="再生モード" 
+                          IsCheckable="True" IsChecked="False"
+                          Click="SwitchToPlayerMode_Click"/>
+            </MenuItem>
             <MenuItem x:Name="DebugMenuItem" Header="デバッグ ON" IsCheckable="True" Click="DebugButton_Click" />
         </Menu>
 
@@ -170,38 +180,50 @@
                     </StackPanel>
 
                     <Grid x:Name="RecordingTimerArea" Visibility="Collapsed" Height="60" Background="#E0E0E0">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock Text="● REC" Foreground="Red" FontWeight="Bold" FontSize="18" Margin="0,0,15,0" VerticalAlignment="Center">
+                        <Grid HorizontalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="100" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="● REC" Foreground="Red" FontWeight="Bold" 
+                   FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,15,0">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
                                         <Style.Triggers>
-                                            <EventTrigger RoutedEvent="Loaded">
-                                                <BeginStoryboard>
-                                                    <Storyboard RepeatBehavior="Forever">
-                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0" Duration="0:0:0.5" AutoReverse="True"/>
-                                                    </Storyboard>
-                                                </BeginStoryboard>
-                                            </EventTrigger>
+                                            <DataTrigger Binding="{Binding IsRecording, Source={x:Static service:RecManager.Instance}}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <DataTrigger.EnterActions>
+                                                    <BeginStoryboard x:Name="BlinkStoryboard">
+                                                        <Storyboard RepeatBehavior="Forever">
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0" Duration="0:0:0.5" AutoReverse="True"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.EnterActions>
+                                                <DataTrigger.ExitActions>
+                                                    <StopStoryboard BeginStoryboardName="BlinkStoryboard"/>
+                                                </DataTrigger.ExitActions>
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock x:Name="BigRecordingTimerText" 
-                                       Text="{Binding RecordingTime, Source={x:Static service:RecManager.Instance}}"
-                                       FontFamily="Consolas" FontSize="36" FontWeight="Bold" VerticalAlignment="Center"/>
 
-                        </StackPanel>
+                            <TextBlock x:Name="BigRecordingTimerText" Grid.Column="1"
+                   Text="{Binding RecordingTime, Source={x:Static service:RecManager.Instance}}"
+                   FontFamily="Consolas" FontSize="36" FontWeight="Bold" VerticalAlignment="Center"/>
+
+                            <Border Grid.Column="2" Width="100" />
+                        </Grid>
                     </Grid>
                 </Grid>
 
 
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
-                    <StackPanel x:Name="RecordingPanel" Orientation="Horizontal" 
-                        Visibility="{Binding IsRecording, 
-                            Source={x:Static service:RecManager.Instance},
-                            Converter={StaticResource BooleanToVisibilityConverter}}">
-
+                    <StackPanel x:Name="RecordingPanel" Orientation="Horizontal" >
                         <TextBlock Text="録画範囲：" VerticalAlignment="Center"/>
                         <ComboBox x:Name="ModeComboBox" SelectedIndex="0" Margin="5,0"
                               VerticalContentAlignment="Center">
@@ -210,10 +232,10 @@
                             <ComboBoxItem Content="ウインドウ"/>
                         </ComboBox>
 
-                        <Button x:Name="StartStopButton" Click="StartStopButton_Click" Margin="5,0">
+                        <Button x:Name="RecordingButton" Click="RecordingButton_Click" Margin="5,0">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock x:Name="StartStopIcon" Text="●" Foreground="Red" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="StartStopText" Text="録画開始" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="RecordingIcon" Text="●" Foreground="Red" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="RecordingText" Text="録画開始" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                         <Button Click="AddBookmarkWhileRecording_Click" Margin="5,0">
@@ -233,10 +255,7 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <StackPanel x:Name="PlaybackPanel" Orientation="Horizontal"
-                            Visibility="{Binding IsRecording, 
-                                Source={x:Static service:RecManager.Instance},
-                                Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                    <StackPanel x:Name="PlayerPanel" Orientation="Horizontal">
                         <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock x:Name="PlayPauseIcon" Text="▶" Margin="0,0,5,0"/>

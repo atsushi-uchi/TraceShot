@@ -24,14 +24,16 @@ namespace TraceShot.Services
 
         public ObservableCollection<Bookmark> Bookmarks => Evidence.Bookmarks;
 
+        [ObservableProperty]
+        private bool _isRecording = false;
+
+        [ObservableProperty]
+        private string _recordingTime = "00:00:00";
+
         private Stopwatch _stopwatch = new Stopwatch();
         private DispatcherTimer _timer;
         private Recorder? _recorder;
         private DateTime _actualStartTime;
-        [ObservableProperty]
-        private bool _isRecording = true;
-        [ObservableProperty]
-        private string _recordingTime = "00:00:00";
         public List<string> TraceLogs { get; private set; } = [];
         public TimeSpan CurrentDuration => _stopwatch.Elapsed;
         public string CurrentVideoName { get; private set; } = "";
@@ -42,6 +44,9 @@ namespace TraceShot.Services
         public bool IsCropLocked { get; set; }
         public event EventHandler? OnActualRecordingStarted;
         public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
+
+        // 録画停止時に実行する処理を登録するためのアクション
+        public Action? OnRecordingStopped { get; set; }
 
         private RecManager()
         {
@@ -95,6 +100,8 @@ namespace TraceShot.Services
 
             string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot");
             if (!Directory.Exists(screenshotFolder)) Directory.CreateDirectory(screenshotFolder);
+
+            if (info is null) return null;
 
             // 1. infoクラスから解像度を取得
             int originalWidth = info.NaturalWidth;
@@ -584,6 +591,9 @@ namespace TraceShot.Services
             _recorder?.Stop();
             SaveEvidenceJson();
             IsRecording = false;
+
+            // 登録されている処理（MainWindowのモード切替など）を実行
+            OnRecordingStopped?.Invoke();
         }
     }
 }

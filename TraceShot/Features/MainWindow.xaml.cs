@@ -3,8 +3,6 @@ using ScreenRecorderLib;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Media;
-using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -41,16 +39,51 @@ namespace TraceShot.Features
 
     public partial class MainWindow : Window
     {
+        private bool _isRecordMode = true;
+
+        public bool IsRecordMode
+        {
+            get => _isRecordMode;
+            set
+            {
+                _isRecordMode = value;
+                UpdateModeUI(); // 💡 値が変わったらUIを強制更新する
+            }
+        }
+
+        // 💡 モードに合わせてコントロールの表示・非表示を一括制御
+        private void UpdateModeUI()
+        {
+            if (_isRecordMode)
+            {
+                VideoPlayer.Visibility = Visibility.Collapsed;
+                PlayerPanel.Visibility = Visibility.Collapsed;
+
+                RecordingOverlay.Visibility = Visibility.Visible;
+                RecordingTimerArea.Visibility = Visibility.Visible;
+                RecordingPanel.Visibility = Visibility.Visible;
+                RecordModeMenuItem.IsChecked = true;
+                PlayerModeMenuItem.IsChecked = false;
+            }
+            else
+            {
+                VideoPlayer.Visibility = Visibility.Visible;
+                PlayerPanel.Visibility = Visibility.Visible;
+
+                RecordingOverlay.Visibility = Visibility.Collapsed;
+                RecordingTimerArea.Visibility = Visibility.Collapsed;
+                RecordingPanel.Visibility = Visibility.Collapsed;
+                RecordModeMenuItem.IsChecked = false;
+                PlayerModeMenuItem.IsChecked = true;
+            }
+        }
+
         private SpeechRecognizer? _winrtRecognizer;
         private SettingsService _setting = SettingsService.Instance;
         private bool _isPlaying = false;
         private bool _isRecording = false;
         private bool _isInternalSelectionChange = false;
-
-        //public RecorderManager RecorderMgr { get; private set; }  = new ();
-
         private string _currentVideoPath = "";
-        private DispatcherTimer _recordingTimer;
         private DispatcherTimer _playerTimer;
         private bool _isDragging = false; // スライダー操作中かどうかの判定
 
@@ -120,6 +153,15 @@ namespace TraceShot.Features
                     liveView.LiveSortingProperties.Add("Time");
                 }
             }
+
+            RecManager.Instance.OnRecordingStopped = () =>
+            {
+                // UIスレッドで実行する必要があるため Dispatcher を使用
+                Dispatcher.Invoke(() =>
+                {
+                    IsRecordMode = false;
+                });
+            };
         }
 
         private void ApplyCurrentSettings()
@@ -290,6 +332,7 @@ namespace TraceShot.Features
                                     }
                                 }
                                 RefreshBookmarkCanvas();
+                                IsRecordMode = false;
 
                                 // 選択状態の管理
                                 if (RecManager.Instance.Bookmarks.Count > 0)
@@ -1747,9 +1790,9 @@ namespace TraceShot.Features
             VideoPlayer.Stop();
             //_recordingTimer.Start();
 
-            StartStopIcon.Foreground = Brushes.Black;
-            StartStopIcon.Text = "■";
-            StartStopText.Text = "録画停止";
+            RecordingIcon.Foreground = Brushes.Black;
+            RecordingIcon.Text = "■";
+            RecordingText.Text = "録画停止";
         }
 
         // 録画停止時の処理
@@ -1778,15 +1821,15 @@ namespace TraceShot.Features
             PlayerPause(true);
 
 
-            StartStopIcon.Foreground = Brushes.Red;
-            StartStopIcon.Text = "●";
-            StartStopText.Text = "録画開始";
+            RecordingIcon.Foreground = Brushes.Red;
+            RecordingIcon.Text = "●";
+            RecordingText.Text = "録画開始";
 
             //AddBookmarkButton.Content = "📌 証跡追加";
 
         }
 
-        private async void StartStopButton_Click(object sender, RoutedEventArgs e)
+        private async void RecordingButton_Click(object sender, RoutedEventArgs e)
         {
             if (!_isRecording)
             {
@@ -2027,7 +2070,7 @@ namespace TraceShot.Features
             }
         }
 
-        private void AddBookmarkWhileRecording_Click(object sender, RoutedEventArgs e)
+        private void AddBookmarkWhileRecording_Click(object sender, RoutedEventArgs? e)
         {
             SoundManager.Instance.PlayShutter();
 
@@ -2052,7 +2095,7 @@ namespace TraceShot.Features
             RefreshBookmarkCanvas();
         }
 
-        private void AddVoiceMemoRecording_Click(object sender, RoutedEventArgs e)
+        private void AddVoiceMemoRecording_Click(object sender, RoutedEventArgs? e)
         {
             Bookmark newBookmark = new()
             {
@@ -2065,9 +2108,20 @@ namespace TraceShot.Features
             RefreshBookmarkCanvas();
 
             Task.Run(async () => await StartSpeach(newBookmark));
+
+            if (_previewBitmap is not null)
+            {
+                var path = RecManager.Instance.SaveBackupFromWriteableBitmap(newBookmark, _previewBitmap);
+                newBookmark.ImagePath = path;
+                StatusText.Text = $"記録 {newBookmark.Time} {newBookmark.Note} SS作成 {path}";
+            }
+            else
+            {
+                StatusText.Text = $"記録 {newBookmark.Time} {newBookmark.Note}";
+            }
         }
 
-        private void AddBookmarkWhilePlaying_Click(object sender, RoutedEventArgs e)
+        private void AddBookmarkWhilePlaying_Click(object sender, RoutedEventArgs? e)
         {
             // 選択されているブックマークがある場合は何もしない（誤操作防止）
             if (BookmarkListBox.SelectedItem is Bookmark selected) return;
@@ -2084,7 +2138,7 @@ namespace TraceShot.Features
             RefreshBookmarkCanvas();
         }
 
-        private void AddVoiceMemoWhilePlaying_Click(object sender, RoutedEventArgs e)
+        private void AddVoiceMemoWhilePlaying_Click(object sender, RoutedEventArgs? e)
         {
             // 選択されているブックマークがある場合は何もしない（誤操作防止）
             if (BookmarkListBox.SelectedItem is Bookmark selected) return;
@@ -2131,6 +2185,16 @@ namespace TraceShot.Features
                 bookmark.IsListening = false;
                 System.Media.SystemSounds.Asterisk.Play();
             }
+        }
+
+        private void SwitchToRecordMode_Click(object sender, RoutedEventArgs e)
+        {
+            IsRecordMode = true;
+        }
+
+        private void SwitchToPlayerMode_Click(object sender, RoutedEventArgs e)
+        {
+            IsRecordMode = false;
         }
     }
 }
