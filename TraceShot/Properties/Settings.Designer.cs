@@ -178,5 +178,17 @@ namespace TraceShot.Properties {
                 this["VoiceHotkeyMod"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool IsVoiceEnabled {
+            get {
+                return ((bool)(this["IsVoiceEnabled"]));
+            }
+            set {
+                this["IsVoiceEnabled"] = value;
+            }
+        }
     }
 }

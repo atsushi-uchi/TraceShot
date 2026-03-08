@@ -54,6 +54,7 @@ namespace TraceShot.Features
             _tempVoiceMod = (ModifierKeys)Default.VoiceHotkeyMod;
             VoiceHotkeySettingButton.Content = HotkeyRegister.Format(_tempVoiceKey, _tempVoiceMod);
 
+            EnableVoiceRecognitionCheckBox.IsChecked = _setting.IsVoiceEnabled;
         }
 
         private void HotkeySettingButton_Click(object sender, RoutedEventArgs e)
@@ -145,6 +146,9 @@ namespace TraceShot.Features
 
             Default.VoiceHotkeyKey = (int)_tempVoiceKey;
             Default.VoiceHotkeyMod = (int)_tempVoiceMod;
+
+            // 音声認識オン／オフ
+            SettingsService.Instance.IsVoiceEnabled = EnableVoiceRecognitionCheckBox.IsChecked ?? false;
 
             SettingsService.Instance.Save();
             this.DialogResult = true;

@@ -76,12 +76,14 @@ namespace TraceShot.Features
         {
             InitializeComponent();
 
-            // いったん音声認識を停止
-            //InitSpeechRecognition();
-
             DataContext = _setting;
 
             ApplyCurrentSettings();
+
+            if (_setting.IsVoiceEnabled)
+            {
+                InitSpeechRecognition();
+            }
 
             this.KeyDown += (s, e) => {
                 // Ctrl + S で保存を実行する
@@ -173,6 +175,11 @@ namespace TraceShot.Features
                 ApplyCurrentSettings();
                 StatusText.Text = "⚙️ 設定を更新しました";
                 RefreshCanvas();
+
+                if (_setting.IsVoiceEnabled && !_isSpeechInitalized)
+                {
+                    InitSpeechRecognition();
+                }
             }
         }
 
@@ -2049,7 +2056,7 @@ namespace TraceShot.Features
         {
             RefreshBookmarkCanvas();
         }
-
+        private bool _isSpeechInitalized = false;
         // 音声認識の初期化（コンストラクタなどで呼ぶ）
         private async void InitSpeechRecognition()
         {
@@ -2060,6 +2067,8 @@ namespace TraceShot.Features
 
                 // 文法のコンパイル（必須）
                 await _winrtRecognizer.CompileConstraintsAsync();
+
+                _isSpeechInitalized = true;
             }
             catch (Exception)
             {

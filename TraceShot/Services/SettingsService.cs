@@ -10,6 +10,8 @@ namespace TraceShot.Services
         private static readonly SettingsService _instance = new();
         public static SettingsService Instance => _instance;
 
+        [ObservableProperty] private bool _isVoiceEnabled = false;
+
         // --- Colors (Source of truth) ---
         [ObservableProperty] private Color _mainColor;
         [ObservableProperty] private Color _overColor;
@@ -32,6 +34,8 @@ namespace TraceShot.Services
         {
             // 初期値の読み込み
             UpdateAllColors();
+
+            IsVoiceEnabled = Default.IsVoiceEnabled;
         }
 
         private void UpdateAllColors()
@@ -97,7 +101,7 @@ namespace TraceShot.Services
             Default.OverTextColorName = OverTextColor.ToString();
             Default.CropColorName = CropColor.ToString();
             Default.CropFillColorName = CropFillColor.ToString();
-
+            Default.IsVoiceEnabled = IsVoiceEnabled;
             Default.Save(); // 物理ファイルへ書き込み
         }
     }

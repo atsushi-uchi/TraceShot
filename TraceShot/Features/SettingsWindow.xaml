@@ -55,6 +55,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <TextBlock Text="証跡追加ホットキー:" VerticalAlignment="Center" Margin="0,0,10,5"/>
@@ -64,6 +65,12 @@
                 <TextBlock Grid.Row="1" Text="音声メモホットキー:" VerticalAlignment="Center" Margin="0,5,10,0"/>
                 <Button x:Name="VoiceHotkeySettingButton" Grid.Row="1" Grid.Column="1" Content="None" Margin="0,5,0,0" Click="HotkeySettingButton_Click"/>
                 <TextBlock Grid.Row="1" Grid.Column="2" Text="※クリックしてキー入力" VerticalAlignment="Center" Margin="10,5,0,0" FontSize="10" Foreground="Gray"/>
+
+                <StackPanel Grid.Row="2" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,10,0,0">
+                    <CheckBox x:Name="EnableVoiceRecognitionCheckBox" Content="音声認識を有効にする" VerticalAlignment="Center"/>
+                    <TextBlock Text="（起動時の負荷を軽減するにはオフにしてください）" 
+                       VerticalAlignment="Center" FontSize="10" Foreground="Gray" Margin="10,0,0,0"/>
+                </StackPanel>
             </Grid>
         </GroupBox>
         <GroupBox Header="表示色設定" Grid.Row="3" Padding="10" Margin="0,10,0,0">
