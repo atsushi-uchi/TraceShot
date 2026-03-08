@@ -194,13 +194,17 @@ namespace TraceShot.Features
             if (settingsWin.ShowDialog() == true)
             {
                 ApplyCurrentSettings();
-                StatusText.Text = "⚙️ 設定を更新しました";
-                RefreshCanvas();
+
+                if (_setting.IsPlayerMode)
+                {
+                    RefreshCanvas();
+                }
 
                 if (_setting.IsVoiceEnabled && !_isSpeechInitalized)
                 {
                     InitSpeechRecognition();
                 }
+                StatusText.Text = "🛠️ 設定を更新しました";
             }
         }
 
@@ -296,7 +300,6 @@ namespace TraceShot.Features
                                 // 4. 再生準備
                                 VideoPlayer.Source = new Uri(videoPath);
                                 PlayerPause(true);
-                                //_playerTimer.Start();
 
                                 // 5. UIに情報を反映
                                 StatusText.Text = $"読み込み: {evidence?.RecMode} {evidence?.VideoFileName}";
@@ -787,15 +790,74 @@ namespace TraceShot.Features
                 Y2 = adjustedY2,
                 Stroke = _setting.MainFillBrush,
                 StrokeThickness = 1,
-                StrokeDashArray = new DoubleCollection { 4, 2 },
+                StrokeDashArray = [4, 2],
                 IsHitTestVisible = false
             };
             Canvas.SetZIndex(line, 0);
 
-            var dot = new Ellipse { Width = 6, Height = 6, Fill = _setting.MainBrush, IsHitTestVisible = false };
-            Canvas.SetLeft(dot, start.X - 3);
-            Canvas.SetTop(dot, start.Y - 3);
-            Canvas.SetZIndex(dot, 1);
+
+            // --- 3. 要素の描画 (始点ドット) ---
+            bool isCurrentlyDragging = (_draggingRect != null && _draggingRect.Uid == "Target" && _draggingRect.Tag == note);
+
+            // 実際に見える小さな点
+            var visualDot = new Ellipse
+            {
+                // ドラッグ中なら最初から「大きく・ハイライト色」で生成する
+                Width = isCurrentlyDragging ? 12 : 6,
+                Height = isCurrentlyDragging ? 12 : 6,
+                Fill = isCurrentlyDragging ? _setting.OverBrush : _setting.MainBrush,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsHitTestVisible = false // イベントは親の Border で受ける
+            };
+
+            // マウス判定用の透明で大きな枠 (20x20)
+            var dotContainer = new Border
+            {
+                Width = 20,
+                Height = 20,
+                Background = Brushes.Transparent,
+                Child = visualDot,
+                Cursor = Cursors.Hand,
+                Tag = note,     // 再描画時の判定に必須
+                Uid = "Target"  // 始点であることを識別
+            };
+
+            // 中心を start 座標に合わせる (20px の半分 = 10px オフセット)
+            Canvas.SetLeft(dotContainer, start.X - 10);
+            Canvas.SetTop(dotContainer, start.Y - 10);
+            Canvas.SetZIndex(dotContainer, 101);
+
+            // --- 4. イベント登録 (dotContainer) ---
+            dotContainer.MouseEnter += (s, e) =>
+            {
+                visualDot.Width = 10;
+                visualDot.Height = 10;
+                visualDot.Fill = _setting.OverBrush;
+            };
+
+            dotContainer.MouseLeave += (s, e) =>
+            {
+                visualDot.Width = 6;
+                visualDot.Height = 6;
+                visualDot.Fill = _setting.MainBrush;
+            };
+
+            dotContainer.MouseLeftButtonDown += (s, e) =>
+            {
+                _draggingRect = dotContainer;
+                _lastMousePosition = e.GetPosition(DrawingCanvas);
+                e.Handled = true;
+            };
+            dotContainer.MouseLeftButtonUp += EndDrag;
+
+            // 💡 重要：再描画によって生成された直後の「キャプチャ引き継ぎ」
+            if (isCurrentlyDragging)
+            {
+                // 新しいインスタンスにマウス占有を移し替え、管理変数を更新
+                dotContainer.CaptureMouse();
+                _draggingRect = dotContainer;
+            }
 
             // --- 4. イベント登録 ---
             textBorder.MouseLeftButtonDown += (s, e) => {
@@ -830,7 +892,7 @@ namespace TraceShot.Features
 
             // --- 5. 追加 ---
             DrawingCanvas.Children.Add(line);
-            DrawingCanvas.Children.Add(dot);
+            DrawingCanvas.Children.Add(dotContainer);
             DrawingCanvas.Children.Add(textBorder);
         }
 
@@ -1873,7 +1935,7 @@ namespace TraceShot.Features
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Preview Update Error: {ex.Message}");
+                    Debug.WriteLine($"Preview Update Error: {ex.Message}");
                 }
                 finally
                 {
@@ -2133,6 +2195,7 @@ namespace TraceShot.Features
             if (ModeToggleButton.IsChecked == true)
             {
                 _setting.IsPlayerMode = true;
+                RefreshCanvas();
             }
             else
             {
