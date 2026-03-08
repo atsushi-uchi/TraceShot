@@ -15,9 +15,9 @@ using MessageBox = System.Windows.MessageBox;
 
 namespace TraceShot.Services
 {
-    public class RecorderManager
+    public class RecManager
     {
-        public static RecorderManager Instance { get; } = new RecorderManager();
+        public static RecManager Instance { get; } = new RecManager();
 
         private Stopwatch _stopwatch = new Stopwatch();
         private DispatcherTimer _timer;
@@ -36,7 +36,7 @@ namespace TraceShot.Services
         public event EventHandler? OnActualRecordingStarted;
         public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
 
-        private RecorderManager()
+        private RecManager()
         {
             _timer = new DispatcherTimer();
             _timer.Interval = TimeSpan.FromSeconds(1);
