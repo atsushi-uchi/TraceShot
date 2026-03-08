@@ -285,7 +285,7 @@ namespace TraceShot.Features
                                     if (VideoPlayer.NaturalDuration.HasTimeSpan)
                                     {
                                         // 準備OK！印を描画してループを抜ける
-                                        UpdateBookmarkMarkers();
+                                        RefreshBookmarkCanvas();
                                         return;
                                     }
                                     await Task.Delay(100);
@@ -1337,7 +1337,7 @@ namespace TraceShot.Features
                     foreach (var b in sorted) BookmarkListBox.Items.Add(b);
                     BookmarkListBox.SelectedItem = bookmark;
                     selectedBm = bookmark;
-                    UpdateBookmarkMarkers();
+                    RefreshBookmarkCanvas();
                 }
             }
 
@@ -1415,7 +1415,7 @@ namespace TraceShot.Features
                 NoteEditBox.Text = "";
                 StatusText.Text = $"🗑️ {bookmarks.Count} 件削除しました";
             }
-            UpdateBookmarkMarkers();
+            RefreshBookmarkCanvas();
         }
 
         private void AddBookmarkButton_Click(object sender, RoutedEventArgs e)
@@ -1443,7 +1443,7 @@ namespace TraceShot.Features
                 // 「00:00 / 総時間」の形式で表示
                 TimeText.Text = $"00:00 / {duration:mm\\:ss}";
 
-                UpdateBookmarkMarkers();
+                RefreshBookmarkCanvas();
             }
             // 2. 💡 ここでタイマーを起動！
             StartPlaybackTimer();
@@ -1540,12 +1540,20 @@ namespace TraceShot.Features
         }
 
         // スライダーを掴んだらタイマーを止める（操作しやすくするため）
-        private void Slider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e) => _isDragging = true;
+        private void Slider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
+        {
+            _isDragging = true;
+            SliderToolTip.Visibility = Visibility.Visible;
+            SliderToolTip.IsOpen = true;
+        }
 
         // 離したら動画の再生位置を確定してタイマー再開
         private void Slider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
         {
             _isDragging = false;
+            SliderToolTip.IsOpen = false;
+            SliderToolTip.Visibility = Visibility.Collapsed;
+
             double currentValue = TimelineSlider.Value;
             VideoPlayer.Position = TimeSpan.FromSeconds(currentValue);
 
@@ -1687,7 +1695,7 @@ namespace TraceShot.Features
 
             BookmarkListBox.ScrollIntoView(bookmark);
             SystemSounds.Asterisk.Play();
-            UpdateBookmarkMarkers();
+            RefreshBookmarkCanvas();
         }
 
         private void TakeBookmark()
@@ -1899,6 +1907,7 @@ namespace TraceShot.Features
 
                     StatusText.Text = $"Seek: {selected.Time}";
                     RefreshCanvas();
+                    RefreshBookmarkCanvas();
                 }
             }
             catch (Exception ex)
@@ -1908,7 +1917,7 @@ namespace TraceShot.Features
         }
 
 
-        private void UpdateBookmarkMarkers()
+        private void RefreshBookmarkCanvas()
         {
             if (RecorderMgr.Evidence == null || !VideoPlayer.NaturalDuration.HasTimeSpan) return;
             BookmarkCanvas.Children.Clear();
@@ -1930,18 +1939,23 @@ namespace TraceShot.Features
 
                 double xPos = (ratio * effectiveWidth) + (ThumbWidth / 2.0);
 
+                bool isSelected = BookmarkListBox.SelectedItems.Contains(bm);
+                double r = isSelected ? 1.2 : 1.1;
                 // 三角形（▲）の作成
-                System.Windows.Shapes.Polygon triangle = new System.Windows.Shapes.Polygon();
-                triangle.Points = new PointCollection() {
-                    new Point(0, 0),   // 上（頂点）
-                    new Point(-6, 10), // 左下
-                    new Point(6, 10)   // 右下
-        };
-                triangle.Fill = Brushes.White;
-                triangle.Stroke = Brushes.DarkGray;
-                triangle.StrokeThickness = 1;
-                triangle.Cursor = Cursors.Hand;
-                triangle.Tag = bm;
+                Polygon triangle = new()
+                {
+                    Points = [
+                        new Point(0, 0),
+                        new Point(-6 * r, 10 * r),
+                        new Point(6 * r, 10 * r)
+                    ],
+                    Fill = isSelected ? Brushes.Orange : Brushes.LightGray,
+                    Stroke = isSelected ? Brushes.Red : Brushes.Gray,
+                    StrokeThickness = 1,
+                    Cursor = Cursors.Hand,
+                    Tag = bm
+                };
+                Canvas.SetZIndex(triangle, isSelected ? 10 : 0);
 
                 // イベント登録
                 triangle.MouseLeftButtonDown += Marker_MouseLeftButtonDown;
@@ -1971,7 +1985,7 @@ namespace TraceShot.Features
 
         private void BookmarkCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            UpdateBookmarkMarkers();
+            RefreshBookmarkCanvas();
         }
 
         // 音声認識の初期化（コンストラクタなどで呼ぶ）
@@ -2033,7 +2047,7 @@ namespace TraceShot.Features
             foreach (var b in sorted) BookmarkListBox.Items.Add(b);
 
             BookmarkListBox.ScrollIntoView(voiceMemo);
-            UpdateBookmarkMarkers();
+            RefreshBookmarkCanvas();
             try
             {
                 // 2. 認識開始（Windows標準のUIを表示せずバックグラウンドで認識）
@@ -2057,7 +2071,7 @@ namespace TraceShot.Features
             {
                 voiceMemo.IsListening = false;
                 System.Media.SystemSounds.Asterisk.Play();
-                UpdateBookmarkMarkers();
+                RefreshBookmarkCanvas();
                 VoiceMemoButton.IsEnabled = true;
             }
         }
@@ -2065,6 +2079,29 @@ namespace TraceShot.Features
         private async void VoiceMemoButton_Click(object sender, RoutedEventArgs? e)
         {
             await AddVoiceMemo();
+        }
+
+        private void Slider_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            // ドラッグ中のみ処理を行う
+            if (_isDragging && sender is Slider slider)
+            {
+                Point mousePos = e.GetPosition(slider);
+                double ratio = mousePos.X / slider.ActualWidth;
+                double targetSeconds = slider.Maximum * ratio;
+
+                // 範囲制限
+                targetSeconds = Math.Max(0, Math.Min(slider.Maximum, targetSeconds));
+
+                TimeSpan time = TimeSpan.FromSeconds(targetSeconds);
+                ToolTipText.Text = time.ToString(@"mm\:ss\.fff");
+
+                // つまみの位置に合わせてツールチップを移動
+                SliderToolTip.PlacementTarget = slider;
+                SliderToolTip.Placement = System.Windows.Controls.Primitives.PlacementMode.Relative;
+                SliderToolTip.HorizontalOffset = mousePos.X;
+                SliderToolTip.VerticalOffset = -30;
+            }
         }
     }
 }

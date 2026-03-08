@@ -152,7 +152,13 @@
                                 Thumb.DragStarted="Slider_DragStarted" 
                                 Thumb.DragCompleted="Slider_DragCompleted" 
                                 ValueChanged="Slider_ValueChanged"
-                                />
+                                PreviewMouseMove="Slider_PreviewMouseMove">
+                            <Slider.ToolTip>
+                                <ToolTip x:Name="SliderToolTip">
+                                    <TextBlock x:Name="ToolTipText" Text="00:00.000" FontWeight="Bold" />
+                                </ToolTip>
+                            </Slider.ToolTip>
+                        </Slider>
 
                         <Canvas x:Name="BookmarkCanvas" 
                                 SizeChanged="BookmarkCanvas_SizeChanged"
