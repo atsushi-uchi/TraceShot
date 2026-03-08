@@ -2057,7 +2057,7 @@ namespace TraceShot.Features
             Bookmark newBookmark = new()
             {
                 Time = RecManager.Instance.CurrentDuration,
-                Icon = "💬",
+                Icon = "🎙",
                 Note = "音声入力中",
             };
 
@@ -2093,7 +2093,7 @@ namespace TraceShot.Features
             {
                 Time = VideoPlayer.Position,
                 Note = "音声入力中",
-                Icon = "🎙️"
+                Icon = "🎤"
             };
 
             RecManager.Instance.Bookmarks.Add(newBookmark);

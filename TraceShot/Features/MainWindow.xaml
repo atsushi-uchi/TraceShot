@@ -94,30 +94,29 @@
                         </StackPanel>
                     </Grid>
 
-                    <!--<DataTemplate.Triggers>
+                    <DataTemplate.Triggers>
                         <DataTrigger Binding="{Binding IsListening}" Value="True">
                             <DataTrigger.EnterActions>
                                 <BeginStoryboard x:Name="RedBlink">
                                     <Storyboard>
-                                        <ColorAnimation Storyboard.TargetName="IconTxt" Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)" From="Black" To="Red" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" />
-                                        <ColorAnimation Storyboard.TargetName="TimeTxt" Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)" From="Black" To="Red" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" />
-                                        <ColorAnimation Storyboard.TargetName="SepTxt" Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)" From="Black" To="Red" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" />
-                                        <ColorAnimation Storyboard.TargetName="NoteTxt" Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)" From="Black" To="Red" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" />
+                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="IconTxt" 
+                                                   Storyboard.TargetProperty="Foreground"
+                                                   Duration="0:0:1" RepeatBehavior="Forever">
+                                            <DiscreteObjectKeyFrame KeyTime="0:0:0" Value="{x:Static Brushes.Red}"/>
+                                            <DiscreteObjectKeyFrame KeyTime="0:0:0.5" Value="{x:Static Brushes.Transparent}"/>
+                                        </ObjectAnimationUsingKeyFrames>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </DataTrigger.EnterActions>
                             <DataTrigger.ExitActions>
-                                <StopStoryboard BeginStoryboardName="RedBlink" />
+                                <StopStoryboard BeginStoryboardName="RedBlink"/>
                             </DataTrigger.ExitActions>
                         </DataTrigger>
 
                         <DataTrigger Binding="{Binding IsListening}" Value="False">
-                            <Setter TargetName="IconTxt" Property="Foreground" Value="Black" />
-                            <Setter TargetName="TimeTxt" Property="Foreground" Value="Black" />
-                            <Setter TargetName="SepTxt" Property="Foreground" Value="Black" />
-                            <Setter TargetName="NoteTxt" Property="Foreground" Value="Black" />
+                            <Setter TargetName="IconTxt" Property="Foreground" Value="Black"/>
                         </DataTrigger>
-                    </DataTemplate.Triggers>-->
+                    </DataTemplate.Triggers>
                 </DataTemplate>
             </ListBox.ItemTemplate>
 
@@ -225,7 +224,7 @@
                         </Button>
                         <Button Click="AddVoiceMemoRecording_Click" Margin="5,0">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="💬" Margin="0,0,5,0"/>
+                                <TextBlock Text="🎙" Margin="0,0,5,0"/>
                                 <TextBlock Text="音声メモ (録画)"/>
                             </StackPanel>
                         </Button>
@@ -252,7 +251,7 @@
                         </Button>
                         <Button Click="AddVoiceMemoWhilePlaying_Click" Margin="5,0">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🎙️" Margin="0,0,5,0"/>
+                                <TextBlock Text="🎤" Margin="0,0,5,0"/>
                                 <TextBlock Text="音声メモ (再生)"/>
                             </StackPanel>
                         </Button>
