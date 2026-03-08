@@ -17,6 +17,8 @@ namespace TraceShot.Services
 {
     public class RecorderManager
     {
+        public static RecorderManager Instance { get; } = new RecorderManager();
+
         private Stopwatch _stopwatch = new Stopwatch();
         private DispatcherTimer _timer;
         private Recorder? _recorder;
@@ -34,7 +36,7 @@ namespace TraceShot.Services
         public event EventHandler? OnActualRecordingStarted;
         public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
 
-        public RecorderManager()
+        private RecorderManager()
         {
             _timer = new DispatcherTimer();
             _timer.Interval = TimeSpan.FromSeconds(1);

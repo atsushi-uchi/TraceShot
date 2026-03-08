@@ -44,7 +44,7 @@ namespace TraceShot.Features
         private bool _isRecording = false;
         private bool _isInternalSelectionChange = false;
 
-        public RecorderManager RecorderMgr { get; private set; }  = new ();
+        //public RecorderManager RecorderMgr { get; private set; }  = new ();
 
         private string _currentVideoPath = "";
         private DispatcherTimer _recordingTimer;
@@ -103,7 +103,7 @@ namespace TraceShot.Features
             _recordingTimer.Tick += RecordingTimer_Tick;
 
             // 録画開始ボタンの処理内
-            RecorderMgr.OnActualRecordingStarted += (s, e) =>
+            RecorderManager.Instance.OnActualRecordingStarted += (s, e) =>
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -133,7 +133,7 @@ namespace TraceShot.Features
             }
 
             FrameRateText.Text = fps.ToString();
-            RecorderMgr.FrameRate = fps;
+            RecorderManager.Instance.FrameRate = fps;
 
             if (update)
             {
@@ -202,11 +202,11 @@ namespace TraceShot.Features
 
         private void SaveEvidence_Click(object? sender, RoutedEventArgs? e)
         {
-            if (RecorderMgr.Evidence == null) return;
+            if (RecorderManager.Instance.Evidence == null) return;
 
             try
             {
-                RecorderMgr.UpdateJson();
+                RecorderManager.Instance.UpdateJson();
 
                 StatusText.Text = $"[保存完了] {DateTime.Now:HH:mm:ss} エビデンスを保存しました。";
                 MessageBox.Show("エビデンスの内容を保存しました。", "保存完了", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -239,15 +239,15 @@ namespace TraceShot.Features
 
                     if (evidence != null)
                     {
-                        RecorderMgr.Evidence = evidence;
-                        RecorderMgr.SyncBookmark();
-                        RecorderMgr.JsonPath = openFileDialog.FileName;
+                        RecorderManager.Instance.Evidence = evidence;
+                        RecorderManager.Instance.SyncBookmark();
+                        RecorderManager.Instance.JsonPath = openFileDialog.FileName;
 
                         // 3. JSONと同じフォルダ内にある動画ファイルのフルパスを作成
                         var folderPath = Path.GetDirectoryName(openFileDialog.FileName) ?? "";
                         if (!string.IsNullOrEmpty(folderPath))
                         {
-                            RecorderMgr.CurrentFolder = folderPath;
+                            RecorderManager.Instance.CurrentFolder = folderPath;
                             string videoPath = Path.Combine(folderPath, evidence?.VideoFileName ?? "");
 
                             if (File.Exists(videoPath))
@@ -360,7 +360,7 @@ namespace TraceShot.Features
             catch (Exception ex)
             {
                 StatusText.Text = "❌ フォルダを開けませんでした";
-                RecorderMgr.TraceLogs.Add($"Explorer Error: {ex.Message}");
+                RecorderManager.Instance.TraceLogs.Add($"Explorer Error: {ex.Message}");
             }
         }
 
@@ -424,7 +424,7 @@ namespace TraceShot.Features
             double rectTop = (rect.Y * dispH) + offsetY;
             double rectWidth = rect.Width * dispW;
             double rectHeight = rect.Height * dispH;
-            bool isCropLocked = RecorderMgr?.Evidence?.IsCropLocked?? false;
+            bool isCropLocked = RecorderManager.Instance.Evidence?.IsCropLocked?? false;
             bool canTouch = !isCropMode || !isCropLocked;
 
             // --- 1. 中央の移動用エリア（透明な塗りつぶし） ---
@@ -579,16 +579,16 @@ namespace TraceShot.Features
                 };
 
                 // クリック（マウスダウン）イベント
-                if (RecorderMgr?.Evidence != null)
-                infoBadge.MouseLeftButtonDown += (s, e) => {
-                    RecorderMgr.Evidence.IsCropLocked = !isCropLocked; // ロック状態を反転
+                if (RecorderManager.Instance?.Evidence != null)
+                    infoBadge.MouseLeftButtonDown += (s, e) => {
+                        RecorderManager.Instance.Evidence.IsCropLocked = !isCropLocked; // ロック状態を反転
 
-                    // UIを即座に更新するために再描画をかける
-                    // 描画メソッドを現在の状態で呼び出し直す
-                    RefreshCanvas();
+                        // UIを即座に更新するために再描画をかける
+                        // 描画メソッドを現在の状態で呼び出し直す
+                        RefreshCanvas();
 
-                    e.Handled = true; // 他の要素にクリックが伝わるのを防ぐ
-                };
+                        e.Handled = true; // 他の要素にクリックが伝わるのを防ぐ
+                    };
                 // ロック中はバッジの背景色を変えて「固定済み」を強調してもOK
                 if (isCropLocked)
                 {
@@ -610,7 +610,7 @@ namespace TraceShot.Features
 
             // 2. 「クロップ範囲は1つだけ」ルールを適用
             // (全ブックマークの全矩形を走査)
-            foreach (var bm in RecorderMgr?.Evidence?.Bookmarks ?? new())
+            foreach (var bm in RecorderManager.Instance.Evidence?.Bookmarks ?? new())
             {
                 foreach (var r in bm.MarkRects)
                 {
@@ -628,7 +628,7 @@ namespace TraceShot.Features
         {
             DrawingCanvas.Children.Clear();
 
-            var marks = RecorderMgr?.Evidence?.Bookmarks?? new();
+            var marks = RecorderManager.Instance.Evidence?.Bookmarks ?? [];
 
             var cropRect = marks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
             if (cropRect != null)
@@ -1333,7 +1333,7 @@ namespace TraceShot.Features
                     };
 
                     // リストに追加して選択状態にする
-                    var sorted = RecorderMgr.AddBookmark(bookmark);
+                    var sorted = RecorderManager.Instance.AddBookmark(bookmark);
                     BookmarkListBox.Items.Clear();
                     foreach (var b in sorted) BookmarkListBox.Items.Add(b);
                     BookmarkListBox.SelectedItem = bookmark;
@@ -1407,7 +1407,7 @@ namespace TraceShot.Features
                 foreach (var cp in bookmarks)
                 {
                     // 3. データソースから削除
-                    RecorderMgr.Evidence?.Bookmarks.Remove(cp);
+                    RecorderManager.Instance.Evidence?.Bookmarks.Remove(cp);
 
                     BookmarkListBox.Items.Remove(cp);
                 }
@@ -1428,7 +1428,7 @@ namespace TraceShot.Features
         private void RecordingTimer_Tick(object? sender, EventArgs e)
         {
             // ストップウォッチの経過時間を表示
-            BigRecordingTimerText.Text = RecorderMgr.RecordingTime;
+            BigRecordingTimerText.Text = RecorderManager.Instance.RecordingTime;
         }
 
         private void VideoPlayer_MediaOpened(object sender, RoutedEventArgs e)
@@ -1457,7 +1457,7 @@ namespace TraceShot.Features
 
             // 2. ログに詳細を記録（以前の画像で見られた TraceLogs や BookmarkListBox を活用）
             string errorMessage = $"再生に失敗しました: {e.ErrorException.Message}";
-            RecorderMgr.TraceLogs.Add(errorMessage);
+            RecorderManager.Instance.TraceLogs.Add(errorMessage);
 
             // 3. ユーザーへの通知
             MessageBox.Show(errorMessage, "再生エラー", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -1542,7 +1542,7 @@ namespace TraceShot.Features
                 double currentSec = VideoPlayer.Position.TotalSeconds;
 
                 // 前方誤差 -0.1s ～ 後方誤差 0.3s
-                var targetBookmark = RecorderMgr.Evidence.Bookmarks.FirstOrDefault(bm =>
+                var targetBookmark = RecorderManager.Instance.Evidence.Bookmarks.FirstOrDefault(bm =>
                 {
                     double bmSec = bm.Time.TotalSeconds;
                     double diff = currentSec - bmSec;
@@ -1598,12 +1598,12 @@ namespace TraceShot.Features
             double currentValue = TimelineSlider.Value;
             VideoPlayer.Position = TimeSpan.FromSeconds(currentValue);
 
-            if (RecorderMgr.Evidence?.Bookmarks == null || !RecorderMgr.Evidence.Bookmarks.Any()) return;
+            if (RecorderManager.Instance.Evidence?.Bookmarks == null || !RecorderManager.Instance.Evidence.Bookmarks.Any()) return;
 
             // 1. しきい値（0.5秒）以内のものを抽出し
             // 2. 現在地との差が一番小さい順に並べ替え
             // 3. その先頭（最も近いもの）を取得する
-            var nearbyBookmark = RecorderMgr.Evidence.Bookmarks
+            var nearbyBookmark = RecorderManager.Instance.Evidence.Bookmarks
                 .Where(bm => Math.Abs(bm.Time.TotalSeconds - currentValue) < 0.05)
                 .OrderBy(bm => Math.Abs(bm.Time.TotalSeconds - currentValue))
                 .FirstOrDefault();
@@ -1711,15 +1711,15 @@ namespace TraceShot.Features
                 return;
             }
 
-            if (RecorderMgr is null || RecorderMgr.Evidence is null) return;
-            var evi = RecorderMgr.Evidence;
+            if (RecorderManager.Instance is null || RecorderManager.Instance.Evidence is null) return;
+            var evi = RecorderManager.Instance.Evidence;
             var currentTime = VideoPlayer.Position;
-            bool isDuplicate = RecorderMgr.Evidence.Bookmarks.Any(b => b.Time == currentTime);
+            bool isDuplicate = RecorderManager.Instance.Evidence.Bookmarks.Any(b => b.Time == currentTime);
             if (isDuplicate) return;
 
             var timestamp = evi.RecordingDate.Add(currentTime);
             string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
-            string imagePath = Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
+            string imagePath = Path.Combine(RecorderManager.Instance.CurrentFolder, "ScreenShot", fileName);
 
             // 4. ブックマークリストに追加
             var bookmark = new Bookmark
@@ -1730,7 +1730,7 @@ namespace TraceShot.Features
                 ImagePath = imagePath
             };
 
-            var sorted = RecorderMgr.AddBookmark(bookmark);
+            var sorted = RecorderManager.Instance.AddBookmark(bookmark);
             BookmarkListBox.Items.Clear();
             foreach (var b in sorted) BookmarkListBox.Items.Add(b);
 
@@ -1755,7 +1755,7 @@ namespace TraceShot.Features
                 SystemSounds.Beep.Play();
             }
 
-            var bookmark = RecorderMgr.AddBookmark();
+            var bookmark = RecorderManager.Instance.AddBookmark();
             if (bookmark is not null)
             {
                 BookmarkListBox.Items.Add(bookmark);
@@ -1763,7 +1763,7 @@ namespace TraceShot.Features
                 StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note}";
                 if (_previewBitmap != null)
                 {
-                    RecorderMgr.SaveBackupFromWriteableBitmap(bookmark, _previewBitmap);
+                    RecorderManager.Instance.SaveBackupFromWriteableBitmap(bookmark, _previewBitmap);
                 }
             }
         }
@@ -1779,7 +1779,7 @@ namespace TraceShot.Features
             _isRecording = true;
 
             // イベント登録
-            RecorderMgr.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
+            RecorderManager.Instance.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
 
             // UIの切り替え
             VideoPlayer.Visibility = Visibility.Collapsed;
@@ -1802,7 +1802,7 @@ namespace TraceShot.Features
             _isRecording = false;
 
             // イベント解除
-            RecorderMgr.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
+            RecorderManager.Instance.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
 
             // UIの切り替え
             VideoPlayer.Visibility = Visibility.Visible;
@@ -1835,11 +1835,11 @@ namespace TraceShot.Features
                     // 1. 保存されている設定を読み込む
 
                     string modeName = (ModeComboBox.SelectionBoxItem as string) ?? ModeComboBox.Text;
-                    _currentVideoPath = RecorderMgr.PrepareEvidence(Default.SavePath, modeName);
+                    _currentVideoPath = RecorderManager.Instance.PrepareEvidence(Default.SavePath, modeName);
                     switch (ModeComboBox.SelectedIndex)
                     {
                         case 0: // 全画面
-                            RecorderMgr.StartFullscreenRecording(_currentVideoPath, _fullDeviceName);
+                            RecorderManager.Instance.StartFullscreenRecording(_currentVideoPath, _fullDeviceName);
                             break;
 
                         case 1: // 矩形選択
@@ -1848,7 +1848,7 @@ namespace TraceShot.Features
                                 StatusText.Text = "エラー：範囲を先に選択してください";
                                 return;
                             }
-                            RecorderMgr.StartRectangleRecording(_currentVideoPath, _rectDeviceName, _selectedRegion);
+                            RecorderManager.Instance.StartRectangleRecording(_currentVideoPath, _rectDeviceName, _selectedRegion);
                             break;
 
                         case 2: // ウィンドウ選択
@@ -1857,13 +1857,13 @@ namespace TraceShot.Features
                                 StatusText.Text = "エラー：ウィンドウを先に選択してください";
                                 return;
                             }
-                            RecorderMgr.StartWindowRecording(_currentVideoPath, _targetWindowHandle);
+                            RecorderManager.Instance.StartWindowRecording(_currentVideoPath, _targetWindowHandle);
                             break;
                     }
 
                     OnRecordingStarted();
 
-                    StatusText.Text = $"● 録画中: {RecorderMgr.CurrentVideoName}";
+                    StatusText.Text = $"● 録画中: {RecorderManager.Instance.CurrentVideoName}";
 
                     taskbarInfo.ProgressState = TaskbarItemProgressState.Error;
                     taskbarInfo.ProgressValue = 1.0;
@@ -1876,13 +1876,13 @@ namespace TraceShot.Features
             else
             {
                 // --- 録画停止の処理 ---
-                RecorderMgr.StopRecording();
+                RecorderManager.Instance.StopRecording();
                 StatusText.Text = "動画を処理中...";
                 await Task.Delay(1000);
 
                 OnRecordingStopped();
 
-                if (RecorderMgr.TraceLogs.Count > 0)
+                if (RecorderManager.Instance.TraceLogs.Count > 0)
                 {
                     taskbarInfo.ProgressState = TaskbarItemProgressState.None;
                     taskbarInfo.ProgressValue = 0;
@@ -1956,7 +1956,7 @@ namespace TraceShot.Features
 
         private void RefreshBookmarkCanvas()
         {
-            if (RecorderMgr.Evidence == null || !VideoPlayer.NaturalDuration.HasTimeSpan) return;
+            if (RecorderManager.Instance.Evidence == null || !VideoPlayer.NaturalDuration.HasTimeSpan) return;
             BookmarkCanvas.Children.Clear();
 
             const double ThumbWidth = 17.0;
@@ -1969,7 +1969,7 @@ namespace TraceShot.Features
             double totalSeconds = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
             if (totalSeconds <= 0) return;
 
-            foreach (var bm in RecorderMgr.Evidence.Bookmarks)
+            foreach (var bm in RecorderManager.Instance.Evidence.Bookmarks)
             {
                 // 時間の割合 (0.0 ～ 1.0)
                 double ratio = bm.Time.TotalSeconds / totalSeconds;
@@ -2052,12 +2052,12 @@ namespace TraceShot.Features
             SystemSounds.Beep.Play(); // 開始音
 
             // 1. ブックマークを先行作成
-            Bookmark? voiceMemo = RecorderMgr.AddBookmark("音声入力待ち...");
+            Bookmark? voiceMemo = RecorderManager.Instance.AddBookmark("音声入力待ち...");
              
             if (voiceMemo == null)
             {
-                if (RecorderMgr is null || RecorderMgr.Evidence is null) return;
-                var evi = RecorderMgr.Evidence;
+                if (RecorderManager.Instance is null || RecorderManager.Instance.Evidence is null) return;
+                var evi = RecorderManager.Instance.Evidence;
 
                 if (evi == null) return;
                 var currentTime = VideoPlayer.Position;
@@ -2067,19 +2067,19 @@ namespace TraceShot.Features
 
                 var timestamp = evi.RecordingDate.Add(currentTime);
                 string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
-                string imagePath = Path.Combine(RecorderMgr.CurrentFolder, "ScreenShot", fileName);
+                string imagePath = Path.Combine(RecorderManager.Instance.CurrentFolder, "ScreenShot", fileName);
                 voiceMemo = new Bookmark
                 {
                     Time = currentTime,
                     ImagePath = imagePath
                 };
-                RecorderMgr.AddBookmark(voiceMemo);
+                RecorderManager.Instance.AddBookmark(voiceMemo);
             }
 
             voiceMemo.Icon = "🎤";
             voiceMemo.IsListening = true;
 
-            var sorted = RecorderMgr.GetBookmarks();
+            var sorted = RecorderManager.Instance.GetBookmarks();
             BookmarkListBox.Items.Clear();
             foreach (var b in sorted) BookmarkListBox.Items.Add(b);
 
