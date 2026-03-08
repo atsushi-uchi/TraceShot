@@ -1,4 +1,5 @@
-﻿using NHotkey;
+﻿using MahApps.Metro.IconPacks;
+using NHotkey;
 using ScreenRecorderLib;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -52,6 +53,7 @@ namespace TraceShot.Features
         private string _currentVideoPath = "";
         private DispatcherTimer _playerTimer;
         private bool _isDragging = false; // スライダー操作中かどうかの判定
+        private bool _isSpeechInitalized = false;
 
         private Drawing.Rectangle? _selectedRegion = null; // 選択された範囲を保持
 
@@ -103,8 +105,9 @@ namespace TraceShot.Features
             };
 
             _playerTimer = new DispatcherTimer();
-            _playerTimer.Interval = TimeSpan.FromMilliseconds(200); // 0.2秒ごとに更新
+            _playerTimer.Interval = TimeSpan.FromMilliseconds(100);
             _playerTimer.Tick += Timer_Tick;
+            _playerTimer.Start();
 
             // 1. 最初の一回だけ紐付けを行う
             BookmarkListBox.ItemsSource = RecManager.Instance.Bookmarks;
@@ -292,8 +295,8 @@ namespace TraceShot.Features
                             {
                                 // 4. 再生準備
                                 VideoPlayer.Source = new Uri(videoPath);
-
                                 PlayerPause(true);
+                                //_playerTimer.Start();
 
                                 // 5. UIに情報を反映
                                 StatusText.Text = $"読み込み: {evidence?.RecMode} {evidence?.VideoFileName}";
@@ -357,11 +360,6 @@ namespace TraceShot.Features
             var exportWin = new ExportWindow();
             exportWin.Owner = this; // 親ウィンドウをセットして中央に表示
             exportWin.ShowDialog();
-        }
-
-        private void ClearMarkRectangle()
-        {
-            DrawingCanvas.Children.Clear();
         }
 
         private void DrawingCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -728,6 +726,7 @@ namespace TraceShot.Features
                     DrawingCanvas.Children.Add(endAnchor);
                 }
             }
+            RefreshBookmarkCanvas();
         }
 
         private void DrawBalloonUI(WpfPoint start, WpfPoint end, BalloonNote note)
@@ -1474,8 +1473,7 @@ namespace TraceShot.Features
 
                 RefreshBookmarkCanvas();
             }
-            // 2. 💡 ここでタイマーを起動！
-            StartPlaybackTimer();
+            //StartPlayerTimer();
         }
 
         private void VideoPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
@@ -1547,9 +1545,18 @@ namespace TraceShot.Features
 
         private void Timer_Tick(object? sender, EventArgs e)
         {
-            if (!_isDragging)
+            if (VideoPlayer.NaturalDuration.HasTimeSpan)
             {
                 TimelineSlider.Maximum = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+                string current = VideoPlayer.Position.ToString(@"mm\:ss");
+                string total = VideoPlayer.NaturalDuration.TimeSpan.ToString(@"mm\:ss");
+                TimeText.Text = $"{current} / {total}";
+
+                bool isUserInteracting = _isDragging || Mouse.LeftButton == MouseButtonState.Pressed;
+                if (!isUserInteracting)
+                {
+                    TimelineSlider.Value = VideoPlayer.Position.TotalSeconds;
+                }
             }
         }
 
@@ -1654,12 +1661,12 @@ namespace TraceShot.Features
             {
                 // 再生処理
                 VideoPlayer.Play();
-                PlayPauseIcon.Text = "‖"; // 縦棒二本（一時停止マーク）
+                PlayPauseIcon.Kind = PackIconLucideKind.SquareX;
                 PlayPauseText.Text = "一時停止";
                 _isPlaying = true;
 
                 StatusText.Text = "▶ 再生中...";
-                //StartPlaybackTimer();
+                //StartPlayerTimer();
             }
         }
 
@@ -1670,28 +1677,11 @@ namespace TraceShot.Features
 
             // 一時停止処理
             VideoPlayer.Pause();
-            PlayPauseIcon.Text = "▶"; // 三角マーク
+            PlayPauseIcon.Kind = PackIconLucideKind.Play;
             PlayPauseText.Text = "再生";
             _isPlaying = false;
 
             StatusText.Text = "⏸ 一時停止中";
-        }
-
-        private void StartPlaybackTimer()
-        {
-            DispatcherTimer playbackTimer = new DispatcherTimer();
-            playbackTimer.Interval = TimeSpan.FromMilliseconds(200);
-            playbackTimer.Tick += (s, e) =>
-            {
-                if (VideoPlayer.NaturalDuration.HasTimeSpan)
-                {
-                    string current = VideoPlayer.Position.ToString(@"mm\:ss");
-                    string total = VideoPlayer.NaturalDuration.TimeSpan.ToString(@"mm\:ss");
-                    TimeText.Text = $"{current} / {total}";
-                    TimelineSlider.Value = VideoPlayer.Position.TotalSeconds;
-                }
-            };
-            playbackTimer.Start();
         }
 
         // 録画開始の処理の中に追記
@@ -1755,7 +1745,7 @@ namespace TraceShot.Features
             VideoPlayer.Stop();
 
             RecordingIcon.Foreground = Brushes.Black;
-            RecordingIcon.Text = "■";
+            RecordingIcon.Kind = PackIconLucideKind.Square;
             RecordingText.Text = "録画停止";
         }
 
@@ -1772,14 +1762,14 @@ namespace TraceShot.Features
 
             StatusText.Text = "保存完了";
 
-            _playerTimer.Start();
+            //_playerTimer.Start();
 
             VideoPlayer.Source = new Uri(_currentVideoPath);
             PlayerPause(true);
 
 
             RecordingIcon.Foreground = Brushes.Red;
-            RecordingIcon.Text = "●";
+            RecordingIcon.Kind = PackIconLucideKind.Dot;
             RecordingText.Text = "録画開始";
         }
 
@@ -1902,10 +1892,9 @@ namespace TraceShot.Features
                     PlayerPause(true);
                     StatusText.Text = $"Seek: {selected.Time}";
                 }
-
-                RefreshCanvas();
-                RefreshBookmarkCanvas();
             }
+            RefreshCanvas();
+            RefreshBookmarkCanvas();
         }
         private void RefreshBookmarkCanvas()
         {
@@ -1979,7 +1968,7 @@ namespace TraceShot.Features
         {
             RefreshBookmarkCanvas();
         }
-        private bool _isSpeechInitalized = false;
+
         // 音声認識の初期化（コンストラクタなどで呼ぶ）
         private async void InitSpeechRecognition()
         {
