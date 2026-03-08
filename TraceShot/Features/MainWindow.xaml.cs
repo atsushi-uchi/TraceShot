@@ -2172,5 +2172,18 @@ namespace TraceShot.Features
         {
             IsRecordMode = false;
         }
+        private void ModeToggleButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (ModeToggleButton.IsChecked == true)
+            {
+                // 再生モードへ
+                SwitchToPlayerMode_Click(sender, e);
+            }
+            else
+            {
+                // 録画モードへ
+                SwitchToRecordMode_Click(sender, e);
+            }
+        }
     }
 }

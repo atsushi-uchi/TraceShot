@@ -10,6 +10,57 @@
     <Window.TaskbarItemInfo>
         <TaskbarItemInfo x:Name="taskbarInfo" />
     </Window.TaskbarItemInfo>
+    <Window.Resources>
+        <Style x:Key="ToggleSwitchStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="45"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <Rectangle x:Name="Back" RadiusX="11" RadiusY="11" Fill="#FF4B4B"/>
+
+                            <Ellipse x:Name="Dot" Width="18" Height="18" Fill="White" HorizontalAlignment="Left" Margin="2">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.3"/>
+                                </Ellipse.Effect>
+                                <Ellipse.RenderTransform>
+                                    <TranslateTransform x:Name="Trans" X="0"/>
+                                </Ellipse.RenderTransform>
+                            </Ellipse>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Back" Property="Fill" Value="#4CD964"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Trans" Storyboard.TargetProperty="X" To="23" Duration="0:0:0.15">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Trans" Storyboard.TargetProperty="X" To="0" Duration="0:0:0.15">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -169,7 +220,7 @@
         <Border Grid.Row="3" Background="#F9F9F9" Padding="10" BorderBrush="#DDD" BorderThickness="0,1,0,0">
             <Grid>
                 <StackPanel x:Name="RecordingPanel" Orientation="Horizontal" Visibility="Visible">
-                    <Button x:Name="RecordingButton" Click="RecordingButton_Click" Padding="15,5" Margin="0,0,10,0">
+                    <Button x:Name="RecordingButton" Click="RecordingButton_Click" Padding="15,5" Margin="0,0,10,0" Width="100">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock x:Name="RecordingIcon" Text="●" Foreground="Red" Margin="0,0,5,0"/>
                             <TextBlock x:Name="RecordingText" Text="録画開始"/>
@@ -178,7 +229,7 @@
                     <Button Click="AddBookmarkWhileRecording_Click" Content="📌 証跡追加" Padding="10,5" Margin="0,0,5,0"/>
                     <Button Click="AddVoiceMemoRecording_Click" Content="🎙 音声メモ" Padding="10,5" Margin="0,0,5,0"/>
                     <TextBlock Text="録画範囲：" VerticalAlignment="Center" Margin="10,0,5,0"/>
-                    <ComboBox x:Name="ModeComboBox" SelectedIndex="0" Width="100" Margin="0,0,10,0">
+                    <ComboBox x:Name="ModeComboBox" SelectedIndex="0" Width="100" Margin="0,0,10,0" VerticalAlignment="Stretch">
                         <ComboBoxItem Content="画面全体"/>
                         <ComboBoxItem Content="矩形選択"/>
                         <ComboBoxItem Content="ウインドウ"/>
@@ -187,8 +238,7 @@
                 </StackPanel>
 
                 <StackPanel x:Name="PlayerPanel" Orientation="Horizontal" Visibility="Collapsed">
-                    <CheckBox x:Name="StopAtBookmarkCheckBox" Content="ポイント停止" IsChecked="True" VerticalAlignment="Center" Margin="0,0,15,0"/>
-                    <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click" Padding="15,5" Margin="0,0,5,0">
+                    <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click" Padding="15,5" Margin="0,0,10,0" Width="100">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock x:Name="PlayPauseIcon" Text="▶" Margin="0,0,5,0"/>
                             <TextBlock x:Name="PlayPauseText" Text="再生"/>
@@ -196,11 +246,23 @@
                     </Button>
                     <Button Click="AddBookmarkWhilePlaying_Click" Content="📝 証跡追加" Padding="10,5" Margin="0,0,5,0"/>
                     <Button Click="AddVoiceMemoWhilePlaying_Click" Content="🎤 音声メモ" Padding="10,5" Margin="0,0,5,0"/>
+                    <CheckBox x:Name="StopAtBookmarkCheckBox" Content="都度停止" IsChecked="True" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </StackPanel>
             </Grid>
         </Border>
         
         <StatusBar Grid.Row="4" Background="#F0F0F0" BorderBrush="#CCC" BorderThickness="0,1,0,0">
+            <StatusBarItem Margin="5,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="録画" VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11" Foreground="#555"/>
+                    <ToggleButton x:Name="ModeToggleButton" 
+                          Cursor="Hand"
+                          IsChecked="{Binding IsPlayerMode, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}"
+                          Click="ModeToggleButton_Click"
+                          Style="{StaticResource ToggleSwitchStyle}"/>
+                    <TextBlock Text="再生" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11" Foreground="#555"/>
+                </StackPanel>
+            </StatusBarItem>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="📁 保存先: " Foreground="#555"/>
