@@ -181,11 +181,23 @@
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Visibility" Value="Collapsed" />
+
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsRecording, Source={x:Static service:RecManager.Instance}}" Value="True">
                                             <Setter Property="Visibility" Value="Visible" />
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard x:Name="BlinkStoryboard">
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0" Duration="0:0:0.5" AutoReverse="True"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="BlinkStoryboard"/>
+                                            </DataTrigger.ExitActions>
                                         </DataTrigger>
                                     </Style.Triggers>
+
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
