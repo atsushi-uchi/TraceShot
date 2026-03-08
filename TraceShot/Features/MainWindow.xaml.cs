@@ -58,6 +58,7 @@ namespace TraceShot.Features
             {
                 VideoPlayer.Visibility = Visibility.Collapsed;
                 PlayerPanel.Visibility = Visibility.Collapsed;
+                PlayerControlsArea.Visibility = Visibility.Collapsed;
 
                 RecordingOverlay.Visibility = Visibility.Visible;
                 RecordingTimerArea.Visibility = Visibility.Visible;
@@ -69,6 +70,7 @@ namespace TraceShot.Features
             {
                 VideoPlayer.Visibility = Visibility.Visible;
                 PlayerPanel.Visibility = Visibility.Visible;
+                PlayerControlsArea.Visibility = Visibility.Visible;
 
                 RecordingOverlay.Visibility = Visibility.Collapsed;
                 RecordingTimerArea.Visibility = Visibility.Collapsed;
@@ -113,6 +115,8 @@ namespace TraceShot.Features
             DataContext = _setting;
 
             ApplyCurrentSettings();
+
+            UpdateModeUI();
 
             if (_setting.IsVoiceEnabled)
             {
@@ -1772,23 +1776,13 @@ namespace TraceShot.Features
         // 録画開始時の処理
         private void OnRecordingStarted()
         {
-            // ブックマーク削除
-            //BookmarkListBox.Items.Clear();    不要
-
             // フラグ更新
             _isRecording = true;
 
             // イベント登録
             RecManager.Instance.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
 
-            // UIの切り替え
-            VideoPlayer.Visibility = Visibility.Collapsed;
-            RecordingOverlay.Visibility = Visibility.Visible;
-            PlaybackControlsArea.Visibility = Visibility.Collapsed; // 再生系をまとめて隠す
-            RecordingTimerArea.Visibility = Visibility.Visible;     // 録画タイマーを表示
-
             VideoPlayer.Stop();
-            //_recordingTimer.Start();
 
             RecordingIcon.Foreground = Brushes.Black;
             RecordingIcon.Text = "■";
@@ -1806,12 +1800,6 @@ namespace TraceShot.Features
 
             RefreshBookmarkCanvas();
 
-            // UIの切り替え
-            VideoPlayer.Visibility = Visibility.Visible;
-            RecordingOverlay.Visibility = Visibility.Collapsed;
-            PlaybackControlsArea.Visibility = Visibility.Visible;
-            RecordingTimerArea.Visibility = Visibility.Collapsed;
-
             StatusText.Text = "保存完了";
 
             //_recordingTimer.Stop();
@@ -1824,9 +1812,6 @@ namespace TraceShot.Features
             RecordingIcon.Foreground = Brushes.Red;
             RecordingIcon.Text = "●";
             RecordingText.Text = "録画開始";
-
-            //AddBookmarkButton.Content = "📌 証跡追加";
-
         }
 
         private async void RecordingButton_Click(object sender, RoutedEventArgs e)
@@ -1889,8 +1874,6 @@ namespace TraceShot.Features
                 {
                     taskbarInfo.ProgressState = TaskbarItemProgressState.None;
                     taskbarInfo.ProgressValue = 0;
-
-                    //File.WriteAllLines(_currentLogPath, _recorderManager.TraceLogs, Encoding.UTF8);
                 }
             }
         }
