@@ -2261,7 +2261,7 @@ namespace TraceShot.Features
             // Ctrl+Enterで確定
             if (e.Key == Key.Enter)
             {
-                if (Keyboard.Modifiers == ModifierKeys.None || Keyboard.Modifiers == ModifierKeys.Shift)
+                if (Keyboard.Modifiers == ModifierKeys.Shift)
                 {
                     return;
                 }
@@ -2270,6 +2270,11 @@ namespace TraceShot.Features
                     e.Handled = true;
                     FinalizeBalloonInput();
                 }
+            }
+            else if (e.Key == Key.Escape) 
+            {
+                e.Handled = true;
+                CancelBalloonInput();
             }
         }
         private void BalloonTextInput_LostFocus(object sender, RoutedEventArgs e)
