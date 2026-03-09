@@ -863,6 +863,7 @@ namespace TraceShot.Features
             textBorder.MouseLeftButtonDown += (s, e) => {
                 if (e.ClickCount == 2)
                 {
+                    HideBalloonUI(note);
                     ShowBalloonInput(note);
                     e.Handled = true;
                     return;
@@ -893,7 +894,21 @@ namespace TraceShot.Features
             DrawingCanvas.Children.Add(dotContainer);
             DrawingCanvas.Children.Add(textBorder);
         }
+        private void HideBalloonUI(BalloonNote note)
+        {
+            // Canvasから、このノートに関連する要素をすべて探して削除する
+            var targets = DrawingCanvas.Children.OfType<FrameworkElement>()
+                            .Where(x => x.Tag == note)
+                            .ToList();
 
+            foreach (var target in targets)
+            {
+                // 編集中の始点のドットは除外
+                if (target is not Ellipse) continue;
+
+                DrawingCanvas.Children.Remove(target);
+            }
+        }
         // アンカー生成ヘルパー
         Ellipse CreateAnchor(BalloonNote data, bool isTarget)
         {
