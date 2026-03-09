@@ -672,6 +672,12 @@ namespace TraceShot.Features
         {
             DrawingCanvas.Children.Clear();
 
+            if (_activeBalloonInput != null)
+            {
+                DrawingCanvas.Children.Add(_activeBalloonInput);
+                // 必要に応じて Canvas.SetLeft / Top をここで再設定しても良いです
+            }
+
             var marks = RecManager.Instance.Evidence?.Bookmarks ?? [];
 
             var cropRect = marks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
@@ -708,6 +714,11 @@ namespace TraceShot.Features
                 // --- 2. 吹き出し (Balloons) の描画 ---
                 foreach (var note in selected.Balloons)
                 {
+                    if (_activeBalloonInput != null && _activeBalloonInput.Tag == note)
+                    {
+                        continue;
+                    }
+
                     // 座標計算
                     WpfPoint start = new WpfPoint(note.TargetPoint.X * dispW + offsetX, note.TargetPoint.Y * dispH + offsetY);
                     WpfPoint end = new WpfPoint(note.TextPoint.X * dispW + offsetX, note.TextPoint.Y * dispH + offsetY);
@@ -728,8 +739,93 @@ namespace TraceShot.Features
                     Canvas.SetTop(endAnchor, end.Y - 10);
                     DrawingCanvas.Children.Add(endAnchor);
                 }
+
+                // 【追加】3. 現在再編集（入力）中のバルーンがあれば、それを描画する
+                if (_activeBalloonInput != null)
+                {
+                    double startX, startY;
+
+                    // 2. 終点座標の取得（TextBox の現在の左上位置）
+                    double endX = Canvas.GetLeft(_activeBalloonInput);
+                    double endY = Canvas.GetTop(_activeBalloonInput);
+
+                    // 1. 始点座標の取得（Tag から正規化座標を取り出してピクセル変換）
+                    if (_activeBalloonInput.Tag is (double nx, double ny))
+                    {
+                        startX = (nx * dispW) + offsetX;
+                        startY = (ny * dispH) + offsetY;
+
+                        DrawBalloonUIForEdit(new WpfPoint(startX, startY), new WpfPoint(endX, endY), null);
+                    }
+                    else if (_activeBalloonInput.Tag is BalloonNote note)
+                    {
+                        startX = (note.TargetPoint.X * dispW) + offsetX;
+                        startY = (note.TargetPoint.Y * dispH) + offsetY;
+
+                        DrawBalloonUIForEdit(new WpfPoint(startX, startY), new WpfPoint(endX, endY), note);
+                    }
+                }
             }
             RefreshBookmarkCanvas();
+        }
+        private void DrawBalloonUIForEdit(WpfPoint start, WpfPoint end, BalloonNote? note)
+        {
+            // --- 1. 接続ラインの描画 ---
+            // 再編集中のガイドとして、少し目立つ色や点線にしても良いです
+            var line = new Line
+            {
+                X1 = start.X,
+                Y1 = start.Y,
+                X2 = end.X,
+                Y2 = end.Y,
+                Stroke = _setting.MainBrush, // または再編集用のアセントカラー
+                StrokeThickness = 1.5,
+                StrokeDashArray = new DoubleCollection { 2, 2 } // 💡 点線にすると「編集中」らしさが出ます
+            };
+            DrawingCanvas.Children.Add(line);
+
+            // --- 2. 始点ドット (dotContainer) の生成 ---
+            // 💡 以前作成した「当たり判定付きドット」のロジックをここに配置します
+
+            // 現在ドラッグ中かどうかの判定 (RefreshCanvas から呼ばれた際の状態維持に必須)
+            bool isCurrentlyDragging = (_draggingRect != null && _draggingRect.Uid == "Target" && _draggingRect.Tag == note);
+
+            var visualDot = new Ellipse
+            {
+                Width = isCurrentlyDragging ? 12 : 6,
+                Height = isCurrentlyDragging ? 12 : 6,
+                Fill = isCurrentlyDragging ? _setting.OverBrush : _setting.MainBrush,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsHitTestVisible = false
+            };
+
+            var dotContainer = new Border
+            {
+                Width = 20,
+                Height = 20,
+                Background = Brushes.Transparent,
+                Child = visualDot,
+                Cursor = Cursors.Hand,
+                Tag = note,
+                Uid = "Target"
+            };
+
+            Canvas.SetLeft(dotContainer, start.X - 10);
+            Canvas.SetTop(dotContainer, start.Y - 10);
+            Canvas.SetZIndex(dotContainer, 101);
+
+            // --- 3. イベント登録 (ドラッグ可能にする) ---
+            // ここに MouseLeftButtonDown などのイベントを追加
+            // ※ 既存の dotContainer イベントと同じものを記述してください
+
+            if (isCurrentlyDragging)
+            {
+                dotContainer.CaptureMouse();
+                _draggingRect = dotContainer;
+            }
+
+            DrawingCanvas.Children.Add(dotContainer);
         }
 
         private void DrawBalloonUI(WpfPoint start, WpfPoint end, BalloonNote note)
@@ -1232,34 +1328,39 @@ namespace TraceShot.Features
             var mainBrush = new SolidColorBrush(_setting.MainTextColor);
 
             double targetX, targetY;
+            object? tagValue = targetNote; // デフォルトは note 自身を入れる
+
+            // --- 💡 座標計算ロジックの共通化 ---
+            double containerW = DrawingCanvas.ActualWidth;
+            double containerH = DrawingCanvas.ActualHeight;
+
+            if (VideoPlayer.NaturalVideoWidth == 0 || containerW == 0) return;
+
+            double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
+            double dispW = VideoPlayer.NaturalVideoWidth * ratio;
+            double dispH = VideoPlayer.NaturalVideoHeight * ratio;
+            double offsetX = (containerW - dispW) / 2.0;
+            double offsetY = (containerH - dispH) / 2.0;
 
             if (targetNote != null)
             {
-                // --- 💡 再編集モード：UpdateCanvasRects の計算ロジックと同期させる ---
-                double containerW = DrawingCanvas.ActualWidth;
-                double containerH = DrawingCanvas.ActualHeight;
-
-                // 動画が読み込まれていない、またはサイズがない場合のフォールバック
-                if (VideoPlayer.NaturalVideoWidth == 0 || containerW == 0) return;
-
-                double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
-                double dispW = VideoPlayer.NaturalVideoWidth * ratio;
-                double dispH = VideoPlayer.NaturalVideoHeight * ratio;
-                double offsetX = (containerW - dispW) / 2.0;
-                double offsetY = (containerH - dispH) / 2.0;
-
-                // 保存されている正規化座標(0.0~1.0)を表示座標に変換
+                // 再編集モード：保存されている正規化座標を表示座標に変換
                 targetX = (targetNote.TextPoint.X * dispW) + offsetX;
                 targetY = (targetNote.TextPoint.Y * dispH) + offsetY;
             }
             else
             {
-                // 新規作成モード：マウスを離した座標（_endPoint）を使用
+                // 新規作成モード：マウスを離した座標を使用
                 targetX = _endPoint.X;
                 targetY = _endPoint.Y;
+
+                // 💡 始点（_startPoint）を正規化して Tag に保存する
+                double normStartX = (_startPoint.X - offsetX) / dispW;
+                double normStartY = (_startPoint.Y - offsetY) / dispH;
+                tagValue = (normStartX, normStartY); // タプルを代入
             }
 
-            _activeBalloonInput = new System.Windows.Controls.TextBox
+            _activeBalloonInput = new TextBox()
             {
                 Width = 150,
                 AcceptsReturn = true,
@@ -1268,7 +1369,8 @@ namespace TraceShot.Features
                 BorderBrush = mainBrush,
                 BorderThickness = new Thickness(2),
                 Background = new SolidColorBrush(Color.FromArgb(230, 255, 255, 255)), // 少し透ける白
-                Text = targetNote?.Text ?? ""
+                Text = targetNote?.Text ?? "",
+                Tag = targetNote != null ? targetNote : tagValue,
             };
 
             Canvas.SetLeft(_activeBalloonInput, targetX);
@@ -1315,6 +1417,7 @@ namespace TraceShot.Features
                     }
                 };
             }
+            RefreshCanvas();
         }
 
         private void CancelBalloonInput()
@@ -1331,6 +1434,8 @@ namespace TraceShot.Features
 
             // 💡 3. _isDrawing フラグを折って、変な残像が出ないようにする
             _isDrawing = false;
+
+            RefreshCanvas();
         }
 
         private void CleanupDragLine()
