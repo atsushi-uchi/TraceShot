@@ -390,7 +390,25 @@
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="📁 保存先: " Foreground="#555"/>
-                    <TextBlock x:Name="SavePathStatusText" Text="未設定" MaxWidth="350" TextTrimming="CharacterEllipsis" Foreground="Blue" Cursor="Hand"/>
+                    <TextBlock x:Name="SavePathStatusText" 
+                   Text="未設定" 
+                   MaxWidth="350" 
+                   TextTrimming="CharacterEllipsis"
+                   Foreground="Blue" 
+                   Cursor="Hand"
+                   PreviewMouseLeftButtonDown="SavePathStatusText_PreviewMouseLeftButtonDown">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="TextBlock.TextDecorations" Value="Underline" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                        <TextBlock.ToolTip>クリックしてフォルダを開く</TextBlock.ToolTip>
+                    </TextBlock>
+
                 </StackPanel>
             </StatusBarItem>
             <Separator/>

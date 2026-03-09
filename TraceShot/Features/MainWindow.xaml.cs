@@ -1,4 +1,5 @@
-﻿using MahApps.Metro.IconPacks;
+﻿using ClosedXML.Graphics;
+using MahApps.Metro.IconPacks;
 using NHotkey;
 using ScreenRecorderLib;
 using System.ComponentModel;
@@ -36,7 +37,6 @@ namespace TraceShot.Features
 {
     // 録画範囲の種類を定義
     public enum RecordMode { FullScreen, Region, Window }
-
 
     public partial class MainWindow : Window
     {
@@ -152,6 +152,9 @@ namespace TraceShot.Features
                     }
                 }
             };
+
+            var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+            PreviewImage.Source = ImgManager.GetReadyStandardImage(dpi);
         }
 
         private void ApplyCurrentSettings()
@@ -1923,17 +1926,17 @@ namespace TraceShot.Features
             _isRecording = false;
 
             // イベント解除
-            RecManager.Instance.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
+            RecManager.Instance.OnPreviewFrameReceived -= RecorderManager_OnPreviewFrameReceived;
+            _previewBitmap = null;
+
+            PreviewImage.Source = ImgManager.GetReadyStandardImage();
 
             RefreshBookmarkCanvas();
 
             StatusText.Text = "保存完了";
 
-            //_playerTimer.Start();
-
             VideoPlayer.Source = new Uri(_currentVideoPath);
             PlayerPause(true);
-
 
             RecordingIcon.Foreground = Brushes.Red;
             RecordingIcon.Kind = PackIconLucideKind.Dot;

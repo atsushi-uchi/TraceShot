@@ -592,6 +592,8 @@ namespace TraceShot.Services
             SaveEvidenceJson();
             IsRecording = false;
 
+            RecordingTime = "00:00:00";
+
             // 登録されている処理（MainWindowのモード切替など）を実行
             OnRecordingStopped?.Invoke();
         }
