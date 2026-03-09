@@ -6,7 +6,7 @@
       <Value Profile="(Default)" />
     </Setting>
     <Setting Name="FrameRate" Type="System.Int32" Scope="User">
-      <Value Profile="(Default)">30</Value>
+      <Value Profile="(Default)">15</Value>
     </Setting>
     <Setting Name="UseHardwareAccel" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>

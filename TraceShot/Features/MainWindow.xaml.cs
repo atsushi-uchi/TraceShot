@@ -177,7 +177,7 @@ namespace TraceShot.Features
                 update = true;
             }
 
-            FrameRateText.Text = fps.ToString();
+            FrameRateText.Text = $"FPS: {fps}";
             RecManager.Instance.FrameRate = fps;
 
             if (update)

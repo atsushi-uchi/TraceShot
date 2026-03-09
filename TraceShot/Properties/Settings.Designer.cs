@@ -37,7 +37,7 @@ namespace TraceShot.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("30")]
+        [global::System.Configuration.DefaultSettingValueAttribute("15")]
         public int FrameRate {
             get {
                 return ((int)(this["FrameRate"]));
