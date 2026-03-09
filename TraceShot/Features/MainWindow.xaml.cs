@@ -860,7 +860,8 @@ namespace TraceShot.Features
             }
 
             // --- 4. イベント登録 ---
-            textBorder.MouseLeftButtonDown += (s, e) => {
+            textBorder.MouseLeftButtonDown += (s, e) => 
+            {
                 if (e.ClickCount == 2)
                 {
                     HideBalloonUI(note);
@@ -903,9 +904,6 @@ namespace TraceShot.Features
 
             foreach (var target in targets)
             {
-                // 編集中の始点のドットは除外
-                if (target is not Ellipse) continue;
-
                 DrawingCanvas.Children.Remove(target);
             }
         }
@@ -948,18 +946,16 @@ namespace TraceShot.Features
         }
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.ChangedButton == MouseButton.Right)
+            // 吹き出し入力中に、TextBox以外を左クリックしたら確定
+            if (BalloonInputComposite.IsVisible)
             {
-                if (BalloonInputComposite.IsVisible)
+                if (e.ChangedButton == MouseButton.Right)
                 {
                     CancelBalloonInput();
                     e.Handled = true;
                     return;
                 }
-            }
-            // 吹き出し入力中に、TextBox以外を左クリックしたら確定
-            if (BalloonInputComposite.IsVisible)
-            {
+
                 if (!Equals(e.OriginalSource, BalloonInputComposite) && e.LeftButton == MouseButtonState.Pressed)
                 {
                     FinalizeBalloonInput();
@@ -1035,7 +1031,6 @@ namespace TraceShot.Features
             // 💡 2. 左クリック時の共通準備
             if (e.ChangedButton == MouseButton.Left)
             {
-                //_isDrawing = true;
                 _startPoint = e.GetPosition(DrawingCanvas);
 
                 if (_isPlaying) PlayPauseButton_Click(null, null);
@@ -1252,6 +1247,24 @@ namespace TraceShot.Features
                 // 再編集モード：保存されている正規化座標を表示座標に変換
                 targetX = (targetNote.TextPoint.X * dispW) + offsetX;
                 targetY = (targetNote.TextPoint.Y * dispH) + offsetY;
+
+                var dragStartDot = new Ellipse
+                {
+                    // 新規ドラッグ中なのでハイライト用の設定を適用
+                    Width = 6,
+                    Height = 6,
+                    Fill = _setting.MainBrush, // ドラッグ中用の色
+                    IsHitTestVisible = false
+                };
+                DrawingCanvas.Children.Add(dragStartDot);
+
+                // 保存されている比率座標に表示サイズを掛けて「ピクセル座標」に復元する
+                double startX = (targetNote.TargetPoint.X * dispW) + offsetX;
+                double startY = (targetNote.TargetPoint.Y * dispH) + offsetY;
+
+                // 配置（ドットの中心を始点に合わせる）
+                Canvas.SetLeft(dragStartDot, startX - (dragStartDot.Width / 2));
+                Canvas.SetTop(dragStartDot, startY - (dragStartDot.Height / 2));
             }
             else
             {
@@ -1273,7 +1286,7 @@ namespace TraceShot.Features
             BalloonTextInput.Text = targetNote?.Text ?? "";
             BalloonTextInput.Tag = targetNote;
             BalloonTextInput.Focus();
-            if (targetNote != null) BalloonTextInput.SelectAll();
+            //if (targetNote != null) BalloonTextInput.SelectAll();
         }
 
         // 確定処理（XAMLのTextBoxを参照するように変更）
@@ -1309,13 +1322,26 @@ namespace TraceShot.Features
 
         private async void BalloonMicButton_Click(object sender, RoutedEventArgs e)
         {
-            // 音声認識の処理をここに記述
-            // 例：
-            // string recognizedText = await StartSpeechToText(); 
-            // BalloonTextInput.Text += recognizedText;
-
-            // 💡 認識中はマイクのアイコン色を変えると親切です
-            BalloonMicIcon.Foreground = Brushes.Red;
+            // 音声認識の処理
+            var originalColor = BalloonMicIcon.Foreground;
+            try
+            {
+                BalloonMicIcon.Foreground = Brushes.Red;
+                string recognizedText = await StartSpeechToText();
+                if (string.IsNullOrWhiteSpace(BalloonTextInput.Text))
+                {
+                    BalloonTextInput.Text = recognizedText;
+                }
+                else
+                {
+                    BalloonTextInput.Text += $"{Environment.NewLine}{recognizedText}";
+                }
+                FinalizeBalloonInput();
+            }
+            finally
+            {
+                BalloonMicIcon.Foreground = originalColor;
+            }
         }
 
         private void CleanupDragLine()
@@ -2071,27 +2097,38 @@ namespace TraceShot.Features
 
         private void AddVoiceMemoRecording_Click(object sender, RoutedEventArgs? e)
         {
-            Bookmark newBookmark = new()
+            Bookmark bookmark = new()
             {
                 Time = RecManager.Instance.CurrentDuration,
                 Icon = "🎙",
                 Note = "音声入力中",
             };
 
-            RecManager.Instance.Bookmarks.Add(newBookmark);
+            RecManager.Instance.Bookmarks.Add(bookmark);
             RefreshBookmarkCanvas();
 
-            Task.Run(async () => await StartSpeach(newBookmark));
+            Task.Run(async () => {
+                try
+                {
+                    bookmark.IsListening = true;
+                    var text = await StartSpeechToText();
+                    bookmark.Note = text;
+                }
+                finally
+                {
+                    bookmark.IsListening = false;
+                }
+            });
 
             if (_previewBitmap is not null)
             {
-                var path = RecManager.Instance.SaveBackupFromWriteableBitmap(newBookmark, _previewBitmap);
-                newBookmark.ImagePath = path;
-                StatusText.Text = $"記録 {newBookmark.Time} {newBookmark.Note} SS作成 {path}";
+                var path = RecManager.Instance.SaveBackupFromWriteableBitmap(bookmark, _previewBitmap);
+                bookmark.ImagePath = path;
+                StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note} SS作成 {path}";
             }
             else
             {
-                StatusText.Text = $"記録 {newBookmark.Time} {newBookmark.Note}";
+                StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note}";
             }
         }
 
@@ -2114,49 +2151,65 @@ namespace TraceShot.Features
 
         private void AddVoiceMemoWhilePlaying_Click(object sender, RoutedEventArgs? e)
         {
-            // 選択されているブックマークがある場合は何もしない（誤操作防止）
-            if (BookmarkListBox.SelectedItem is Bookmark selected) return;
-
-            Bookmark newBookmark = new()
+            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
+            if (bookmark is null)
             {
-                Time = VideoPlayer.Position,
-                Note = "音声入力中",
-                Icon = "🎤"
-            };
+                bookmark = new()
+                {
+                    Time = VideoPlayer.Position,
+                    Note = "音声入力中",
+                    Icon = "🎤"
+                };
+                RecManager.Instance.Bookmarks.Add(bookmark);
+                BookmarkListBox.SelectedItem = bookmark;
+            }
 
-            RecManager.Instance.Bookmarks.Add(newBookmark);
-            BookmarkListBox.SelectedItem = newBookmark;
             RefreshBookmarkCanvas();
 
-            Task.Run(async () => await StartSpeach(newBookmark));
+            Task.Run(async () => {
+                try
+                {
+                    bookmark.IsListening = true;
+                    var text = await StartSpeechToText();
+                    if (string.IsNullOrEmpty(bookmark.Note) || bookmark.Note.Equals("音声入力中"))
+                    {
+                        bookmark.Note = text;
+                    }
+                    else
+                    {
+                        bookmark.Note += $"{Environment.NewLine}{text}";
+                    }
+                }
+                finally
+                {
+                    bookmark.IsListening = false;
+                }
+            });
         }
 
-        private async Task StartSpeach(Bookmark bookmark)
+        private async Task<string> StartSpeechToText()
         {
             try
             {
                 SoundManager.Instance.VoiceStartShutter();
 
-                bookmark.IsListening = true;
-
                 var result = await _winrtRecognizer?.RecognizeAsync();
 
                 if (result.Status == SpeechRecognitionResultStatus.Success)
                 {
-                    bookmark.Note = result.Text;
+                    return result.Text;
                 }
                 else
                 {
-                    bookmark.Note = "(認識失敗)";
+                    return "(認識失敗)";
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                bookmark.Note = "(エラー発生)";
+                return "(エラー発生)";
             }
             finally
             {
-                bookmark.IsListening = false;
                 System.Media.SystemSounds.Asterisk.Play();
             }
         }
@@ -2219,11 +2272,10 @@ namespace TraceShot.Features
                 }
             }
         }
-
         private void BalloonTextInput_LostFocus(object sender, RoutedEventArgs e)
         {
-            e.Handled = true;
-            FinalizeBalloonInput();
+            //e.Handled = true;
+            //FinalizeBalloonInput();
         }
     }
 }
