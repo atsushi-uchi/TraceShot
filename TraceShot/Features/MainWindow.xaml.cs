@@ -1822,7 +1822,6 @@ namespace TraceShot.Features
 
         private void PlayPauseButton_Click(object? sender, RoutedEventArgs? e)
         {
-            //ClearMarkRectangle(); // 再生が始まったら描画を消す
             if (_isPlaying)
             {
                 PlayerPause(false);
@@ -1842,7 +1841,6 @@ namespace TraceShot.Features
 
         public void PlayerPause(bool withReflash)
         {
-            //ClearMarkRectangle(); // 再生が始まったら描画を消す
             if (withReflash) VideoPlayer.Play();
 
             // 一時停止処理
@@ -2321,6 +2319,23 @@ namespace TraceShot.Features
                 PlayerPause(false);
                 StatusText.Text = $"Seek: {pos}";
             }
+        }
+
+        private void SpeedComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (VideoPlayer == null) return;
+
+            if (SpeedComboBox.SelectedItem is ComboBoxItem item && double.TryParse(item.Tag.ToString(), out double speed))
+            {
+                // 💡 MediaElementの再生速度を変更
+                VideoPlayer.SpeedRatio = speed;
+            }
+        }
+
+        private void VideoPlayer_MediaEnded(object sender, RoutedEventArgs e)
+        {
+            PlayerPause(false);
+            VideoPlayer.Stop();
         }
     }
 }

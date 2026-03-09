@@ -89,6 +89,7 @@
                       ScrubbingEnabled="True"
                       MediaOpened="VideoPlayer_MediaOpened"
                       MediaFailed="VideoPlayer_MediaFailed"
+                      MediaEnded="VideoPlayer_MediaEnded"    
                       SizeChanged="DrawingCanvas_SizeChanged" >
                     <MediaElement.Style>
                         <Style TargetType="MediaElement">
@@ -273,7 +274,17 @@
                             </Style.Triggers>
                         </Style>
                     </StackPanel.Style>
-                    <Button x:Name="RecordingButton" Click="RecordingButton_Click" Padding="15,5" Margin="0,0,10,0" Width="100">
+
+                    <StackPanel x:Name="RegionPanel" Orientation="Horizontal">
+                        <TextBlock Text="録画範囲：" VerticalAlignment="Center" Margin="10,0,5,0" FontSize="11"/>
+                        <ComboBox x:Name="ModeComboBox" SelectedIndex="0" Width="80" VerticalContentAlignment="Center">
+                            <ComboBoxItem Content="画面全体"/>
+                            <ComboBoxItem Content="矩形選択"/>
+                            <ComboBoxItem Content="ウインドウ"/>
+                        </ComboBox>
+                        <Button x:Name="SelectRegionButton" Content="範囲選択" Click="SelectRegionButton_Click" Padding="10,5"/>
+                    </StackPanel>
+                    <Button x:Name="RecordingButton" Click="RecordingButton_Click" Padding="15,5" Margin="10,0,10,0" Width="100">
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconLucide x:Name="RecordingIcon" Kind="Dot"  Width="14" Height="14" Margin="0,2,5,0" Foreground="Red" />
                             <TextBlock x:Name="RecordingText" Text="録画開始"/>
@@ -291,13 +302,6 @@
                             <TextBlock x:Name="RecordingVoiceText" Text="音声メモ"/>
                         </StackPanel>
                     </Button>
-                    <TextBlock Text="録画範囲：" VerticalAlignment="Center" Margin="10,0,5,0"/>
-                    <ComboBox x:Name="ModeComboBox" SelectedIndex="0" Width="100" Margin="0,0,10,0" VerticalAlignment="Stretch">
-                        <ComboBoxItem Content="画面全体"/>
-                        <ComboBoxItem Content="矩形選択"/>
-                        <ComboBoxItem Content="ウインドウ"/>
-                    </ComboBox>
-                    <Button x:Name="SelectRegionButton" Content="範囲選択" Click="SelectRegionButton_Click" Padding="10,5"/>
                 </StackPanel>
 
                 <StackPanel x:Name="PlayerPanel" Orientation="Horizontal">
@@ -312,12 +316,27 @@
                         </Style>
                     </StackPanel.Style>
 
-                    <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click" Padding="15,5" Margin="0,0,10,0" Width="100">
+                    <StackPanel x:Name="PlaySpeedPanel" Orientation="Horizontal">
+                        <TextBlock Text="速度:" VerticalAlignment="Center" Margin="10,0,5,0" FontSize="11"/>
+                        <ComboBox x:Name="SpeedComboBox" Width="60" SelectedIndex="3" 
+              SelectionChanged="SpeedComboBox_SelectionChanged" 
+              VerticalContentAlignment="Center">
+                            <ComboBoxItem Content="0.5x" Tag="0.5"/>
+                            <ComboBoxItem Content="0.75x" Tag="0.75"/>
+                            <ComboBoxItem Content="0.9x" Tag="0.9"/>
+                            <ComboBoxItem Content="1.0x" Tag="1.0"/>
+                            <ComboBoxItem Content="1.25x" Tag="1.25"/>
+                            <ComboBoxItem Content="1.5x" Tag="1.5"/>
+                            <ComboBoxItem Content="2.0x" Tag="2.0"/>
+                        </ComboBox>
+                    </StackPanel>
+                    <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click" Padding="15,5" Margin="0,0,5,0" Width="100">
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconLucide x:Name="PlayPauseIcon" Kind="Play" Width="14" Height="14" Margin="0,2,5,0" />
                             <TextBlock x:Name="PlayPauseText" Text="再生"/>
                         </StackPanel>
                     </Button>
+                    <CheckBox x:Name="StopAtBookmarkCheckBox" Content="ポイント停止" IsChecked="True" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <Button Click="AddBookmarkWhilePlaying_Click" Padding="10,5" Margin="0,0,5,0">
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconLucide x:Name="PlayingEvidenceIcon" Kind="Camera" Width="14" Height="14" Margin="0,2,5,0" />
@@ -330,7 +349,6 @@
                             <TextBlock x:Name="PlayingVoiceText" Text="音声メモ"/>
                         </StackPanel>
                     </Button>
-                    <CheckBox x:Name="StopAtBookmarkCheckBox" Content="ポイント停止" IsChecked="True" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </StackPanel>
             </Grid>
         </Border>
