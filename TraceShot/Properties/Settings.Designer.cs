@@ -61,7 +61,7 @@ namespace TraceShot.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("114")]
+        [global::System.Configuration.DefaultSettingValueAttribute("30")]
         public int BookmarkHotkeyKey {
             get {
                 return ((int)(this["BookmarkHotkeyKey"]));
@@ -73,7 +73,7 @@ namespace TraceShot.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2")]
         public int BookmarkHotkeyMod {
             get {
                 return ((int)(this["BookmarkHotkeyMod"]));
@@ -169,7 +169,7 @@ namespace TraceShot.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2")]
         public int VoiceHotkeyMod {
             get {
                 return ((int)(this["VoiceHotkeyMod"]));

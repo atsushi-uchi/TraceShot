@@ -3,6 +3,7 @@ using NHotkey;
 using ScreenRecorderLib;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -28,7 +29,6 @@ using Line = System.Windows.Shapes.Line;
 using MessageBox = System.Windows.MessageBox;
 using Path = System.IO.Path;
 using Point = System.Windows.Point;
-using TextBox = System.Windows.Controls.TextBox;
 using WpfPoint = System.Windows.Point; // WPFの座標
 using WpfRectangle = System.Windows.Shapes.Rectangle;
 
@@ -152,6 +152,16 @@ namespace TraceShot.Features
 
             var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
             PreviewImage.Source = ImgManager.GetReadyStandardImage(dpi);
+
+            // マウスクリックをフックして録画
+            _mouseHook.OnLeftClick += (pos) =>
+            {
+                // 録画中のみ、証跡追加を実行
+                if (_isRecording)
+                {
+                    AddClickTriggerBookmark(pos);
+                }
+            };
         }
 
         private void ApplyCurrentSettings()
@@ -1286,7 +1296,6 @@ namespace TraceShot.Features
             BalloonTextInput.Text = targetNote?.Text ?? "";
             BalloonTextInput.Tag = targetNote;
             BalloonTextInput.Focus();
-            //if (targetNote != null) BalloonTextInput.SelectAll();
         }
 
         // 確定処理（XAMLのTextBoxを参照するように変更）
@@ -1881,7 +1890,6 @@ namespace TraceShot.Features
             }
             else
             {
-                // --- 録画停止の処理 ---
                 RecManager.Instance.StopRecording();
                 StatusText.Text = "動画を処理中...";
                 await Task.Delay(1000);
@@ -1895,6 +1903,52 @@ namespace TraceShot.Features
                 }
             }
         }
+
+        private void AddClickTriggerBookmark(Drawing.Point rawMousePos)
+        {
+            SoundManager.Instance.PlayShutter();
+
+            if (_previewBitmap is not null)
+            {
+                /*
+                // 1. UI上の表示要素（MediaElementやImage）を取得
+                var displayElement = VideoPlayer;
+
+                // 2. 表示上の相対座標に変換（デスクトップ座標の場合）
+                // ※フックで取得した座標なら、Windowの左上座標を引くなどの処理
+                System.Windows.Point relativePoint = displayElement.PointFromScreen(
+                    new System.Windows.Point(rawMousePos.X, rawMousePos.Y));
+
+                // 3. 表示サイズと画像実サイズの比率を計算
+                // source は WriteableBitmap (1920x1080など)
+                double scaleX = _previewBitmap.PixelWidth / displayElement.ActualWidth;
+                double scaleY = _previewBitmap.PixelHeight / displayElement.ActualHeight;
+
+                // 4. 画像上のピクセル座標を算出
+                System.Drawing.Point finalPoint = new System.Drawing.Point(
+                    (int)(relativePoint.X * scaleX),
+                    (int)(relativePoint.Y * scaleY)
+                );
+                */
+
+                Bookmark newBookmark = new()
+                {
+                    Time = RecManager.Instance.CurrentDuration,
+                    Icon = "🖱️",
+                    Note = "Click",
+                };
+
+                var path = RecManager.Instance.SaveBackupFromWriteableBitmap(newBookmark, _previewBitmap);
+                newBookmark.ImagePath = path;
+                StatusText.Text = $"記録 {newBookmark.Time} {newBookmark.Note} SS作成 {path}";
+
+                RecManager.Instance.Bookmarks.Add(newBookmark);
+                RefreshBookmarkCanvas();
+            }
+        }
+
+        MouseHook _mouseHook = new MouseHook();
+
         private void RecorderManager_OnPreviewFrameReceived(object? sender, FrameRecordedEventArgs e)
         {
             // UIスレッドで実行
@@ -2281,6 +2335,17 @@ namespace TraceShot.Features
         {
             e.Handled = true;
             FinalizeBalloonInput();
+        }
+
+
+        private void ClickTriggerCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            _mouseHook.Start();
+        }
+
+        private void ClickTriggerCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            _mouseHook.Stop();
         }
     }
 }
