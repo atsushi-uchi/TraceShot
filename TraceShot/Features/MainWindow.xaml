@@ -322,6 +322,7 @@
         </Border>
         <Border Grid.Row="3" Background="#F9F9F9" Padding="10" BorderBrush="#DDD" BorderThickness="0,1,0,0">
             <Grid>
+                <!-- 録画パネル -->
                 <StackPanel x:Name="RecordingPanel" Orientation="Horizontal">
                     <StackPanel.Style>
                         <Style TargetType="StackPanel">
@@ -361,8 +362,11 @@
                             <TextBlock x:Name="RecordingVoiceText" Text="音声メモ"/>
                         </StackPanel>
                     </Button>
+                    <CheckBox x:Name="ClickTriggerCheckBox" Content="クリック自動録画" IsChecked="False" VerticalAlignment="Center" Margin="5,0,10,0"
+                              Checked="ClickTriggerCheckBox_Checked" Unchecked="ClickTriggerCheckBox_Unchecked"/>
                 </StackPanel>
 
+                <!-- 再生パネル -->
                 <StackPanel x:Name="PlayerPanel" Orientation="Horizontal">
                     <StackPanel.Style>
                         <Style TargetType="StackPanel">
