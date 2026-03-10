@@ -45,7 +45,7 @@ namespace TraceShot.Services
                 }
                 else
                 {
-                    SystemSounds.Asterisk.Play();
+                    SystemSounds.Exclamation.Play();
                 }
             }
             catch
@@ -64,7 +64,7 @@ namespace TraceShot.Services
                 }
                 else
                 {
-                    SystemSounds.Asterisk.Play();
+                    SystemSounds.Hand.Play();
                 }
             }
             catch

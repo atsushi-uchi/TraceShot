@@ -2279,8 +2279,8 @@ namespace TraceShot.Features
         }
         private void BalloonTextInput_LostFocus(object sender, RoutedEventArgs e)
         {
-            //e.Handled = true;
-            //FinalizeBalloonInput();
+            e.Handled = true;
+            FinalizeBalloonInput();
         }
     }
 }

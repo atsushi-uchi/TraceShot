@@ -148,7 +148,7 @@
                 BorderBrush="#CCE0FF" 
                 BorderThickness="1,0,0,0"
                 CornerRadius="0,5,5,0">
-                                <Button x:Name="BalloonMicButton" 
+                                <Button x:Name="BalloonMicButton" Focusable="False"
                     Width="32"
                     Background="Transparent" 
                     BorderThickness="0" 
