@@ -3,6 +3,7 @@ using ClosedXML.Excel.Drawings;
 using Microsoft.Win32;
 using PuppeteerSharp;
 using PuppeteerSharp.Media;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -508,7 +509,10 @@ namespace TraceShot.Features
                     var bm = bookmarks[i];
                     if (bm == null) continue;
                     // ※シート名に使えない記号を置換します
-                    string sheetName = $"{i + 1}_{bm.Time:HH-mm-ss_fff}";
+                    var date = evidence.RecordingDate.Add(bm.Time);
+                    string timeStr = date.ToString(@"hh-mm-ss");
+                    Debug.WriteLine(timeStr);
+                    string sheetName = $"No_{i + 1}_{timeStr}";
                     var ws = workbook.Worksheets.Add(sheetName);
 
                     // 2. テキスト情報の配置
