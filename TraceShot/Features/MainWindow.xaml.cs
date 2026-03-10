@@ -1910,6 +1910,7 @@ namespace TraceShot.Features
 
             if (_previewBitmap is not null)
             {
+                /*
                 // 1. UI上の表示要素（MediaElementやImage）を取得
                 var displayElement = VideoPlayer;
 
@@ -1928,6 +1929,7 @@ namespace TraceShot.Features
                     (int)(relativePoint.X * scaleX),
                     (int)(relativePoint.Y * scaleY)
                 );
+                */
 
                 Bookmark newBookmark = new()
                 {
