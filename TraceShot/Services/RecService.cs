@@ -12,6 +12,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using TraceShot.Models;
 using Brushes = System.Windows.Media.Brushes;
+using Pen = System.Windows.Media.Pen;
 
 namespace TraceShot.Services
 {
@@ -133,7 +134,17 @@ namespace TraceShot.Services
                         );
 
                         double penThickness = Math.Max(2.0, originalWidth / 400.0);
-                        drawingContext.DrawRectangle(null, new System.Windows.Media.Pen(Brushes.Red, penThickness), scaledRect);
+                        //drawingContext.DrawRectangle(null, new System.Windows.Media.Pen(Brushes.Red, penThickness), scaledRect);
+                        if (relRect.IsMasked)
+                        {
+                            drawingContext.DrawRectangle(Brushes.Black, null, scaledRect);
+
+                        }
+                        else
+                        {
+                            drawingContext.DrawRectangle(null, new Pen(SettingsService.Instance.MainBrush, penThickness), scaledRect);
+
+                        }
                     }
                 }
 
@@ -278,12 +289,23 @@ namespace TraceShot.Services
                     foreach (var relRect in bm.Regions)
                     {
                         if (relRect.IsCropArea) continue;
+
                         Rect scaledRect = new Rect(
                             relRect.X * originalWidth, relRect.Y * originalHeight,
                             relRect.Width * originalWidth, relRect.Height * originalHeight
                         );
                         double penThickness = Math.Max(2.0, originalWidth / 400.0);
-                        drawingContext.DrawRectangle(null, new System.Windows.Media.Pen(System.Windows.Media.Brushes.Red, penThickness), scaledRect);
+
+                        if (relRect.IsMasked)
+                        {
+                            drawingContext.DrawRectangle(Brushes.Black, null, scaledRect);
+
+                        }
+                        else
+                        {
+                            drawingContext.DrawRectangle(null, new Pen(SettingsService.Instance.MainBrush, penThickness), scaledRect);
+
+                        }
                     }
                 }
 
@@ -336,8 +358,6 @@ namespace TraceShot.Services
 
                     // 背景矩形のサイズを確定させる（ft.Width は MaxTextWidth を考慮した値になります）
                     Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
-
-                    //Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
 
                     // 背景とラインの描画
                     var linePen = new System.Windows.Media.Pen(System.Windows.Media.Brushes.Red, thickness);

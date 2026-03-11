@@ -54,6 +54,7 @@ namespace TraceShot.Features
         private bool _isSpeechInitalized = false;
         private DispatcherTimer _playerTimer;
         private MouseHook _mouseHook = new();
+        private readonly Brush _maskHatchBrush = CreateMaskBrush();
 
         private Drawing.Rectangle? _selectedRegion = null; // 選択された範囲を保持
 
@@ -487,7 +488,7 @@ namespace TraceShot.Features
             {
                 Width = Math.Max(0, rectWidth),
                 Height = Math.Max(0, rectHeight),
-                Fill = Brushes.Transparent, // 透明だがマウスには反応する
+                Fill = rect.IsMasked ? _maskHatchBrush : Brushes.Transparent,
                 Cursor = Cursors.SizeAll,
                 Tag = rect,
                 Stroke = rectBrush,
@@ -495,6 +496,28 @@ namespace TraceShot.Features
                 IsHitTestVisible = canTouch,
                 Opacity = canTouch ? 0.6 : 1.0,
             };
+            // マスク項目
+            MenuItem? maskItem = null;
+
+            if (rect.IsMasked)
+            {
+                maskItem = new MenuItem { Header = "マスク処理（黒塗）", Icon = "㊙️" };
+                maskItem.Click += async (s, e) =>
+                {
+                    rect.IsMasked = false;
+                    RefreshDrawingCanvas();
+                };
+            }
+            else
+            {
+                maskItem = new MenuItem { Header = "マスク処理（黒塗）", Icon = "㊙️" };
+                maskItem.Click += async (s, e) =>
+                {
+                    rect.IsMasked = true;
+                    RefreshDrawingCanvas();
+                };
+            }
+
 
             // 右クリックメニューを作成
             var menu = new ContextMenu();
@@ -503,7 +526,6 @@ namespace TraceShot.Features
             var deleteItem = new MenuItem { Header = "注釈を削除", Icon = "❌" };
             deleteItem.Click += (s, e) => {
                 // 既存の削除ロジック（リストから消して再描画など）
-                //DeleteAnnotation(rect);
                 if (BookmarkListBox.SelectedItem is Bookmark selected)
                 {
                     // --- 1. 矩形 (MarkRects) の描画 ---
@@ -516,13 +538,15 @@ namespace TraceShot.Features
                 }
             };
             // OCR項目
-            var ocrItem = new MenuItem { Header = "この範囲をOCRで読み取る", Icon = "🔍" };
+            var ocrItem = new MenuItem { Header = "OCRで読み取る", Icon = "🔍" };
             ocrItem.Click += async (s, e) => {
                 // 座標計算済みの Rect を渡す (rect は引数の MarkRect)
                 await ExecuteOcrOnAnnotation(rect);
             };
 
             menu.Items.Add(deleteItem);
+            menu.Items.Add(new Separator());
+            menu.Items.Add(maskItem);
             menu.Items.Add(new Separator());
             menu.Items.Add(ocrItem);
             moveArea.ContextMenu = menu;
@@ -531,7 +555,8 @@ namespace TraceShot.Features
                 moveArea.Fill = overBrush; // 設定されているハイライト色（半透明）
             };
             moveArea.MouseLeave += (s, e) => {
-                moveArea.Fill = Brushes.Transparent;
+                moveArea.Fill = rect.IsMasked ? _maskHatchBrush : Brushes.Transparent; // 透明だがマウスには反応する
+
             };
             moveArea.MouseLeftButtonUp += EndDrag;
 
@@ -585,6 +610,13 @@ namespace TraceShot.Features
                     Cursor = canTouch ? ((dir == ResizeDirection.Left || dir == ResizeDirection.Right) ? Cursors.SizeWE : Cursors.SizeNS) : Cursors.Arrow,
                     Tag = rect
                 };
+
+                // ⭐ ここでマスク判定を行い、点線を適用する
+                if (rect.IsMasked)
+                {
+                    // 2ピクセル描画、2ピクセル空白の繰り返し
+                    line.StrokeDashArray = new DoubleCollection { 1, 1 };
+                }
 
                 // --- イベント処理 ---
                 hitArea.MouseEnter += (s, e) => line.Stroke = _setting.OverBrush;
@@ -743,7 +775,7 @@ namespace TraceShot.Features
 
             if (BookmarkListBox.SelectedItem is Bookmark selected)
             {
-                // --- 1. ポイント (Regions) の描画 ---
+                // --- 1. 領域 (Regions) の描画 ---
                 foreach (var rect in selected.Regions)
                 {
                     if (rect.IsCropArea) continue; // クロップ用は既に描画済みならスキップ
@@ -2333,6 +2365,41 @@ namespace TraceShot.Features
             {
                 StatusText.Text = "文字を検出できませんでした";
             }
+        }
+
+        private static Brush CreateMaskBrush()
+        {
+            // 1. 斜線を一本引くための GeometryDrawing を作成
+            var lineGeometry = new LineGeometry(new Point(0, 1), new Point(1, 0));
+            var lineDrawing = new GeometryDrawing(
+                null,
+                new System.Windows.Media.Pen(Brushes.Black, 0.2), // 斜線の色と太さ
+                lineGeometry
+            );
+
+            // 2. DrawingBrush にして、タイル状に並べる設定を行う
+            var brush = new DrawingBrush(lineDrawing)
+            {
+                TileMode = TileMode.Tile,
+                Viewport = new Rect(0, 0, 10, 10), // タイル1つのサイズ（10px四方）
+                ViewportUnits = BrushMappingMode.Absolute,
+                // 背面に薄いグレーを敷くと、より「領域」として認識しやすくなります
+                RelativeTransform = new RotateTransform(0)
+            };
+
+            // 背景をうっすら黒くしたい場合は、DrawingGroup で合成します
+            var group = new DrawingGroup();
+            // 下地：20%透明の黒
+            group.Children.Add(new GeometryDrawing(new SolidColorBrush(Color.FromArgb(50, 0, 0, 0)), null, new RectangleGeometry(new Rect(0, 0, 1, 1))));
+            // 上に斜線
+            group.Children.Add(lineDrawing);
+
+            return new DrawingBrush(group)
+            {
+                TileMode = TileMode.Tile,
+                Viewport = new Rect(0, 0, 8, 8),
+                ViewportUnits = BrushMappingMode.Absolute
+            };
         }
     }
 }

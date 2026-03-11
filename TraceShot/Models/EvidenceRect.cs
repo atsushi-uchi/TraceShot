@@ -25,8 +25,15 @@
         /// </summary>
         public double Height { get; set; }
 
-        // ⭐ クロップ用かどうかを保持
+        /// <summary>
+        // クロップ用かどうかを保持
+        /// </summary>
         public bool IsCropArea { get; set; }
+
+        /// <summary>
+        /// この領域を黒塗り（マスク）するかどうか
+        /// </summary>
+        public bool IsMasked { get; set; } = false;
 
         // コンストラクタ（初期化用）
         public EvidenceRect() { }
