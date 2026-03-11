@@ -10,12 +10,16 @@ namespace TraceShot.Models
         public int NaturalHeight { get; }
         public VisualBrush VideoBrush { get; }
         public double DpiScale { get; }
+        public double ActualViewWidth { get; }
+        public double ActualViewHeight { get; }
 
         public VideoSnapshotInfo(MediaElement videoPlayer)
         {
             // その時点の解像度を保持
             NaturalWidth = videoPlayer.NaturalVideoWidth;
             NaturalHeight = videoPlayer.NaturalVideoHeight;
+            ActualViewWidth = videoPlayer.ActualWidth;
+            ActualViewHeight = videoPlayer.ActualHeight;
 
             // VisualBrushを作成。元のコントロールへの依存を最小限にするため設定を行う
             VideoBrush = new VisualBrush(videoPlayer)

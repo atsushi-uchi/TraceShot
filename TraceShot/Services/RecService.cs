@@ -167,8 +167,21 @@ namespace TraceShot.Services
                         Brushes.White,
                         info.DpiScale);
 
+                    // ⭐ ポイント1：画面上の 200px を出力サイズに合わせてスケーリング
+                    // 画面上の 1px が出力画像で何pxに相当するかを計算
+                    double screenToOutputRatio = outW / info.ActualViewWidth;
+                    double scaledMaxWidth = 200 * screenToOutputRatio;
+                    double scaledFontSize = 12 * screenToOutputRatio;
+
                     // 背景矩形のサイズを確定させる
+                    ft.MaxTextWidth = scaledMaxWidth;
+
+                    // 文字が詰まりすぎないよう、配置を左寄せに（デフォルトですが念のため）
+                    ft.TextAlignment = TextAlignment.Left;
+
+                    // 背景矩形のサイズを確定させる（ft.Width は MaxTextWidth を考慮した値になります）
                     Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
+
 
                     // --- 2. 下地（線・丸・背景箱）を描画する ---
                     // 線と丸
@@ -308,7 +321,23 @@ namespace TraceShot.Services
                         System.Windows.Media.Brushes.White,
                         info.DpiScale); // info から取得
 
+
+                    // ⭐ ポイント1：画面上の 200px を出力サイズに合わせてスケーリング
+                    // 画面上の 1px が出力画像で何pxに相当するかを計算
+                    double screenToOutputRatio = outW / info.ActualViewWidth;
+                    double scaledMaxWidth = 200 * screenToOutputRatio;
+                    double scaledFontSize = 12 * screenToOutputRatio;
+
+                    // 背景矩形のサイズを確定させる
+                    ft.MaxTextWidth = scaledMaxWidth;
+
+                    // 文字が詰まりすぎないよう、配置を左寄せに（デフォルトですが念のため）
+                    ft.TextAlignment = TextAlignment.Left;
+
+                    // 背景矩形のサイズを確定させる（ft.Width は MaxTextWidth を考慮した値になります）
                     Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
+
+                    //Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
 
                     // 背景とラインの描画
                     var linePen = new System.Windows.Media.Pen(System.Windows.Media.Brushes.Red, thickness);
