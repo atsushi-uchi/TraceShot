@@ -1473,14 +1473,26 @@ namespace TraceShot.Features
 
             if (result == MessageBoxResult.Yes)
             {
+                int index = BookmarkListBox.SelectedIndex;
+
                 // 2. 選択された項目を一度別リストにコピーする
                 // (列挙中に元のコレクションを変更するとエラーになるため)
                 var bookmarks = BookmarkListBox.SelectedItems.Cast<Bookmark>().ToList();
-
                 foreach (var cp in bookmarks)
                 {
                     // 3. データソースから削除
-                    RecService.Instance.Evidence?.Bookmarks.Remove(cp);
+                    RecService.Instance.Bookmarks.Remove(cp);
+                }
+
+                Debug.WriteLine($"index:{index} count:{BookmarkListBox.Items.Count}");
+
+                if (BookmarkListBox.Items.Count > index)
+                {
+                    BookmarkListBox.SelectedItem = BookmarkListBox.Items[index];
+                }
+                else if (BookmarkListBox.Items.Count > 0)
+                {
+                    BookmarkListBox.SelectedItem = BookmarkListBox.Items[0];
                 }
 
                 // 4. 保存とステータス更新
