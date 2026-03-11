@@ -1,20 +1,36 @@
-﻿using System.Windows.Media;
-using System.Windows.Media.Imaging;
+﻿using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Windows;
-using Color = System.Windows.Media.Color;
-using Point = System.Windows.Point;
-using Pen = System.Windows.Media.Pen;
-using FontFamily = System.Windows.Media.FontFamily;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using TraceShot.Models;
+using Windows.Media.Ocr;
 using Brushes = System.Windows.Media.Brushes;
+using Color = System.Windows.Media.Color;
+using FontFamily = System.Windows.Media.FontFamily;
+using Pen = System.Windows.Media.Pen;
+using Point = System.Windows.Point;
 
 // --- クラス内のメンバ変数として、一度生成したビットマップをキャッシュしておくと効率的です ---
 
 namespace TraceShot.Services
 {
-    public class ImgManager
+    public class ImageService
     {
         private static RenderTargetBitmap? _standbyImageCache;
+
+        public static void DebugImageSave(BitmapSource bitmapSource)
+        {
+            string debugPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ocr_debug.png");
+            using (var fileStream = new FileStream(debugPath, FileMode.Create))
+            {
+                PngBitmapEncoder debugEncoder = new PngBitmapEncoder();
+                debugEncoder.Frames.Add(BitmapFrame.Create(bitmapSource));
+                debugEncoder.Save(fileStream);
+            }
+            Debug.WriteLine($"[OCR Debug] Image saved to: {debugPath}");
+        }
 
         /// <summary>
         /// 録画準備完了（スタンドバイ）のイメージを生成し、PreviewImageに表示します。
@@ -76,6 +92,58 @@ namespace TraceShot.Services
 
             // 4. PreviewImage にセット
             return _standbyImageCache;
+        }
+
+        public static BitmapSource GeneratePureVideoBitmap(Bookmark bm, VideoSnapshotInfo info)
+        {
+            // ビデオ本来の解像度
+            int w = info.NaturalWidth;
+            int h = info.NaturalHeight;
+
+            DrawingVisual dv = new DrawingVisual();
+            using (DrawingContext dc = dv.RenderOpen())
+            {
+                // 💡 ここがポイント：VisualBrush を使ってビデオ内容のみを描画
+                // これにより、上下左右の黒い余白は完全に除去される
+                dc.DrawRectangle(info.VideoBrush, null, new Rect(0, 0, w, h));
+            }
+
+            RenderTargetBitmap bmp = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+            bmp.Render(dv);
+            return bmp;
+        }
+
+        public static async Task<string> RecognizeTextFromBitmapSource(BitmapSource bitmapSource)
+        {
+            try
+            {
+                // 1. BitmapSource を Png 形式でメモリストリームに保存
+                using var ms = new MemoryStream();
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmapSource));
+                encoder.Save(ms);
+                ms.Seek(0, SeekOrigin.Begin);
+
+                // 2. Windows.Graphics.Imaging のデコーダーで SoftwareBitmap を作成
+                // ※ .AsRandomAccessStream() を使うには using System.IO; が必要
+                var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(ms.AsRandomAccessStream());
+                using var softwareBitmap = await decoder.GetSoftwareBitmapAsync();
+
+                // 3. OCRエンジンの初期化（日本語）
+                var engine = OcrEngine.TryCreateFromLanguage(new Windows.Globalization.Language("ja-JP"));
+                if (engine == null) return "OCRエンジンの初期化に失敗しました。";
+
+                // 4. 解析実行
+                var ocrResult = await engine.RecognizeAsync(softwareBitmap);
+
+                // 5. 結果を一つの文字列に結合して返す
+                return ocrResult.Text;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"OCR Recognition Error: {ex.Message}");
+                return "";
+            }
         }
     }
 }

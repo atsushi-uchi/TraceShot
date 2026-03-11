@@ -263,7 +263,7 @@
                                     <Setter Property="Visibility" Value="Collapsed" />
 
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsRecording, Source={x:Static service:RecManager.Instance}}" Value="True">
+                                        <DataTrigger Binding="{Binding IsRecording, Source={x:Static service:RecService.Instance}}" Value="True">
                                             <Setter Property="Visibility" Value="Visible" />
                                             <DataTrigger.EnterActions>
                                                 <BeginStoryboard x:Name="BlinkStoryboard">
@@ -283,7 +283,7 @@
                         </TextBlock>
 
                         <TextBlock x:Name="BigRecordingTimerText" Grid.Column="1" 
-                           Text="{Binding RecordingTime, Source={x:Static service:RecManager.Instance}}"
+                           Text="{Binding RecordingTime, Source={x:Static service:RecService.Instance}}"
                            FontFamily="Consolas" FontSize="40" FontWeight="Bold" VerticalAlignment="Center"/>
                     </Grid>
                 </StackPanel>
@@ -441,7 +441,7 @@
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton" BasedOn="{StaticResource StandardToggleSwitchStyle}">
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsRecording, Source={x:Static service:RecManager.Instance}}" Value="True">
+                                    <DataTrigger Binding="{Binding IsRecording, Source={x:Static service:RecService.Instance}}" Value="True">
                                         <Setter Property="IsEnabled" Value="False" />
                                         <Setter Property="Opacity" Value="0.5" />
                                         <Setter Property="ToolTip" Value="録画中はモードを切り替えられません" />

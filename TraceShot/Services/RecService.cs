@@ -15,9 +15,9 @@ using Brushes = System.Windows.Media.Brushes;
 
 namespace TraceShot.Services
 {
-    public partial class RecManager : ObservableObject
+    public partial class RecService : ObservableObject
     {
-        public static RecManager Instance { get; } = new RecManager();
+        public static RecService Instance { get; } = new RecService();
 
         [ObservableProperty][NotifyPropertyChangedFor(nameof(Bookmarks))]
         private RecEvidence _evidence = new();
@@ -48,7 +48,7 @@ namespace TraceShot.Services
         // 録画停止時に実行する処理を登録するためのアクション
         public Action? OnRecordingStopped { get; set; }
 
-        private RecManager()
+        private RecService()
         {
             _timer = new DispatcherTimer();
             _timer.Interval = TimeSpan.FromSeconds(0.5);

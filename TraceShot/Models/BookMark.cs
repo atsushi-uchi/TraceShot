@@ -17,6 +17,19 @@ namespace TraceShot.Models
 
         public List<BalloonNote> Balloons { get; set; } = [];
 
+        public string AddNewLine(string text)
+        {
+            if (string.IsNullOrEmpty(Note))
+            {
+                Note = text;
+            }
+            else
+            {
+                Note += $"{Environment.NewLine}{text}";
+            }
+            return Note;
+        }
+
         //public override string ToString()
         //{
         //    // mm: 分 (2桁)

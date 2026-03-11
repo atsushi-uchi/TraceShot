@@ -3,14 +3,14 @@ using System.Media;
 
 namespace TraceShot.Services
 {
-    public class SoundManager
+    public class SoundService
     {
-        public static SoundManager Instance { get; } = new SoundManager();
+        public static SoundService Instance { get; } = new SoundService();
 
         private SoundPlayer? _shutterPlayer;
         private SoundPlayer? _voiceStartPlayer;
 
-        private SoundManager()
+        private SoundService()
         {
             try
             {

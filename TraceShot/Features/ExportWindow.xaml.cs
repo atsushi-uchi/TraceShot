@@ -98,17 +98,17 @@ namespace TraceShot.Features
         private async void ExportHtml_Click(object sender, RoutedEventArgs e)
         {
             var main = Owner as MainWindow;
-            if (RecManager.Instance.Evidence == null) return;
+            if (RecService.Instance.Evidence == null) return;
 
-            var evidence = RecManager.Instance.Evidence;
+            var evidence = RecService.Instance.Evidence;
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + "_full.html";
             var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
-                RecManager.Instance.CurrentFolder : OutputPathBox.Text, fileName);
+                RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
             var crop = evidence.Bookmarks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
-                var marks = RecManager.Instance.Bookmarks;
+                var marks = RecService.Instance.Bookmarks;
                 int total = marks.Count;
                 var scale = GetSelectedScale();
 
@@ -123,11 +123,11 @@ namespace TraceShot.Features
                         (string? Path, BitmapSource? Bitmap)? result;
                         if (crop != null)
                         {
-                            result = RecManager.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
+                            result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
                         }
                         else
                         {
-                            result = RecManager.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
+                            result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
                         }
 
                         bm.ImagePath = result?.Path;
@@ -323,13 +323,13 @@ namespace TraceShot.Features
         private async void ExportPdf_Click(object sender, RoutedEventArgs e)
         {
             var main = Owner as MainWindow;
-            if (RecManager.Instance.Evidence == null) return;
+            if (RecService.Instance.Evidence == null) return;
 
-            var evidence = RecManager.Instance.Evidence;
+            var evidence = RecService.Instance.Evidence;
             // 出力先の決定
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".pdf";
             var filePath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
-                RecManager.Instance.CurrentFolder : OutputPathBox.Text, fileName);
+                RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
             var crop = evidence.Bookmarks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
@@ -350,11 +350,11 @@ namespace TraceShot.Features
                         (string? Path, BitmapSource? Bitmap)? result;
                         if (crop != null)
                         {
-                            result = RecManager.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
+                            result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
                         }
                         else
                         {
-                            result = RecManager.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
+                            result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
                         }
                         bm.ImagePath = result?.Path;
                         if (result?.Bitmap != null)
@@ -440,12 +440,12 @@ namespace TraceShot.Features
         private async void ExportExcel_Click(object sender, RoutedEventArgs e)
         {
             var main = Owner as MainWindow;
-            if (RecManager.Instance.Evidence == null) return;
+            if (RecService.Instance.Evidence == null) return;
 
-            var evidence = RecManager.Instance.Evidence;
+            var evidence = RecService.Instance.Evidence;
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".xlsx";
             var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
-                RecManager.Instance.CurrentFolder : OutputPathBox.Text, fileName);
+                RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
             var crop = evidence.Bookmarks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
@@ -466,11 +466,11 @@ namespace TraceShot.Features
                         (string? Path, BitmapSource? Bitmap)? result;
                         if (crop != null)
                         {
-                            result = RecManager.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
+                            result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
                         }
                         else
                         {
-                            result = RecManager.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
+                            result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
                         }
                         bm.ImagePath = result?.Path;
                         if (result?.Bitmap != null)
