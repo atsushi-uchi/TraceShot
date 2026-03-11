@@ -499,13 +499,6 @@ namespace TraceShot.Features
             // 右クリックメニューを作成
             var menu = new ContextMenu();
 
-            // OCR項目
-            var ocrItem = new MenuItem { Header = "この範囲をOCRで読み取る", Icon = "🔍" };
-            ocrItem.Click += async (s, e) => {
-                // 座標計算済みの Rect を渡す (rect は引数の MarkRect)
-                await ExecuteOcrOnAnnotation(rect);
-            };
-
             // 削除項目
             var deleteItem = new MenuItem { Header = "注釈を削除", Icon = "❌" };
             deleteItem.Click += (s, e) => {
@@ -522,9 +515,16 @@ namespace TraceShot.Features
                     RefreshDrawingCanvas();
                 }
             };
-            menu.Items.Add(ocrItem);
-            menu.Items.Add(new Separator());
+            // OCR項目
+            var ocrItem = new MenuItem { Header = "この範囲をOCRで読み取る", Icon = "🔍" };
+            ocrItem.Click += async (s, e) => {
+                // 座標計算済みの Rect を渡す (rect は引数の MarkRect)
+                await ExecuteOcrOnAnnotation(rect);
+            };
+
             menu.Items.Add(deleteItem);
+            menu.Items.Add(new Separator());
+            menu.Items.Add(ocrItem);
             moveArea.ContextMenu = menu;
 
             moveArea.MouseEnter += (s, e) => {
@@ -951,31 +951,6 @@ namespace TraceShot.Features
             {
                 DrawingCanvas.Children.Remove(target);
             }
-        }
-        // アンカー生成ヘルパー
-        Ellipse CreateAnchor(BalloonNote data, bool isTarget)
-        {
-            var el = new Ellipse
-            {
-                Width = 20,
-                Height = 20,
-                Fill = Brushes.Transparent, // 💡 通常は透明、デバッグ時は半透明にすると分かりやすい
-                Cursor = Cursors.Hand,
-                Tag = data // 参照用
-            };
-
-            el.MouseLeftButtonDown += (s, e) => {
-                _draggingRect = el;
-                // 💡 どちらの点を動かしているか判別するために、Tagに情報を付与するか、
-                // 名前（Uidなど）に "Target" か "Text" を入れておくと便利です
-                el.Uid = isTarget ? "Target" : "Text";
-
-                _lastMousePosition = e.GetPosition(DrawingCanvas);
-                el.CaptureMouse();
-                e.Handled = true;
-            };
-            el.MouseLeftButtonUp += EndDrag; // 前に作った共通の解放関数
-            return el;
         }
 
         void EndDrag(object sender, MouseButtonEventArgs e)
@@ -1429,8 +1404,10 @@ namespace TraceShot.Features
                 return;
             }
 
-            // --- 5. 従来の矩形 (MarkRects) の保存処理 ---
+            // --- 5. 従来の矩形 (Regions) の保存処理 ---
             if (_currentRectangle == null) return;
+
+            _currentRectangle = null;
 
             double containerW = DrawingCanvas.ActualWidth;
             double containerH = DrawingCanvas.ActualHeight;
