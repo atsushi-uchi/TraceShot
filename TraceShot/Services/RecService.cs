@@ -121,9 +121,9 @@ namespace TraceShot.Services
                 drawingContext.DrawRectangle(info.VideoBrush, null, new Rect(0, 0, originalWidth, originalHeight));
 
                 // 矩形の合成 (ここまでは自動スケーリングでOK)
-                if (bm.MarkRects != null && bm.MarkRects.Count > 0)
+                if (bm.Regions != null && bm.Regions.Count > 0)
                 {
-                    foreach (var relRect in bm.MarkRects)
+                    foreach (var relRect in bm.Regions)
                     {
                         Rect scaledRect = new Rect(
                             relRect.X * originalWidth,
@@ -222,7 +222,7 @@ namespace TraceShot.Services
             return (filePath, bmp);
         }
 
-        public (string? Path, BitmapSource? Bitmap)? SaveCroppedBookmarkImage(Bookmark bm, VideoSnapshotInfo info, MarkRect cropRectRel, double scale = 1.0)
+        public (string? Path, BitmapSource? Bitmap)? SaveCroppedBookmarkImage(Bookmark bm, VideoSnapshotInfo info, EvidenceRect cropRectRel, double scale = 1.0)
         {
             if (string.IsNullOrEmpty(CurrentFolder)) return null;
 
@@ -260,9 +260,9 @@ namespace TraceShot.Services
                 drawingContext.DrawRectangle(info.VideoBrush, null, new Rect(0, 0, originalWidth, originalHeight));
 
                 // 矩形（赤枠）の合成
-                if (bm.MarkRects != null)
+                if (bm.Regions != null)
                 {
-                    foreach (var relRect in bm.MarkRects)
+                    foreach (var relRect in bm.Regions)
                     {
                         if (relRect.IsCropArea) continue;
                         Rect scaledRect = new Rect(

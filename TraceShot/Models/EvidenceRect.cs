@@ -1,6 +1,6 @@
 ﻿namespace TraceShot.Models
 {
-    public class MarkRect
+    public class EvidenceRect
     {
         // 💡 座標とサイズは 0.0 ～ 1.0 の「正規化座標」で保持します。
         // これにより、ウィンドウサイズが変わっても矩形が正しい位置に追従します。
@@ -29,9 +29,9 @@
         public bool IsCropArea { get; set; }
 
         // コンストラクタ（初期化用）
-        public MarkRect() { }
+        public EvidenceRect() { }
 
-        public MarkRect(double x, double y, double width, double height)
+        public EvidenceRect(double x, double y, double width, double height)
         {
             X = x;
             Y = y;

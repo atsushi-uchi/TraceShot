@@ -104,7 +104,7 @@ namespace TraceShot.Features
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + "_full.html";
             var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
-            var crop = evidence.Bookmarks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
+            var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
@@ -330,7 +330,7 @@ namespace TraceShot.Features
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".pdf";
             var filePath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
-            var crop = evidence.Bookmarks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
+            var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
@@ -446,7 +446,7 @@ namespace TraceShot.Features
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".xlsx";
             var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
-            var crop = evidence.Bookmarks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
+            var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {

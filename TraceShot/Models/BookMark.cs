@@ -13,7 +13,7 @@ namespace TraceShot.Models
         [ObservableProperty]  private bool _isListening;
 
         public string? ImagePath { get; set; }
-        public List<MarkRect> MarkRects { get; set; } = [];
+        public List<EvidenceRect> Regions { get; set; } = [];
 
         public List<BalloonNote> Balloons { get; set; } = [];
 
@@ -29,15 +29,5 @@ namespace TraceShot.Models
             }
             return Note;
         }
-
-        //public override string ToString()
-        //{
-        //    // mm: 分 (2桁)
-        //    // ss: 秒 (2桁)
-        //    // fff: ミリ秒 (3桁)
-        //    string timeStr = Time.ToString(@"mm\:ss\.fff");
-
-        //    return $"📌 [{timeStr}] - {Note}";
-        //}
     }
 }

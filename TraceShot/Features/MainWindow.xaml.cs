@@ -137,7 +137,7 @@ namespace TraceShot.Features
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            RefreshCanvas();
+                            RefreshDrawingCanvas();
                             RefreshBookmarkCanvas();
                         });
                     }
@@ -208,7 +208,7 @@ namespace TraceShot.Features
 
                 if (_setting.IsPlayerMode)
                 {
-                    RefreshCanvas();
+                    RefreshDrawingCanvas();
                 }
 
                 if (_setting.IsVoiceEnabled && !_isSpeechInitalized)
@@ -379,7 +379,7 @@ namespace TraceShot.Features
         private void DrawingCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             // 💡 リサイズ時に矩形をクリアして再描画する
-            RefreshCanvas();
+            RefreshDrawingCanvas();
         }
 
         private void SavePathStatusText_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -419,7 +419,7 @@ namespace TraceShot.Features
             }
         }
 
-        private void AddVisualMask(MarkRect rect)
+        private void AddVisualMask(EvidenceRect rect)
         {
             double containerW = DrawingCanvas.ActualWidth;
             double containerH = DrawingCanvas.ActualHeight;
@@ -458,7 +458,7 @@ namespace TraceShot.Features
             DrawingCanvas.Children.Add(maskPath);
         }
 
-        private void DrawRectOnCanvas(MarkRect rect, bool isCropMode)
+        private void DrawRectOnCanvas(EvidenceRect rect, bool isCropMode)
         {
             double containerW = DrawingCanvas.ActualWidth;
             double containerH = DrawingCanvas.ActualHeight;
@@ -496,7 +496,7 @@ namespace TraceShot.Features
                 Opacity = canTouch ? 0.6 : 1.0,
             };
 
-            // 💡 右クリックメニューを作成
+            // 右クリックメニューを作成
             var menu = new ContextMenu();
 
             // OCR項目
@@ -514,20 +514,19 @@ namespace TraceShot.Features
                 if (BookmarkListBox.SelectedItem is Bookmark selected)
                 {
                     // --- 1. 矩形 (MarkRects) の描画 ---
-                    if (selected.MarkRects == null)
+                    if (selected.Regions == null)
                     {
                         return;
                     }
-                    selected.MarkRects.Remove(rect);
-                    RefreshCanvas();
+                    selected.Regions.Remove(rect);
+                    RefreshDrawingCanvas();
                 }
             };
-
             menu.Items.Add(ocrItem);
             menu.Items.Add(new Separator());
             menu.Items.Add(deleteItem);
-
             moveArea.ContextMenu = menu;
+
             moveArea.MouseEnter += (s, e) => {
                 moveArea.Fill = overBrush; // 設定されているハイライト色（半透明）
             };
@@ -672,7 +671,7 @@ namespace TraceShot.Features
 
                         // UIを即座に更新するために再描画をかける
                         // 描画メソッドを現在の状態で呼び出し直す
-                        RefreshCanvas();
+                        RefreshDrawingCanvas();
 
                         e.Handled = true; // 他の要素にクリックが伝わるのを防ぐ
                     };
@@ -690,7 +689,7 @@ namespace TraceShot.Features
             }
         }
 
-        private void ToggleCropArea(MarkRect target)
+        private void ToggleCropArea(EvidenceRect target)
         {
             // 1. すでに自分がクロップ範囲なら解除、そうでなければ設定
             bool isNowSelected = !target.IsCropArea;
@@ -699,7 +698,7 @@ namespace TraceShot.Features
             // (全ブックマークの全矩形を走査)
             foreach (var bm in RecService.Instance.Evidence?.Bookmarks ?? new())
             {
-                foreach (var r in bm.MarkRects)
+                foreach (var r in bm.Regions)
                 {
                     r.IsCropArea = false;
                 }
@@ -708,10 +707,10 @@ namespace TraceShot.Features
             target.IsCropArea = isNowSelected;
 
             // 💡 画面を更新して色を変えたり、プレビューを再描画したりする
-            RefreshCanvas();
+            RefreshDrawingCanvas();
         }
 
-        private void RefreshCanvas()
+        private void RefreshDrawingCanvas()
         {
             var toRemove = DrawingCanvas.Children.OfType<FrameworkElement>()
                 .Where(x => x != BalloonInputComposite) // 👈 これを除外
@@ -724,7 +723,7 @@ namespace TraceShot.Features
 
             var marks = RecService.Instance.Evidence?.Bookmarks ?? [];
 
-            var cropRect = marks.SelectMany(b => b.MarkRects).FirstOrDefault(r => r.IsCropArea);
+            var cropRect = marks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
             if (cropRect != null)
             {
                 DrawRectOnCanvas(cropRect, isCropMode: true);
@@ -744,15 +743,12 @@ namespace TraceShot.Features
 
             if (BookmarkListBox.SelectedItem is Bookmark selected)
             {
-                // --- 1. 矩形 (MarkRects) の描画 ---
-                if (selected.MarkRects != null)
+                // --- 1. ポイント (Regions) の描画 ---
+                foreach (var rect in selected.Regions)
                 {
-                    foreach (var rect in selected.MarkRects)
-                    {
-                        if (rect.IsCropArea) continue; // クロップ用は既に描画済みならスキップ
+                    if (rect.IsCropArea) continue; // クロップ用は既に描画済みならスキップ
 
-                        DrawRectOnCanvas(rect, isCropMode: false);
-                    }
+                    DrawRectOnCanvas(rect, isCropMode: false);
                 }
 
                 // --- 2. 吹き出し (Balloons) の描画 ---
@@ -764,12 +760,6 @@ namespace TraceShot.Features
 
                     //  描画はこのメソッド1つに任せる
                     DrawBalloonUI(start, end, note);
-
-                    // アンカー（つまみ）の生成もここで行う
-                    var startAnchor = CreateAnchor(note, true);
-                    Canvas.SetLeft(startAnchor, start.X - 10);
-                    Canvas.SetTop(startAnchor, start.Y - 10);
-                    DrawingCanvas.Children.Add(startAnchor);
                 }
             }
             RefreshBookmarkCanvas();
@@ -800,22 +790,17 @@ namespace TraceShot.Features
                 Uid = "Text"
             };
 
-            // 削除項目
+            // 右クリックメニューを作成
             var deleteItem = new MenuItem { Header = "注釈を削除", Icon = "❌" };
             deleteItem.Click += (s, e) => {
-                // --- 1. バルーンノート (Balloons) の描画 ---
                 if (BookmarkListBox.SelectedItem is Bookmark selected)
                 {
-                    if (selected.Balloons == null)
-                    {
-                        return;
-                    }
+                    // --- 1. バルーンノート (Balloons) の描画 ---
+                    if (selected.Balloons == null) return;
                     selected.Balloons.Remove(note);
-                    RefreshCanvas();
+                    RefreshDrawingCanvas();
                 }
             };
-
-            // 💡 右クリックメニューを作成
             var menu = new ContextMenu();
             menu.Items.Add(deleteItem);
             textBorder.ContextMenu = menu;
@@ -1024,50 +1009,6 @@ namespace TraceShot.Features
                     return;
                 }
             }
-            // 右クリック：削除処理
-            if (e.ChangedButton == MouseButton.Right)
-            {
-                _currentRectangle = null;
-
-                Bookmark? selectedBm = BookmarkListBox.SelectedItem as Bookmark;
-                if (selectedBm == null) return;
-
-                var mousePos = e.GetPosition(DrawingCanvas);
-
-                // 表示領域の計算（比率座標からの復元用）
-                double containerW = DrawingCanvas.ActualWidth;
-                double containerH = DrawingCanvas.ActualHeight;
-                double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
-                double dispW = VideoPlayer.NaturalVideoWidth * ratio;
-                double dispH = VideoPlayer.NaturalVideoHeight * ratio;
-                double offsetX = (containerW - dispW) / 2.0;
-                double offsetY = (containerH - dispH) / 2.0;
-
-                // --- 1. 💡 吹き出し (Balloons) の当たり判定 ---
-                if (selectedBm.Balloons != null)
-                {
-                    for (int i = selectedBm.Balloons.Count - 1; i >= 0; i--)
-                    {
-                        var note = selectedBm.Balloons[i];
-                        // テキストラベルの位置とサイズを計算
-                        // (UpdateCanvasRects で描画している位置と同じ)
-                        double textX = (note.TextPoint.X * dispW) + offsetX;
-                        double textY = (note.TextPoint.Y * dispH) + offsetY;
-
-                        // テキストのサイズは動的ですが、判定用におおよそのサイズ（例: 幅100x高さ30）
-                        Rect textRect = new Rect(textX, textY, 100, 30);
-
-                        if (textRect.Contains(mousePos))
-                        {
-                            selectedBm.Balloons.RemoveAt(i);
-                            RefreshCanvas();
-                            e.Handled = true;
-                            return;
-                        }
-                    }
-                }
-                return;
-            }
 
             // 💡 2. 左クリック時の共通準備
             if (e.ChangedButton == MouseButton.Left)
@@ -1137,11 +1078,11 @@ namespace TraceShot.Features
                 }
 
                 _lastMousePosition = currentPos;
-                RefreshCanvas(); // 再描画
+                RefreshDrawingCanvas(); // 再描画
                 return;
             }
             // --- 1. 矩形の移動・リサイズ処理 ---
-            if (_draggingRect != null && _draggingRect.Tag is MarkRect data)
+            if (_draggingRect != null && _draggingRect.Tag is EvidenceRect data)
             {
                 // 💡 ここで dispW, dispH を再計算する
                 double containerW = DrawingCanvas.ActualWidth;
@@ -1186,7 +1127,7 @@ namespace TraceShot.Features
                 }
 
                 _lastMousePosition = currentPos;
-                RefreshCanvas();
+                RefreshDrawingCanvas();
                 return;
             }
 
@@ -1262,7 +1203,7 @@ namespace TraceShot.Features
         private void ShowBalloonInput(BalloonNote? targetNote = null)
         {
             // 設定から色を取得
-            var mainBrush = new SolidColorBrush(_setting.MainTextColor);
+            //var mainBrush = new SolidColorBrush(_setting.MainTextColor);
 
             double targetX, targetY;
 
@@ -1335,7 +1276,7 @@ namespace TraceShot.Features
             if (targetNote != null)
             {
                 targetNote.Text = newText;
-                RefreshCanvas();
+                RefreshDrawingCanvas();
             }
             else
             {
@@ -1352,7 +1293,7 @@ namespace TraceShot.Features
             BalloonInputComposite.Visibility = Visibility.Collapsed;
             CleanupDragLine();
 
-            RefreshCanvas();
+            RefreshDrawingCanvas();
         }
 
         private async void BalloonMicButton_Click(object sender, RoutedEventArgs e)
@@ -1390,13 +1331,10 @@ namespace TraceShot.Features
 
         private void ConfirmBalloon(WpfPoint start, WpfPoint end, string text)
         {
-            var selectedBm = BookmarkListBox.SelectedItem as Bookmark;
+            var selected = BookmarkListBox.SelectedItem as Bookmark;
 
             if (!string.IsNullOrWhiteSpace(text))
             {
-                // 💡 ここで比率座標に変換してBookMarkに保存するロジックを呼ぶ
-                // (矩形と同じように ratio と offset を使って保存)
-                // ConfirmBalloon 内の例
                 double containerW = DrawingCanvas.ActualWidth;
                 double containerH = DrawingCanvas.ActualHeight;
                 double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
@@ -1411,10 +1349,10 @@ namespace TraceShot.Features
                     TextPoint = new WpfPoint((end.X - offsetX) / dispW, (end.Y - offsetY) / dispH),
                     Text = text
                 };
-                selectedBm?.Balloons.Add(note);
+                selected?.Balloons.Add(note);
             }
-            CleanupDragLine(); // ガイド線を消す
-            RefreshCanvas(); // 再描画
+            CleanupDragLine();
+            RefreshDrawingCanvas();
         }
 
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
@@ -1506,15 +1444,15 @@ namespace TraceShot.Features
             double offsetY = (containerH - dispH) / 2.0;
 
             // 比率座標（0.0〜1.0）へ変換して保存
-            var relativeRect = new MarkRect(
+            var relativeRect = new EvidenceRect(
                 (Math.Min(_startPoint.X, _endPoint.X) - offsetX) / dispW,
                 (Math.Min(_startPoint.Y, _endPoint.Y) - offsetY) / dispH,
                 Math.Abs(_endPoint.X - _startPoint.X) / dispW,
                 Math.Abs(_endPoint.Y - _startPoint.Y) / dispH
             );
 
-            selectedBm.MarkRects.Add(relativeRect);
-            RefreshCanvas();
+            selectedBm.Regions.Add(relativeRect);
+            RefreshDrawingCanvas();
         }
 
         private void DeleteBookmarkButton_Click(object? sender, RoutedEventArgs? e)
@@ -1702,7 +1640,7 @@ namespace TraceShot.Features
                 }
             }
 
-            RefreshCanvas();
+            RefreshDrawingCanvas();
         }
 
         // スライダーを掴んだらタイマーを止める（操作しやすくするため）
@@ -2028,7 +1966,7 @@ namespace TraceShot.Features
                     StatusText.Text = $"Seek: {selected.Time}";
                 }
             }
-            RefreshCanvas();
+            RefreshDrawingCanvas();
             RefreshBookmarkCanvas();
         }
         private void RefreshBookmarkCanvas()
@@ -2295,7 +2233,7 @@ namespace TraceShot.Features
             if (ModeToggleButton.IsChecked == true)
             {
                 _setting.IsPlayerMode = true;
-                RefreshCanvas();
+                RefreshDrawingCanvas();
             }
             else
             {
@@ -2370,7 +2308,7 @@ namespace TraceShot.Features
             _mouseHook.Stop();
         }
 
-        private async Task ExecuteOcrOnAnnotation(MarkRect rect)
+        private async Task ExecuteOcrOnAnnotation(EvidenceRect rect)
         {
             var bm = BookmarkListBox.SelectedItem as Bookmark;
             if (bm == null) return;
