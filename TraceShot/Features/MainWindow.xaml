@@ -107,6 +107,7 @@
                         MouseMove="DrawingCanvas_MouseMove"
                         MouseUp="DrawingCanvas_MouseUp" 
                         SizeChanged="DrawingCanvas_SizeChanged">
+                   
                     <!-- バルーンノート用 -->
 
                     <Border x:Name="BalloonInputComposite" 
@@ -165,6 +166,7 @@
                     </Border>
 
                     <!-- バルーンノート用 -->
+                    <Path x:Name="VisualMaskPath" Fill="#C8282828" IsHitTestVisible="False" />
                 </Canvas>
 
                 <Grid x:Name="RecordingOverlay">

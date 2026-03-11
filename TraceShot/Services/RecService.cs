@@ -42,7 +42,11 @@ namespace TraceShot.Services
         public string? JsonPath { get; set; }
         public int FrameRate { get; set; }
         public bool UseHardwareAccel { get; set; }
-        public bool IsCropLocked { get; set; }
+        public bool IsCropLocked
+        {
+            get {  return Evidence.IsCropLocked; }
+            set { Evidence.IsCropLocked = value; }
+        }
         public event EventHandler? OnActualRecordingStarted;
         public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
 

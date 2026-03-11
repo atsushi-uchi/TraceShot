@@ -3,7 +3,6 @@ using NHotkey;
 using ScreenRecorderLib;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -15,6 +14,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
+using TraceShot.Controls;
 using TraceShot.Models;
 using TraceShot.Services;
 using Windows.Media.SpeechRecognition;
@@ -54,8 +54,8 @@ namespace TraceShot.Features
         private bool _isSpeechInitalized = false;
         private DispatcherTimer _playerTimer;
         private MouseHook _mouseHook = new();
-        private readonly Brush _maskHatchBrush = CreateMaskBrush();
-
+        ///private readonly Brush _maskHatchBrush = CreateMaskBrush();
+        private List<RegionUI> _displayedRegionUIs = new List<RegionUI>();
         private Drawing.Rectangle? _selectedRegion = null; // 選択された範囲を保持
 
         private IntPtr _targetWindowHandle;
@@ -420,8 +420,15 @@ namespace TraceShot.Features
             }
         }
 
-        private void AddVisualMask(EvidenceRect rect)
+        private void UpdateVisualMask(EvidenceRect rect)
         {
+            if (!rect.IsCropArea)
+            {
+                VisualMaskPath.Fill = Brushes.Transparent;
+                return;
+            }
+            VisualMaskPath.Fill = new SolidColorBrush(Color.FromArgb(180, 40, 40, 40));
+
             double containerW = DrawingCanvas.ActualWidth;
             double containerH = DrawingCanvas.ActualHeight;
 
@@ -448,318 +455,73 @@ namespace TraceShot.Features
             // 3. 2つの図形を「除外(Exclude)」で合成（ドーナツ型にする）
             CombinedGeometry maskGeometry = new CombinedGeometry(GeometryCombineMode.Exclude, fullCanvas, cropArea);
 
-            // 4. Path要素としてキャンバスに追加
-            System.Windows.Shapes.Path maskPath = new System.Windows.Shapes.Path
-            {
-                Data = maskGeometry,
-                Fill = new SolidColorBrush(Color.FromArgb(200, 40, 40, 40)), // 半透明のグレー
-                IsHitTestVisible = false // マウス操作を邪魔しないようにする
-            };
-
-            DrawingCanvas.Children.Add(maskPath);
+            // 4. Path要素更新
+            VisualMaskPath.Data = new CombinedGeometry(GeometryCombineMode.Exclude, fullCanvas, cropArea);
         }
 
-        private void DrawRectOnCanvas(EvidenceRect rect, bool isCropMode)
+        private void RefreshRegionsOnCanvas(Bookmark currentBookmark)
         {
-            double containerW = DrawingCanvas.ActualWidth;
-            double containerH = DrawingCanvas.ActualHeight;
-
-            if (containerW == 0 || containerH == 0 || VideoPlayer.NaturalVideoWidth == 0) return;
-
-            double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
-            double dispW = VideoPlayer.NaturalVideoWidth * ratio;
-            double dispH = VideoPlayer.NaturalVideoHeight * ratio;
-            double offsetX = (containerW - dispW) / 2.0;
-            double offsetY = (containerH - dispH) / 2.0;
-
-            var rectBrush = isCropMode ? _setting.CropBrush: _setting.MainBrush;
-            var overBrush = isCropMode ? _setting.CropFillBrush : _setting.OverFillBrush;
-
-            // 共通の座標計算
-            double rectLeft = (rect.X * dispW) + offsetX;
-            double rectTop = (rect.Y * dispH) + offsetY;
-            double rectWidth = rect.Width * dispW;
-            double rectHeight = rect.Height * dispH;
-            bool isCropLocked = RecService.Instance.Evidence?.IsCropLocked?? false;
-            bool canTouch = !isCropMode || !isCropLocked;
-
-            // --- 1. 中央の移動用エリア（透明な塗りつぶし） ---
-            var moveArea = new WpfRectangle
+            // 1. 今あるUIをクリア
+            foreach (var ui in _displayedRegionUIs)
             {
-                Width = Math.Max(0, rectWidth),
-                Height = Math.Max(0, rectHeight),
-                Fill = rect.IsMasked ? _maskHatchBrush : Brushes.Transparent,
-                Cursor = Cursors.SizeAll,
-                Tag = rect,
-                Stroke = rectBrush,
-                StrokeThickness = isCropMode ? 1 : 0,
-                IsHitTestVisible = canTouch,
-                Opacity = canTouch ? 0.6 : 1.0,
-            };
-            // マスク項目
-            MenuItem? maskItem = null;
-
-            if (rect.IsMasked)
-            {
-                maskItem = new MenuItem { Header = "マスク処理（黒塗）", Icon = "㊙️" };
-                maskItem.Click += async (s, e) =>
-                {
-                    rect.IsMasked = false;
-                    RefreshDrawingCanvas();
-                };
+                DrawingCanvas.Children.Remove(ui);
             }
-            else
+            _displayedRegionUIs.Clear();
+
+            // 2. データ（EvidenceRect）を元に RegionUI を生成して追加
+            if (currentBookmark.Regions != null)
             {
-                maskItem = new MenuItem { Header = "マスク処理（黒塗）", Icon = "㊙️" };
-                maskItem.Click += async (s, e) =>
+                foreach (var regionData in currentBookmark.Regions)
                 {
-                    rect.IsMasked = true;
-                    RefreshDrawingCanvas();
-                };
-            }
-
-
-            // 右クリックメニューを作成
-            var menu = new ContextMenu();
-
-            // 削除項目
-            var deleteItem = new MenuItem { Header = "注釈を削除", Icon = "❌" };
-            deleteItem.Click += (s, e) => {
-                // 既存の削除ロジック（リストから消して再描画など）
-                if (BookmarkListBox.SelectedItem is Bookmark selected)
-                {
-                    // --- 1. 矩形 (MarkRects) の描画 ---
-                    if (selected.Regions == null)
+                    // RegionUI のインスタンス化
+                    var regionUI = new RegionUI(regionData);
+                    regionUI.DoubleClicked += OnRegionDoubleClicked;
+                    regionUI.RequestDelete += (ui) => currentBookmark.Regions.Remove(ui.Data);
+                    regionUI.RequestOcrScan += async (ui) => await ExecuteOcrOnAnnotation(ui.Data);
+                    regionUI.Changed += (ui) =>
                     {
-                        return;
-                    }
-                    selected.Regions.Remove(rect);
-                    RefreshDrawingCanvas();
-                }
-            };
-            // OCR項目
-            var ocrItem = new MenuItem { Header = "OCRで読み取る", Icon = "🔍" };
-            ocrItem.Click += async (s, e) => {
-                // 座標計算済みの Rect を渡す (rect は引数の MarkRect)
-                await ExecuteOcrOnAnnotation(rect);
-            };
-
-            menu.Items.Add(deleteItem);
-            menu.Items.Add(new Separator());
-            menu.Items.Add(maskItem);
-            menu.Items.Add(new Separator());
-            menu.Items.Add(ocrItem);
-            moveArea.ContextMenu = menu;
-
-            moveArea.MouseEnter += (s, e) => {
-                moveArea.Fill = overBrush; // 設定されているハイライト色（半透明）
-            };
-            moveArea.MouseLeave += (s, e) => {
-                moveArea.Fill = rect.IsMasked ? _maskHatchBrush : Brushes.Transparent; // 透明だがマウスには反応する
-
-            };
-            moveArea.MouseLeftButtonUp += EndDrag;
-
-            Canvas.SetLeft(moveArea, rectLeft);
-            Canvas.SetTop(moveArea, rectTop);
-
-            moveArea.MouseLeftButtonDown += (s, e) => {
-                // ダブルクリック判定
-                if (e.ClickCount == 2)
-                {
-                    ToggleCropArea(rect); // クロップ範囲の切り替えメソッドを呼ぶ
-                    e.Handled = true;
-                    return;
-                }
-                // 通常のドラッグ開始処理
-                _draggingRect = moveArea;
-                _isResizing = false;
-                _currentResizeDir = ResizeDirection.Move;
-                _lastMousePosition = e.GetPosition(DrawingCanvas);
-                moveArea.CaptureMouse();
-                e.Handled = true;
-            };
-            DrawingCanvas.Children.Add(moveArea);
-
-            // --- 2. 4つの辺を作成するための共通ヘルパー関数 ---
-            UIElement CreateEdge(double x1, double y1, double x2, double y2, ResizeDirection dir, Brush brush)
-            {
-                var container = new Canvas();
-
-                // 1. 【当たり判定用】 透明で太い線
-                var hitArea = new Line
-                {
-                    X1 = x1,
-                    Y1 = y1,
-                    X2 = x2,
-                    Y2 = y2,
-                    Stroke = Brushes.Transparent, // 💡 見えない
-                    StrokeThickness = 10,         // 💡 当たり判定を 10px くらいに広げる
-                    Cursor = (dir == ResizeDirection.Left || dir == ResizeDirection.Right) ? Cursors.SizeWE : Cursors.SizeNS,
-                    Tag = rect,
-                    IsHitTestVisible = canTouch,
-                };
-                var line = new Line
-                {
-                    X1 = x1,
-                    Y1 = y1,
-                    X2 = x2,
-                    Y2 = y2,
-                    Stroke = brush,
-                    StrokeThickness = 2, // 当たり判定のために少し太めにする
-                    Cursor = canTouch ? ((dir == ResizeDirection.Left || dir == ResizeDirection.Right) ? Cursors.SizeWE : Cursors.SizeNS) : Cursors.Arrow,
-                    Tag = rect
-                };
-
-                // ⭐ ここでマスク判定を行い、点線を適用する
-                if (rect.IsMasked)
-                {
-                    // 2ピクセル描画、2ピクセル空白の繰り返し
-                    line.StrokeDashArray = new DoubleCollection { 1, 1 };
-                }
-
-                // --- イベント処理 ---
-                hitArea.MouseEnter += (s, e) => line.Stroke = _setting.OverBrush;
-                hitArea.MouseLeave += (s, e) => line.Stroke = brush;
-
-                hitArea.MouseLeftButtonDown += (s, e) => {
-                    _draggingRect = hitArea; // ドラッグ対象は当たり判定用にする
-                    _isResizing = true;
-                    _currentResizeDir = dir;
-                    _lastMousePosition = e.GetPosition(DrawingCanvas);
-                    hitArea.CaptureMouse();
-                    e.Handled = true;
-                };
-
-                // 前述の MouseUp 処理も追加
-                hitArea.MouseLeftButtonUp += EndDrag;
-
-                container.Children.Add(line); // 下に描画
-                container.Children.Add(hitArea);    // 上に重ねて当たり判定を確保
-
-                return container;
-            }
-
-            // --- 3. 4辺をキャンバスに追加 ---
-            DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop, rectLeft + rectWidth, rectTop, ResizeDirection.Top, rectBrush));
-            DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop + rectHeight, rectLeft + rectWidth, rectTop + rectHeight, ResizeDirection.Bottom, rectBrush));
-            DrawingCanvas.Children.Add(CreateEdge(rectLeft, rectTop, rectLeft, rectTop + rectHeight, ResizeDirection.Left, rectBrush));
-            DrawingCanvas.Children.Add(CreateEdge(rectLeft + rectWidth, rectTop, rectLeft + rectWidth, rectTop + rectHeight, ResizeDirection.Right, rectBrush));
-
-            // --- 4. 情報バッジ（サイズ表示）を追加 ---
-            // クロップモードの時だけ表示、あるいは常に表示などお好みで
-            if (isCropMode)
-            {
-                var infoTextBlock = new TextBlock
-                {
-                    // 実際のピクセルサイズを表示したい場合は rect.Width * NaturalVideoWidth 等を使用
-                    //Text = $"{(int)(rect.Width * VideoPlayer.NaturalVideoWidth)} × {(int)(rect.Height * VideoPlayer.NaturalVideoHeight)}",
-                    Foreground = Brushes.White,
-                    FontSize = 10,
-                    FontFamily = new System.Windows.Media.FontFamily("Consolas"),
-                    Padding = new Thickness(5, 1, 5, 1),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                string lockIcon = isCropLocked ? " 🔒" : " 🔓";
-                infoTextBlock.Text = $"{(int)(rect.Width * VideoPlayer.NaturalVideoWidth)} × {(int)(rect.Height * VideoPlayer.NaturalVideoHeight)}{lockIcon}";
-
-                var infoBadge = new Border
-                {
-                    Uid = "RectInfoBadge", // リサイズ中に中身を書き換えるための目印
-                    Background = new SolidColorBrush(Color.FromArgb(180, 40, 40, 40)),
-                    BorderBrush = rectBrush, // 枠線の色と合わせると統一感が出ます
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(2),
-                    Child = infoTextBlock,
-                    IsHitTestVisible = true,
-                    Margin = new Thickness(5)  // 矩形の角から少し離す
-                };
-
-                // --- ホバー時の色の定義 ---
-                var normalBackground = new SolidColorBrush(Color.FromArgb(180, 40, 40, 40)); // 通常時
-                var hoverBackground = _setting.CropFillBrush;
-                infoBadge.ToolTip = isCropLocked ? "クリックして解除（移動・リサイズ可能）" : "クリックして固定（注釈編集を優先）";
-
-                // 初期状態の設定
-                infoBadge.Background = normalBackground;
-
-                // --- マウスオーバー（ハイライト）処理 ---
-                infoBadge.MouseEnter += (s, e) =>
-                {
-                    infoBadge.Background = hoverBackground;
-                    infoBadge.BorderThickness = new Thickness(1.5); // 枠線を少し太くして強調
-                };
-
-                infoBadge.MouseLeave += (s, e) =>
-                {
-                    infoBadge.Background = normalBackground;
-                    infoBadge.BorderThickness = new Thickness(1);   // 元に戻す
-                };
-
-                // クリック（マウスダウン）イベント
-                if (RecService.Instance?.Evidence != null)
-                    infoBadge.MouseLeftButtonDown += (s, e) => {
-                        RecService.Instance.Evidence.IsCropLocked = !isCropLocked; // ロック状態を反転
-
-                        // UIを即座に更新するために再描画をかける
-                        // 描画メソッドを現在の状態で呼び出し直す
-                        RefreshDrawingCanvas();
-
-                        e.Handled = true; // 他の要素にクリックが伝わるのを防ぐ
+                        if (ui.Data.IsCropArea) UpdateVisualMask(ui.Data);
                     };
-                // ロック中はバッジの背景色を変えて「固定済み」を強調してもOK
-                if (isCropLocked)
-                {
-                    infoBadge.Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)); // ロック中は真っ黒に近く
+                    // Canvas に追加
+                    DrawingCanvas.Children.Add(regionUI);
+                    _displayedRegionUIs.Add(regionUI);
+
+                    // 初回の位置計算と描画を反映
+                    regionUI.ApplyDataToUI();
                 }
-
-                Canvas.SetLeft(infoBadge, rectLeft);
-                Canvas.SetTop(infoBadge, rectTop);
-                Canvas.SetZIndex(infoBadge, 100); // 最前面
-
-                DrawingCanvas.Children.Add(infoBadge);
             }
         }
 
-        private void ToggleCropArea(EvidenceRect target)
+        private void OnRegionDoubleClicked(RegionUI target)
         {
             // 1. すでに自分がクロップ範囲なら解除、そうでなければ設定
-            bool isNowSelected = !target.IsCropArea;
+            bool isNowSelected = !target.Data.IsCropArea;
 
-            // 2. 「クロップ範囲は1つだけ」ルールを適用
-            // (全ブックマークの全矩形を走査)
-            foreach (var bm in RecService.Instance.Evidence?.Bookmarks ?? new())
+            // 2. 「クロップ範囲は1つだけ」ルールを適用 (全ブックマークの領域を走査)
+            foreach (var selected in RecService.Instance.Evidence.Bookmarks)
             {
-                foreach (var r in bm.Regions)
+                foreach (var ui in selected.Regions)
                 {
-                    r.IsCropArea = false;
+                    ui.IsCropArea = false;
                 }
             }
 
-            target.IsCropArea = isNowSelected;
+            target.Data.IsCropArea = isNowSelected;
 
-            // 💡 画面を更新して色を変えたり、プレビューを再描画したりする
             RefreshDrawingCanvas();
+            UpdateVisualMask(target.Data);
         }
 
         private void RefreshDrawingCanvas()
         {
             var toRemove = DrawingCanvas.Children.OfType<FrameworkElement>()
-                .Where(x => x != BalloonInputComposite) // 👈 これを除外
+                .Where(x => x != BalloonInputComposite)
+                .Where(x => x != VisualMaskPath)
                 .ToList();
 
             foreach (var child in toRemove)
             {
                 DrawingCanvas.Children.Remove(child);
-            }
-
-            var marks = RecService.Instance.Evidence?.Bookmarks ?? [];
-
-            var cropRect = marks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
-            if (cropRect != null)
-            {
-                DrawRectOnCanvas(cropRect, isCropMode: true);
-                AddVisualMask(cropRect);
             }
 
             double containerW = DrawingCanvas.ActualWidth;
@@ -776,12 +538,7 @@ namespace TraceShot.Features
             if (BookmarkListBox.SelectedItem is Bookmark selected)
             {
                 // --- 1. 領域 (Regions) の描画 ---
-                foreach (var rect in selected.Regions)
-                {
-                    if (rect.IsCropArea) continue; // クロップ用は既に描画済みならスキップ
-
-                    DrawRectOnCanvas(rect, isCropMode: false);
-                }
+                RefreshRegionsOnCanvas(selected);
 
                 // --- 2. 吹き出し (Balloons) の描画 ---
                 foreach (var note in selected.Balloons)
@@ -1088,55 +845,6 @@ namespace TraceShot.Features
                 RefreshDrawingCanvas(); // 再描画
                 return;
             }
-            // --- 1. 矩形の移動・リサイズ処理 ---
-            if (_draggingRect != null && _draggingRect.Tag is EvidenceRect data)
-            {
-                // 💡 ここで dispW, dispH を再計算する
-                double containerW = DrawingCanvas.ActualWidth;
-                double containerH = DrawingCanvas.ActualHeight;
-                if (VideoPlayer.NaturalVideoWidth == 0) return;
-
-                double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
-                double dispW = VideoPlayer.NaturalVideoWidth * ratio;
-                double dispH = VideoPlayer.NaturalVideoHeight * ratio;
-
-                var currentPos = e.GetPosition(DrawingCanvas);
-                // これで下の diffX, diffY のエラーが消えます
-                double diffX = (currentPos.X - _lastMousePosition.X) / dispW;
-                double diffY = (currentPos.Y - _lastMousePosition.Y) / dispH;
-
-                if (_isResizing)
-                {
-                    // 💡 選択された辺に応じて計算を切り替え
-                    switch (_currentResizeDir)
-                    {
-                        case ResizeDirection.Right:
-                            data.Width = Math.Max(0.01, data.Width + diffX);
-                            break;
-                        case ResizeDirection.Left:
-                            // 左端を動かすときは、位置(X)を動かしつつ幅を逆方向に調整
-                            if (data.Width - diffX > 0.01) { data.X += diffX; data.Width -= diffX; }
-                            break;
-                        case ResizeDirection.Bottom:
-                            data.Height = Math.Max(0.01, data.Height + diffY);
-                            break;
-                        case ResizeDirection.Top:
-                            // 上端を動かすときは、位置(Y)を動かしつつ高さを逆方向に調整
-                            if (data.Height - diffY > 0.01) { data.Y += diffY; data.Height -= diffY; }
-                            break;
-                    }
-                }
-                else
-                {
-                    // 通常移動
-                    data.X += diffX;
-                    data.Y += diffY;
-                }
-
-                _lastMousePosition = currentPos;
-                RefreshDrawingCanvas();
-                return;
-            }
 
             // --- 2. バルーン入力キャンセル（右クリック） ---
             if (BalloonTextInput.IsVisible && e.RightButton == MouseButtonState.Pressed)
@@ -1171,6 +879,108 @@ namespace TraceShot.Features
                 _currentRectangle.Height = height;
                 return;
             }
+        }
+
+        private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            // --- 追加：既存の矩形をドラッグ・リサイズしていた場合の終了処理 ---
+            if (_draggingRect != null)
+            {
+                _draggingRect.ReleaseMouseCapture();
+
+                //var mainBrush = new SolidColorBrush(_setting.MainColor);
+                // ハイライトを戻す（必要に応じて）
+                if (_draggingRect is Line l) l.Stroke = _setting.MainBrush;
+                if (_draggingRect is WpfRectangle r) r.Fill = Brushes.Transparent;
+
+                _draggingRect = null;
+                _isResizing = false;
+                _currentResizeDir = ResizeDirection.None;
+
+                // 移動・リサイズの終了時はここで処理を終える
+                return;
+            }
+
+            _endPoint = e.GetPosition(DrawingCanvas);
+
+            // 2. 動画がロードされていない場合は何もしない
+            if (VideoPlayer.NaturalVideoWidth == 0) return;
+
+            // --- 3. 【共通】ブックマークを探す、または自動作成する ---
+            var selectedBm = BookmarkListBox.SelectedItem as Bookmark;
+            TimeSpan currentTime = VideoPlayer.Position;
+
+            // 現在選択中のブックマークがない、または再生時間とズレている場合に新規作成
+            if (selectedBm == null || Math.Abs(selectedBm.Time.TotalSeconds - currentTime.TotalSeconds) > 0.1)
+            {
+                // A. 既に登録されているブックマークの中に、現在の再生時間と一致するものがあるか探す
+                var existingBm = BookmarkListBox.Items.Cast<Bookmark>()
+                    .FirstOrDefault(b => Math.Abs(b.Time.TotalSeconds - currentTime.TotalSeconds) <= 0.1);
+
+                if (existingBm != null)
+                {
+                    // 一致するものが見つかった場合は、それを選択状態にする
+                    selectedBm = existingBm;
+                    BookmarkListBox.SelectedItem = selectedBm;
+                }
+                else
+                {
+                    // B. 一致するものがなければ、新しくブックマークを登録する
+                    Bookmark bookmark = new()
+                    {
+                        Time = currentTime,
+                        Icon = "📝",
+                        Note = "Add",
+                    };
+
+                    // リストに追加して選択状態にする
+                    RecService.Instance.AddBookmark(bookmark);
+                    BookmarkListBox.SelectedItem = bookmark;
+                    selectedBm = bookmark;
+                    RefreshBookmarkCanvas();
+                }
+            }
+
+            // --- 4. モード分岐：バルーン（Ctrl）か 矩形か ---
+
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                // 💡 対策：もし UpdateCanvasRects で線が消えていたら、Canvas に戻す
+                if (_dragLine != null && !DrawingCanvas.Children.Contains(_dragLine))
+                {
+                    DrawingCanvas.Children.Add(_dragLine);
+                }
+
+                ShowBalloonInput();
+                return;
+            }
+
+            // --- 5. 従来の矩形 (Regions) の保存処理 ---
+            if (_currentRectangle == null) return;
+
+            _currentRectangle = null;
+
+            double containerW = DrawingCanvas.ActualWidth;
+            double containerH = DrawingCanvas.ActualHeight;
+
+            // 動画の表示比率と領域を算出
+            double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
+            double dispW = VideoPlayer.NaturalVideoWidth * ratio;
+            double dispH = VideoPlayer.NaturalVideoHeight * ratio;
+
+            double offsetX = (containerW - dispW) / 2.0;
+            double offsetY = (containerH - dispH) / 2.0;
+
+            // 比率座標（0.0〜1.0）へ変換して保存
+            var relativeRect = new EvidenceRect(
+                (Math.Min(_startPoint.X, _endPoint.X) - offsetX) / dispW,
+                (Math.Min(_startPoint.Y, _endPoint.Y) - offsetY) / dispH,
+                Math.Abs(_endPoint.X - _startPoint.X) / dispW,
+                Math.Abs(_endPoint.Y - _startPoint.Y) / dispH
+            );
+
+            selectedBm.Regions.Add(relativeRect);
+            RefreshDrawingCanvas();
         }
 
         // 重複していたガイド線更新を共通化するとスッキリします
@@ -1359,108 +1169,6 @@ namespace TraceShot.Features
                 selected?.Balloons.Add(note);
             }
             CleanupDragLine();
-            RefreshDrawingCanvas();
-        }
-
-        private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
-        {
-            // --- 追加：既存の矩形をドラッグ・リサイズしていた場合の終了処理 ---
-            if (_draggingRect != null)
-            {
-                _draggingRect.ReleaseMouseCapture();
-
-                //var mainBrush = new SolidColorBrush(_setting.MainColor);
-                // ハイライトを戻す（必要に応じて）
-                if (_draggingRect is Line l) l.Stroke = _setting.MainBrush;
-                if (_draggingRect is WpfRectangle r) r.Fill = Brushes.Transparent;
-
-                _draggingRect = null;
-                _isResizing = false;
-                _currentResizeDir = ResizeDirection.None;
-
-                // 移動・リサイズの終了時はここで処理を終える
-                return;
-            }
-
-            _endPoint = e.GetPosition(DrawingCanvas);
-
-            // 2. 動画がロードされていない場合は何もしない
-            if (VideoPlayer.NaturalVideoWidth == 0) return;
-
-            // --- 3. 【共通】ブックマークを探す、または自動作成する ---
-            var selectedBm = BookmarkListBox.SelectedItem as Bookmark;
-            TimeSpan currentTime = VideoPlayer.Position;
-
-            // 現在選択中のブックマークがない、または再生時間とズレている場合に新規作成
-            if (selectedBm == null || Math.Abs(selectedBm.Time.TotalSeconds - currentTime.TotalSeconds) > 0.1)
-            {
-                // A. 既に登録されているブックマークの中に、現在の再生時間と一致するものがあるか探す
-                var existingBm = BookmarkListBox.Items.Cast<Bookmark>()
-                    .FirstOrDefault(b => Math.Abs(b.Time.TotalSeconds - currentTime.TotalSeconds) <= 0.1);
-
-                if (existingBm != null)
-                {
-                    // 一致するものが見つかった場合は、それを選択状態にする
-                    selectedBm = existingBm;
-                    BookmarkListBox.SelectedItem = selectedBm;
-                }
-                else
-                {
-                    // B. 一致するものがなければ、新しくブックマークを登録する
-                    Bookmark bookmark = new()
-                    {
-                        Time = currentTime,
-                        Icon = "📝",
-                        Note = "Add",
-                    };
-
-                    // リストに追加して選択状態にする
-                    RecService.Instance.AddBookmark(bookmark);
-                    BookmarkListBox.SelectedItem = bookmark;
-                    selectedBm = bookmark;
-                    RefreshBookmarkCanvas();
-                }
-            }
-
-            // --- 4. モード分岐：バルーン（Ctrl）か 矩形か ---
-
-            if (Keyboard.Modifiers == ModifierKeys.Control)
-            {
-                // 💡 対策：もし UpdateCanvasRects で線が消えていたら、Canvas に戻す
-                if (_dragLine != null && !DrawingCanvas.Children.Contains(_dragLine))
-                {
-                    DrawingCanvas.Children.Add(_dragLine);
-                }
-
-                ShowBalloonInput();
-                return;
-            }
-
-            // --- 5. 従来の矩形 (Regions) の保存処理 ---
-            if (_currentRectangle == null) return;
-
-            _currentRectangle = null;
-
-            double containerW = DrawingCanvas.ActualWidth;
-            double containerH = DrawingCanvas.ActualHeight;
-
-            // 動画の表示比率と領域を算出
-            double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
-            double dispW = VideoPlayer.NaturalVideoWidth * ratio;
-            double dispH = VideoPlayer.NaturalVideoHeight * ratio;
-
-            double offsetX = (containerW - dispW) / 2.0;
-            double offsetY = (containerH - dispH) / 2.0;
-
-            // 比率座標（0.0〜1.0）へ変換して保存
-            var relativeRect = new EvidenceRect(
-                (Math.Min(_startPoint.X, _endPoint.X) - offsetX) / dispW,
-                (Math.Min(_startPoint.Y, _endPoint.Y) - offsetY) / dispH,
-                Math.Abs(_endPoint.X - _startPoint.X) / dispW,
-                Math.Abs(_endPoint.Y - _startPoint.Y) / dispH
-            );
-
-            selectedBm.Regions.Add(relativeRect);
             RefreshDrawingCanvas();
         }
 
@@ -2060,7 +1768,11 @@ namespace TraceShot.Features
 
         private void BookmarkCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            RefreshBookmarkCanvas();
+            //RefreshBookmarkCanvas();
+            foreach (var ui in _displayedRegionUIs)
+            {
+                ui.ApplyDataToUI();
+            }
         }
 
         // 音声認識の初期化（コンストラクタなどで呼ぶ）
@@ -2365,41 +2077,6 @@ namespace TraceShot.Features
             {
                 StatusText.Text = "文字を検出できませんでした";
             }
-        }
-
-        private static Brush CreateMaskBrush()
-        {
-            // 1. 斜線を一本引くための GeometryDrawing を作成
-            var lineGeometry = new LineGeometry(new Point(0, 1), new Point(1, 0));
-            var lineDrawing = new GeometryDrawing(
-                null,
-                new System.Windows.Media.Pen(Brushes.Black, 0.2), // 斜線の色と太さ
-                lineGeometry
-            );
-
-            // 2. DrawingBrush にして、タイル状に並べる設定を行う
-            var brush = new DrawingBrush(lineDrawing)
-            {
-                TileMode = TileMode.Tile,
-                Viewport = new Rect(0, 0, 10, 10), // タイル1つのサイズ（10px四方）
-                ViewportUnits = BrushMappingMode.Absolute,
-                // 背面に薄いグレーを敷くと、より「領域」として認識しやすくなります
-                RelativeTransform = new RotateTransform(0)
-            };
-
-            // 背景をうっすら黒くしたい場合は、DrawingGroup で合成します
-            var group = new DrawingGroup();
-            // 下地：20%透明の黒
-            group.Children.Add(new GeometryDrawing(new SolidColorBrush(Color.FromArgb(50, 0, 0, 0)), null, new RectangleGeometry(new Rect(0, 0, 1, 1))));
-            // 上に斜線
-            group.Children.Add(lineDrawing);
-
-            return new DrawingBrush(group)
-            {
-                TileMode = TileMode.Tile,
-                Viewport = new Rect(0, 0, 8, 8),
-                ViewportUnits = BrushMappingMode.Absolute
-            };
         }
     }
 }
