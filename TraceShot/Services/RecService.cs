@@ -104,7 +104,7 @@ namespace TraceShot.Services
         }
 
 
-        public (string? Path, BitmapSource? Bitmap)? SaveSingleBookmarkImage(Bookmark bm, VideoSnapshotInfo? info, double scale = 0.5)
+        public (string? Path, BitmapSource? Bitmap)? SaveImage(Bookmark bm, VideoSnapshotInfo? info, double scale = 0.5)
         {
             if (string.IsNullOrEmpty(CurrentFolder) || info is null) return null;
 

@@ -12,6 +12,7 @@ using TraceShot.Models;
 using TraceShot.Services;
 using MessageBox = System.Windows.MessageBox;
 using Path = System.IO.Path;
+using System.Windows.Media;
 
 namespace TraceShot.Features
 {
@@ -112,26 +113,21 @@ namespace TraceShot.Features
 
                 for (int i = 0; i < total; i++)
                 {
+                    StatusText.Text = $"画像生成中... ({i + 1}/{total})";
                     var bm = marks[i];
-                    Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
-                    await Dispatcher.InvokeAsync(async () => {
-                            main.VideoPlayer.Position = bm.Time;
-                            await Task.Delay(300);
-                        }, System.Windows.Threading.DispatcherPriority.Background);
-
-                    await Dispatcher.InvokeAsync(() => {
-                        var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
-                        var result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
-                        bm.ImagePath = result?.Path;
-                        if (result?.Bitmap != null)
-                        {
-                            PreviewImage.Source = result?.Bitmap;
-                        }
-                    }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-
+                    main.VideoPlayer.Position = bm.Time;
+                    await Task.Delay(500);
+                    var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
+                    var result = RecService.Instance.SaveImage(bm, snapshot, scale);
+                    bm.ImagePath = result?.Path;
+                    if (result?.Bitmap != null)
+                    {
+                        PreviewImage.Source = result?.Bitmap;
+                    }
                     progress.Report((i + 1) * 100 / (total + 1));
+                    await Task.Yield();
                 }
-                Dispatcher.Invoke(() => StatusText.Text = "レポート出力中...");
+                StatusText.Text = "レポート出力中...";
                 
                 await Task.Run(() =>
                 {
@@ -332,24 +328,19 @@ namespace TraceShot.Features
 
                 for (int i = 0; i < total; i++)
                 {
+                    StatusText.Text = $"画像生成中... ({i + 1}/{total})";
                     var bm = marks[i];
-                    Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
-                    await Dispatcher.InvokeAsync(async () => {
-                        main.VideoPlayer.Position = bm.Time;
-                        await Task.Delay(300);
-                    }, System.Windows.Threading.DispatcherPriority.Background);
-
-                    await Dispatcher.InvokeAsync(() => {
-                        var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
-                        var result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
-
-                        bm.ImagePath = result?.Path;
-                        if (result?.Bitmap != null)
-                        {
-                            PreviewImage.Source = result?.Bitmap;
-                        }
-                    }, System.Windows.Threading.DispatcherPriority.ApplicationIdle); 
-                    progress.Report((i + 1) * 100 / (total + 2)); 
+                    main.VideoPlayer.Position = bm.Time;
+                    await Task.Delay(500);
+                    var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
+                    var result = RecService.Instance.SaveImage(bm, snapshot, scale);
+                    bm.ImagePath = result?.Path;
+                    if (result?.Bitmap != null)
+                    {
+                        PreviewImage.Source = result?.Bitmap;
+                    }
+                    progress.Report((i + 1) * 100 / (total + 2));
+                    await Task.Yield();
                 }
 
                 // 2. HTML 文字列の生成（既存の GenerateHtmlFile を活用）
@@ -443,23 +434,19 @@ namespace TraceShot.Features
 
                 for (int i = 0; i < total; i++)
                 {
+                    StatusText.Text = $"画像生成中... ({i + 1}/{total})";
                     var bm = marks[i];
-                    Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
-                    await Dispatcher.InvokeAsync(async () => {
-                        main.VideoPlayer.Position = bm.Time;
-                        await Task.Delay(300);
-                    }, System.Windows.Threading.DispatcherPriority.Background);
-
-                    await Dispatcher.InvokeAsync(() => {
-                        var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
-                        var result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
-                        bm.ImagePath = result?.Path;
-                        if (result?.Bitmap != null)
-                        {
-                            PreviewImage.Source = result?.Bitmap;
-                        }
-                    }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                    main.VideoPlayer.Position = bm.Time;
+                    await Task.Delay(500);
+                    var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
+                    var result = RecService.Instance.SaveImage(bm, snapshot, scale);
+                    bm.ImagePath = result?.Path;
+                    if (result?.Bitmap != null)
+                    {
+                        PreviewImage.Source = result?.Bitmap;
+                    }
                     progress.Report((i + 1) * 100 / (total + 1));
+                    await Task.Yield();
                 }
                 Dispatcher.Invoke(() => StatusText.Text = "Excelファイルを構築中...");
                 await Task.Run(() =>
