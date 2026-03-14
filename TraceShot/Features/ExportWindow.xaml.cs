@@ -104,7 +104,7 @@ namespace TraceShot.Features
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + "_full.html";
             var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
-            var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
+            //var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
@@ -121,11 +121,11 @@ namespace TraceShot.Features
                     await Dispatcher.InvokeAsync(() => {
                         var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
                         (string? Path, BitmapSource? Bitmap)? result;
-                        if (crop != null)
-                        {
-                            result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
-                        }
-                        else
+                        //if (crop != null)
+                        //{
+                        //    result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
+                        //}
+                        //else
                         {
                             result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
                         }
@@ -330,7 +330,7 @@ namespace TraceShot.Features
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".pdf";
             var filePath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
-            var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
+            //var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
@@ -348,11 +348,11 @@ namespace TraceShot.Features
                     await Dispatcher.InvokeAsync(() => {
                         var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
                         (string? Path, BitmapSource? Bitmap)? result;
-                        if (crop != null)
-                        {
-                            result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
-                        }
-                        else
+                        //if (crop != null)
+                        //{
+                        //    result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
+                        //}
+                        //else
                         {
                             result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
                         }
@@ -446,7 +446,7 @@ namespace TraceShot.Features
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".xlsx";
             var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
-            var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
+            //var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
@@ -464,11 +464,11 @@ namespace TraceShot.Features
                     await Dispatcher.InvokeAsync(() => {
                         var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
                         (string? Path, BitmapSource? Bitmap)? result;
-                        if (crop != null)
-                        {
-                            result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
-                        }
-                        else
+                        //if (crop != null)
+                        //{
+                        //    result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
+                        //}
+                        //else
                         {
                             result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
                         }

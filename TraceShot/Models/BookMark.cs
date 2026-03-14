@@ -1,4 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.Text.Json.Serialization;
+using TraceShot.Controls;
 
 namespace TraceShot.Models
 {
@@ -13,9 +15,14 @@ namespace TraceShot.Models
         [ObservableProperty]  private bool _isListening;
 
         public string? ImagePath { get; set; }
-        public List<EvidenceRect> Regions { get; set; } = [];
 
-        public List<BalloonNote> Balloons { get; set; } = [];
+        public List<AnnotationBase> Annotations { get; set; } = [];
+
+        [JsonIgnore]
+        public IEnumerable<RectAnnotation> Rects => Annotations.OfType<RectAnnotation>();
+
+        [JsonIgnore]
+        public IEnumerable<NoteAnnotation> Notes => Annotations.OfType<NoteAnnotation>();
 
         public string AddNewLine(string text)
         {

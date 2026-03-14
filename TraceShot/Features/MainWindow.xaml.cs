@@ -7,6 +7,7 @@ using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -18,19 +19,20 @@ using TraceShot.Controls;
 using TraceShot.Models;
 using TraceShot.Services;
 using Windows.Media.SpeechRecognition;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 using static TraceShot.Properties.Settings;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Canvas = System.Windows.Controls.Canvas;
-using Color = System.Windows.Media.Color;
 using Cursors = System.Windows.Input.Cursors;
 using Drawing = System.Drawing;
-using Line = System.Windows.Shapes.Line;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using MessageBox = System.Windows.MessageBox;
 using Path = System.IO.Path;
 using Point = System.Windows.Point;
-using WpfPoint = System.Windows.Point; // WPFの座標
-using WpfRectangle = System.Windows.Shapes.Rectangle;
+using Size = System.Windows.Size;
+using TextBox = System.Windows.Controls.TextBox;
+//using WpfPoint = System.Windows.Point; // WPFの座標
 
 namespace TraceShot.Features
 {
@@ -39,10 +41,8 @@ namespace TraceShot.Features
 
     public partial class MainWindow : Window
     {
-        private void UpdateModeUI()
-        {
-            Debug.WriteLine("UpdateModeUI()");
-        }
+        private AnnotationManager _annotationManager;
+        //private AnnotationBase _activeAnnotation;
 
         private SpeechRecognizer? _winrtRecognizer;
         private readonly SettingsService _setting = SettingsService.Instance;
@@ -54,34 +54,36 @@ namespace TraceShot.Features
         private bool _isSpeechInitalized = false;
         private DispatcherTimer _playerTimer;
         private MouseHook _mouseHook = new();
-        ///private readonly Brush _maskHatchBrush = CreateMaskBrush();
         private List<RegionUI> _displayedRegionUIs = new List<RegionUI>();
         private Drawing.Rectangle? _selectedRegion = null; // 選択された範囲を保持
 
         private IntPtr _targetWindowHandle;
-        private WpfPoint _startPoint;
-        private WpfPoint _endPoint;
+        //private WpfPoint _startPoint;
+        //private WpfPoint _endPoint;
         
-        private WpfRectangle? _currentRectangle;
+        //private WpfRectangle? _currentRectangle;
         private WriteableBitmap? _previewBitmap;
         string _fullDeviceName = string.Empty;
         string _rectDeviceName = string.Empty;
-        private Line? _dragLine;
-        private bool _isResizing = false; // 追加
+        //private Line? _dragLine;
+        private bool _isResizing = false;
         private FrameworkElement ?_draggingRect = null;
-        private WpfPoint _lastMousePosition; // 直前のマウス座標
+        //private WpfPoint _lastMousePosition; // 直前のマウス座標
         private enum ResizeDirection { None, Left, Right, Top, Bottom, Move }
         private ResizeDirection _currentResizeDir = ResizeDirection.None;
+        private DebugWindow? _debugWindow;
 
         public MainWindow()
         {
             InitializeComponent();
 
+            _annotationManager = new AnnotationManager();
+            // XAMLのItemsControlのDataContextにマネージャーをセット（またはBindingを設定）
+            AnnotationItemsControl.ItemsSource = _annotationManager.Annotations;
+
             DataContext = _setting;
 
             ApplyCurrentSettings();
-
-            UpdateModeUI();
 
             if (_setting.IsVoiceEnabled)
             {
@@ -138,7 +140,7 @@ namespace TraceShot.Features
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            RefreshDrawingCanvas();
+                            //RefreshDrawingCanvas();
                             RefreshBookmarkCanvas();
                         });
                     }
@@ -146,7 +148,7 @@ namespace TraceShot.Features
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            DrawingCanvas.Children.Clear();
+                            //DrawingCanvas.Children.Clear();
                         });
                     }
                 }
@@ -196,8 +198,6 @@ namespace TraceShot.Features
             // ホットキー登録
             RefreshHotkey();
         }
-
-        private DebugWindow? _debugWindow;
 
         private void OpenSettings_Click(object sender, RoutedEventArgs e)
         {
@@ -251,12 +251,10 @@ namespace TraceShot.Features
             }
         }
         
-        // ファイル -> 終了
         private void Exit_Click(object sender, RoutedEventArgs e)
         {
             System.Windows.Application.Current.Shutdown();
         }
-
 
         private void SaveEvidence_Click(object? sender, RoutedEventArgs? e)
         {
@@ -275,7 +273,6 @@ namespace TraceShot.Features
             }
         }
 
-        // エビデンスを開く
         private async void OpenEvidence_Click(object sender, RoutedEventArgs e)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
@@ -380,7 +377,8 @@ namespace TraceShot.Features
         private void DrawingCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             // 💡 リサイズ時に矩形をクリアして再描画する
-            RefreshDrawingCanvas();
+            //RefreshDrawingCanvas();
+            RefreshBookmarkCanvas();
         }
 
         private void SavePathStatusText_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -422,6 +420,7 @@ namespace TraceShot.Features
 
         private void UpdateVisualMask(EvidenceRect rect)
         {
+            /*
             if (!rect.IsCropArea)
             {
                 VisualMaskPath.Fill = Brushes.Transparent;
@@ -457,10 +456,11 @@ namespace TraceShot.Features
 
             // 4. Path要素更新
             VisualMaskPath.Data = new CombinedGeometry(GeometryCombineMode.Exclude, fullCanvas, cropArea);
+            */
         }
-
         private void RefreshRegionsOnCanvas(Bookmark currentBookmark)
         {
+            /*
             // 1. 今あるUIをクリア
             foreach (var ui in _displayedRegionUIs)
             {
@@ -490,10 +490,11 @@ namespace TraceShot.Features
                     regionUI.ApplyDataToUI();
                 }
             }
+            */
         }
-
         private void OnRegionDoubleClicked(RegionUI target)
         {
+            /*
             // 1. すでに自分がクロップ範囲なら解除、そうでなければ設定
             bool isNowSelected = !target.Data.IsCropArea;
 
@@ -510,10 +511,11 @@ namespace TraceShot.Features
 
             RefreshDrawingCanvas();
             UpdateVisualMask(target.Data);
+            */
         }
-
         private void RefreshDrawingCanvas()
         {
+            /*
             var toRemove = DrawingCanvas.Children.OfType<FrameworkElement>()
                 .Where(x => x != BalloonInputComposite)
                 .Where(x => x != VisualMaskPath)
@@ -552,10 +554,11 @@ namespace TraceShot.Features
                 }
             }
             RefreshBookmarkCanvas();
+            */
         }
-
-        private void DrawBalloonUI(WpfPoint start, WpfPoint end, BalloonNote note)
+        private void DrawBalloonUI(Point start, Point end, Models.BalloonNote note)
         {
+            /*
             // --- 1. Border の生成 ---
             var textBlock = new TextBlock
             {
@@ -728,9 +731,11 @@ namespace TraceShot.Features
             DrawingCanvas.Children.Add(line);
             DrawingCanvas.Children.Add(dotContainer);
             DrawingCanvas.Children.Add(textBorder);
+            */
         }
-        private void HideBalloonUI(BalloonNote note)
+        private void HideBalloonUI(Models.BalloonNote note)
         {
+            /*
             // Canvasから、このノートに関連する要素をすべて探して削除する
             var targets = DrawingCanvas.Children.OfType<FrameworkElement>()
                             .Where(x => x.Tag == note)
@@ -740,6 +745,7 @@ namespace TraceShot.Features
             {
                 DrawingCanvas.Children.Remove(target);
             }
+            */
         }
 
         void EndDrag(object sender, MouseButtonEventArgs e)
@@ -755,237 +761,313 @@ namespace TraceShot.Features
         }
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            // 吹き出し入力中
-            if (BalloonInputComposite.IsVisible)
+            var currentPos = e.GetPosition(VideoPlayer);
+            var actualPos = new Size(VideoPlayer.ActualWidth, VideoPlayer.ActualHeight);
+            if (actualPos.Width <= 0 || actualPos.Height <= 0) return;
+
+            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
+            if (bookmark == null)
             {
-                // 右クリックでキャンセル
-                if (e.ChangedButton == MouseButton.Right)
+                bookmark = new Bookmark
                 {
-                    CancelBalloonInput();
-                    e.Handled = true;
-                    return;
-                }
-                // TextBox以外を左クリックしたら確定
-                if (!Equals(e.OriginalSource, BalloonInputComposite) && e.LeftButton == MouseButtonState.Pressed)
-                {
-                    FinalizeBalloonInput();
-                    e.Handled = true;
-                    return;
-                }
+                    Time = VideoPlayer.Position,
+                    Icon = "🖋️",
+                    Note = "Add"
+                };
+                RecService.Instance.AddBookmark(bookmark);
+                BookmarkListBox.SelectedItem = bookmark;
             }
 
-            // 💡 2. 左クリック時の共通準備
-            if (e.ChangedButton == MouseButton.Left)
+            if (Keyboard.Modifiers == ModifierKeys.Control)
             {
-                _startPoint = e.GetPosition(DrawingCanvas);
-
-                if (_isPlaying) PlayPauseButton_Click(null, null);
-
-                // 前回のドラッグ線がもし残っていたら掃除 (2回目以降対策)
-                if (_dragLine != null)
-                {
-                    DrawingCanvas.Children.Remove(_dragLine);
-                    _dragLine = null;
-                }
-
-                // --- モード分岐 ---
-
-                if (Keyboard.Modifiers == ModifierKeys.Control)
-                {
-                    return;
-                }
-                else
-                {
-                    // B. 通常の矩形描画モード
-                    _currentRectangle = new WpfRectangle
-                    {
-                        Stroke = _setting.OverBrush,
-                        StrokeThickness = 2,
-                        Fill = _setting.OverFillBrush,
-                        IsHitTestVisible = false
-                    };
-
-                    Canvas.SetLeft(_currentRectangle, _startPoint.X);
-                    Canvas.SetTop(_currentRectangle, _startPoint.Y);
-                    DrawingCanvas.Children.Add(_currentRectangle);
-                }
+                // NoteAnnotation モード
+                _annotationManager.StartDrawing<NoteAnnotation>(bookmark, currentPos, actualPos);
             }
+            else
+            {
+                // 通常の RectAnnotation モード
+                _annotationManager.StartDrawing<RectAnnotation>(bookmark, currentPos, actualPos);
+            }
+            RefreshBookmarkCanvas();
+            ((IInputElement)sender).CaptureMouse();
         }
 
-        // 2. マウスが移動中：矩形のサイズを更新
         private void DrawingCanvas_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            if (_draggingRect != null && _draggingRect.Tag is BalloonNote bNote)
+            if (e.LeftButton == MouseButtonState.Pressed)
             {
-                double containerW = DrawingCanvas.ActualWidth;
-                double containerH = DrawingCanvas.ActualHeight;
-                if (VideoPlayer.NaturalVideoWidth == 0) return;
-
-                double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
-                double dispW = VideoPlayer.NaturalVideoWidth * ratio;
-                double dispH = VideoPlayer.NaturalVideoHeight * ratio;
-
-                var currentPos = e.GetPosition(DrawingCanvas);
-
-                // 移動量を計算（正規化座標 0.0-1.0）
-                double diffX = (currentPos.X - _lastMousePosition.X) / dispW;
-                double diffY = (currentPos.Y - _lastMousePosition.Y) / dispH;
-
-                // 💡 どちらの点を動かしているか判定して更新
-                if (_draggingRect.Uid == "Target")
+                var currentPos = e.GetPosition(VideoPlayer);
+                var actualPos = new Size
                 {
-                    bNote.TargetPoint = new WpfPoint(bNote.TargetPoint.X + diffX, bNote.TargetPoint.Y + diffY);
-                }
-                else if (_draggingRect.Uid == "Text")
-                {
-                    bNote.TextPoint = new WpfPoint(bNote.TextPoint.X + diffX, bNote.TextPoint.Y + diffY);
-                }
+                    Width = VideoPlayer.ActualWidth,
+                    Height = VideoPlayer.ActualHeight,
+                };
 
-                _lastMousePosition = currentPos;
-                RefreshDrawingCanvas(); // 再描画
-                return;
-            }
-
-            // --- 2. バルーン入力キャンセル（右クリック） ---
-            if (BalloonTextInput.IsVisible && e.RightButton == MouseButtonState.Pressed)
-            {
-                CancelBalloonInput();
-                e.Handled = true;
-                return;
-            }
-
-            var overBrush = new SolidColorBrush(_setting.OverColor);
-
-            // --- 4. 吹き出しドラッグ中のガイド線表示 ---
-            if (Keyboard.Modifiers == ModifierKeys.Control && e.LeftButton == MouseButtonState.Pressed)
-            {
-                var currentPoint = e.GetPosition(DrawingCanvas);
-                UpdateDragLine(currentPoint, overBrush);
-                return;
-            }
-
-            // --- 5. 新規矩形の描画（サイズ確定中） ---
-            if (e.LeftButton == MouseButtonState.Pressed && _currentRectangle != null)
-            {
-                var pos = e.GetPosition(DrawingCanvas);
-                var x = Math.Min(pos.X, _startPoint.X);
-                var y = Math.Min(pos.Y, _startPoint.Y);
-                var width = Math.Abs(pos.X - _startPoint.X);
-                var height = Math.Abs(pos.Y - _startPoint.Y);
-
-                Canvas.SetLeft(_currentRectangle, x);
-                Canvas.SetTop(_currentRectangle, y);
-                _currentRectangle.Width = width;
-                _currentRectangle.Height = height;
-                return;
+                _annotationManager.UpdateDrawing(currentPos, actualPos);
             }
         }
 
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            // --- 追加：既存の矩形をドラッグ・リサイズしていた場合の終了処理 ---
-            if (_draggingRect != null)
+            //if (_annotationManager.SelectedAnnotation is NoteAnnotation note)
+            //{
+            //    // マウスを離したら編集モードへ
+            //    note.IsEditing = true;
+            //}
+            _annotationManager.CompleteDrawing();
+            ((IInputElement)sender).ReleaseMouseCapture();
+        }
+
+        private void TextBox_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (sender is TextBox textBox && textBox.IsVisible)
             {
-                _draggingRect.ReleaseMouseCapture();
+                textBox.Focus();
+                // 2. キャレット（カーソル）の位置をテキストの末尾に設定
+                // Text が null の場合に備えて null 条件演算子を使用
+                textBox.CaretIndex = textBox.Text?.Length ?? 0;
 
-                //var mainBrush = new SolidColorBrush(_setting.MainColor);
-                // ハイライトを戻す（必要に応じて）
-                if (_draggingRect is Line l) l.Stroke = _setting.MainBrush;
-                if (_draggingRect is WpfRectangle r) r.Fill = Brushes.Transparent;
-
-                _draggingRect = null;
-                _isResizing = false;
-                _currentResizeDir = ResizeDirection.None;
-
-                // 移動・リサイズの終了時はここで処理を終える
-                return;
+                // 3. (オプション) スクロールが必要な長いテキストの場合、末尾までスクロールする
+                textBox.ScrollToEnd();
             }
+        }
 
-            _endPoint = e.GetPosition(DrawingCanvas);
-
-            // 2. 動画がロードされていない場合は何もしない
-            if (VideoPlayer.NaturalVideoWidth == 0) return;
-
-            // --- 3. 【共通】ブックマークを探す、または自動作成する ---
-            var selectedBm = BookmarkListBox.SelectedItem as Bookmark;
-            TimeSpan currentTime = VideoPlayer.Position;
-
-            // 現在選択中のブックマークがない、または再生時間とズレている場合に新規作成
-            if (selectedBm == null || Math.Abs(selectedBm.Time.TotalSeconds - currentTime.TotalSeconds) > 0.1)
+        // 他の場所をクリックしたりして、TextBoxから離れたときに確定
+        private void TextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox?.DataContext is NoteAnnotation note)
             {
-                // A. 既に登録されているブックマークの中に、現在の再生時間と一致するものがあるか探す
-                var existingBm = BookmarkListBox.Items.Cast<Bookmark>()
-                    .FirstOrDefault(b => Math.Abs(b.Time.TotalSeconds - currentTime.TotalSeconds) <= 0.1);
-
-                if (existingBm != null)
+                // 1. テキストが空（またはスペースのみ）かチェック
+                if (string.IsNullOrWhiteSpace(note.Text))
                 {
-                    // 一致するものが見つかった場合は、それを選択状態にする
-                    selectedBm = existingBm;
-                    BookmarkListBox.SelectedItem = selectedBm;
+                    if (BookmarkListBox.SelectedItem is  Bookmark bookmark)
+                    {
+                        _annotationManager.Remove(bookmark, note);
+                    }
                 }
                 else
                 {
-                    // B. 一致するものがなければ、新しくブックマークを登録する
-                    Bookmark bookmark = new()
-                    {
-                        Time = currentTime,
-                        Icon = "📝",
-                        Note = "Add",
-                    };
-
-                    // リストに追加して選択状態にする
-                    RecService.Instance.AddBookmark(bookmark);
-                    BookmarkListBox.SelectedItem = bookmark;
-                    selectedBm = bookmark;
-                    RefreshBookmarkCanvas();
+                    // 文字があれば確定処理
+                    note.IsEditing = false;
+                    note.IsCommitted = true;
                 }
             }
+        }
 
-            // --- 4. モード分岐：バルーン（Ctrl）か 矩形か ---
-
-            if (Keyboard.Modifiers == ModifierKeys.Control)
+        // Enterキーが押されたら確定
+        private void TextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
+            if (e.Key == Key.Enter)
             {
-                // 💡 対策：もし UpdateCanvasRects で線が消えていたら、Canvas に戻す
-                if (_dragLine != null && !DrawingCanvas.Children.Contains(_dragLine))
+                // Ctrl や Shift が押されていない「Enter単体」の時だけ確定する
+                if (Keyboard.Modifiers == ModifierKeys.None)
                 {
-                    DrawingCanvas.Children.Add(_dragLine);
+                    var textBox = sender as TextBox;
+                    if (textBox?.DataContext is NoteAnnotation note)
+                    {
+                        // 1. テキストが空（またはスペースのみ）かチェック
+                        if (string.IsNullOrWhiteSpace(note.Text))
+                        {
+                            // 空ならマネージャー経由で削除
+                            _annotationManager.Remove(bookmark, note);
+                        }
+                        else
+                        {
+                            // 文字があれば確定処理
+                            note.IsEditing = false;
+                            note.IsCommitted = true;
+                        }
+                    }
+
+                    // イベントをここで終了させ、TextBoxに改行を入れさせない
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.Escape)
+            {
+                var textBox = sender as TextBox;
+                if (textBox?.DataContext is NoteAnnotation note)
+                {
+                    // 空ならマネージャー経由で削除
+                    _annotationManager.Remove(bookmark, note);
                 }
 
-                ShowBalloonInput();
-                return;
+                // イベントをここで終了させ、TextBoxに改行を入れさせない
+                e.Handled = true;
             }
+        }
 
-            // --- 5. 従来の矩形 (Regions) の保存処理 ---
-            if (_currentRectangle == null) return;
+        private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // ダブルクリック（ClickCount == 2）のときだけ処理する
+            if (e.ClickCount == 2)
+            {
+                var border = sender as Border;
+                var note = border?.DataContext as NoteAnnotation;
 
-            _currentRectangle = null;
+                if (note != null)
+                {
+                    // 編集モードをTrueにする
+                    note.IsEditing = true;
+                    note.IsCommitted = false;
 
-            double containerW = DrawingCanvas.ActualWidth;
-            double containerH = DrawingCanvas.ActualHeight;
+                    // イベントをここで完了させ、親の Canvas などにクリックが伝わらないようにする
+                    e.Handled = true;
+                }
+            }
+        }
 
-            // 動画の表示比率と領域を算出
-            double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
-            double dispW = VideoPlayer.NaturalVideoWidth * ratio;
-            double dispH = VideoPlayer.NaturalVideoHeight * ratio;
+        private void OnNoteStart_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb t && t.DataContext is NoteAnnotation note)
+            {
+                note.RelStartX += e.HorizontalChange / VideoPlayer.ActualWidth;
+                note.RelStartY += e.VerticalChange / VideoPlayer.ActualHeight;
+            }
+        }
 
-            double offsetX = (containerW - dispW) / 2.0;
-            double offsetY = (containerH - dispH) / 2.0;
+        private void OnNoteText_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb t && t.DataContext is NoteAnnotation note)
+            if (!note.IsEditing) // 編集中は移動させない設定
+            {
+                // 動画プレイヤーのサイズを基準に、相対的な移動量を加算
+                note.RelX += e.HorizontalChange / VideoPlayer.ActualWidth;
+                note.RelY += e.VerticalChange / VideoPlayer.ActualHeight;
 
-            // 比率座標（0.0〜1.0）へ変換して保存
-            var relativeRect = new EvidenceRect(
-                (Math.Min(_startPoint.X, _endPoint.X) - offsetX) / dispW,
-                (Math.Min(_startPoint.Y, _endPoint.Y) - offsetY) / dispH,
-                Math.Abs(_endPoint.X - _startPoint.X) / dispW,
-                Math.Abs(_endPoint.Y - _startPoint.Y) / dispH
-            );
+                // 念のため、キャンバスからはみ出さないように制限（0.0 〜 1.0）
+                note.RelX = Math.Clamp(note.RelX, 0, 1);
+                note.RelY = Math.Clamp(note.RelY, 0, 1);
+            }
+        }
 
-            selectedBm.Regions.Add(relativeRect);
-            RefreshDrawingCanvas();
+        // 位置を移動させる
+        private void OnMoveThumb_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
+            {
+                // 変化量(px) / 動画プレイヤーの現在のサイズ(px) = 相対変化量
+                rect.RelX += e.HorizontalChange / VideoPlayer.ActualWidth;
+                rect.RelY += e.VerticalChange / VideoPlayer.ActualHeight;
+            }
+        }
+
+
+        // 左辺リサイズ：幅を減らした分だけ、Xを右に動かす（逆も然り）
+        private void OnLeftResize_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
+            {
+                double deltaRel = e.HorizontalChange / VideoPlayer.ActualWidth;
+                rect.RelX += deltaRel;
+                rect.RelWidth -= deltaRel;
+            }
+        }
+
+        // 上辺リサイズ：高さを減らした分だけ、Yを下へ動かす
+        private void OnTopResize_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
+            {
+                double deltaRel = e.VerticalChange / VideoPlayer.ActualHeight;
+                rect.RelY += deltaRel;
+                rect.RelHeight -= deltaRel;
+            }
+        }
+
+        // 右辺リサイズ：幅をそのまま増減させる
+        private void OnRightResize_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
+            {
+                double deltaRel = e.HorizontalChange / VideoPlayer.ActualWidth;
+                rect.RelWidth += deltaRel;
+            }
+        }
+
+        // 下辺リサイズ：高さをそのまま増減させる
+        private void OnBottomResize_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
+            {
+                double deltaRel = e.VerticalChange / VideoPlayer.ActualHeight;
+                rect.RelHeight += deltaRel;
+            }
+        }
+
+        // 右下（一番シンプル）：Width と Height をそのまま増減
+        private void OnBottomRightResize_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
+            {
+                rect.RelWidth += e.HorizontalChange / VideoPlayer.ActualWidth;
+                rect.RelHeight += e.VerticalChange / VideoPlayer.ActualHeight;
+            }
+        }
+
+        // 左上（一番複雑）：Width/Height を増やしつつ、X/Y を減らす
+        private void OnTopLeftResize_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
+            {
+                double deltaX = e.HorizontalChange / VideoPlayer.ActualWidth;
+                double deltaY = e.VerticalChange / VideoPlayer.ActualHeight;
+
+                rect.RelX += deltaX;
+                rect.RelWidth -= deltaX;
+
+                rect.RelY += deltaY;
+                rect.RelHeight -= deltaY;
+            }
+        }
+
+        // 右上：Width を増やし、Height を増やしつつ Y を減らす
+        private void OnTopRightResize_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
+            {
+                double deltaX = e.HorizontalChange / VideoPlayer.ActualWidth;
+                double deltaY = e.VerticalChange / VideoPlayer.ActualHeight;
+
+                rect.RelWidth += deltaX;
+
+                rect.RelY += deltaY;
+                rect.RelHeight -= deltaY;
+            }
+        }
+
+        // 左下：Width を増やしつつ X を減らし、Height を増やす
+        private void OnBottomLeftResize_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
+            {
+                double deltaX = e.HorizontalChange / VideoPlayer.ActualWidth;
+                double deltaY = e.VerticalChange / VideoPlayer.ActualHeight;
+
+                rect.RelX += deltaX;
+                rect.RelWidth -= deltaX;
+
+                rect.RelHeight += deltaY;
+            }
+        }
+
+        private void OnDeleteMenu_Click(object sender, RoutedEventArgs e)
+        {
+            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
+
+            // MenuItem -> ContextMenu -> 紐付いている Thumb を辿って DataContext を取得
+            if (sender is MenuItem menuItem && menuItem.DataContext is AnnotationBase annotation)
+            {
+                _annotationManager.Remove(bookmark, annotation);
+            }
         }
 
         // 重複していたガイド線更新を共通化するとスッキリします
-        private void UpdateDragLine(WpfPoint currentPoint, Brush brush)
+        private void UpdateDragLine(Point currentPoint, Brush brush)
         {
+            /*
             if (_dragLine == null)
             {
                 _dragLine = new Line
@@ -1015,10 +1097,12 @@ namespace TraceShot.Features
             // ドットの中心が _startPoint に来るように配置
             Canvas.SetLeft(dragStartDot, _startPoint.X - (dragStartDot.Width / 2));
             Canvas.SetTop(dragStartDot, _startPoint.Y - (dragStartDot.Height / 2));
+            */
         }
 
-        private void ShowBalloonInput(BalloonNote? targetNote = null)
+        private void ShowBalloonInput(Models.BalloonNote? targetNote = null)
         {
+            /*
             // 設定から色を取得
             //var mainBrush = new SolidColorBrush(_setting.MainTextColor);
 
@@ -1080,14 +1164,16 @@ namespace TraceShot.Features
             BalloonTextInput.Text = targetNote?.Text ?? "";
             BalloonTextInput.Tag = targetNote;
             BalloonTextInput.Focus();
+            */
         }
 
         // 確定処理（XAMLのTextBoxを参照するように変更）
         private void FinalizeBalloonInput()
         {
+            /*
             if (!BalloonInputComposite.IsVisible) return;
 
-            var targetNote = BalloonTextInput.Tag as BalloonNote;
+            var targetNote = BalloonTextInput.Tag as Models.BalloonNote;
             string newText = BalloonTextInput.Text;
 
             if (targetNote != null)
@@ -1101,20 +1187,24 @@ namespace TraceShot.Features
             }
             BalloonInputComposite.Visibility = Visibility.Collapsed;
             CleanupDragLine();
+            */
         }
 
         private void CancelBalloonInput()
         {
+            /*
             if (BalloonInputComposite.Visibility != Visibility.Visible) return;
 
             BalloonInputComposite.Visibility = Visibility.Collapsed;
             CleanupDragLine();
 
             RefreshDrawingCanvas();
+            */
         }
 
         private async void BalloonMicButton_Click(object sender, RoutedEventArgs e)
         {
+            /*
             // 音声認識の処理
             var originalColor = BalloonMicIcon.Foreground;
             try
@@ -1135,19 +1225,23 @@ namespace TraceShot.Features
             {
                 BalloonMicIcon.Foreground = originalColor;
             }
+            */
         }
 
         private void CleanupDragLine()
         {
+            /*
             if (_dragLine != null)
             {
                 DrawingCanvas.Children.Remove(_dragLine);
                 _dragLine = null;
             }
+            */
         }
 
-        private void ConfirmBalloon(WpfPoint start, WpfPoint end, string text)
+        private void ConfirmBalloon(Point start, Point end, string text)
         {
+            /*
             var selected = BookmarkListBox.SelectedItem as Bookmark;
 
             if (!string.IsNullOrWhiteSpace(text))
@@ -1160,7 +1254,7 @@ namespace TraceShot.Features
                 double offsetX = (containerW - dispW) / 2.0;
                 double offsetY = (containerH - dispH) / 2.0;
 
-                var note = new BalloonNote
+                var note = new Models.BalloonNote
                 {
                     TargetPoint = new WpfPoint((start.X - offsetX) / dispW, (start.Y - offsetY) / dispH),
                     TextPoint = new WpfPoint((end.X - offsetX) / dispW, (end.Y - offsetY) / dispH),
@@ -1170,6 +1264,7 @@ namespace TraceShot.Features
             }
             CleanupDragLine();
             RefreshDrawingCanvas();
+            */
         }
 
         private void DeleteBookmarkButton_Click(object? sender, RoutedEventArgs? e)
@@ -1328,6 +1423,9 @@ namespace TraceShot.Features
                 VideoPlayer.Position = TimeSpan.FromSeconds(TimelineSlider.Value);
                 PlayerPause(true);
                 BookmarkListBox.SelectedItem = null;
+
+                // 何も選択されていない場合はキャンバスを空にする
+                _annotationManager.Annotations.Clear();
             }
             else
             {
@@ -1357,6 +1455,9 @@ namespace TraceShot.Features
                             PlayerPause(true);
                             StatusText.Text = $"停止（ブックマーク）: {targetBookmark.Time}";
                         }
+
+                        // マネージャーの表示リストを切り替える
+                        _annotationManager.LoadAnnotationsFromBookmark(targetBookmark);
                     }
                 }
                 else
@@ -1368,8 +1469,7 @@ namespace TraceShot.Features
                     }
                 }
             }
-
-            RefreshDrawingCanvas();
+            //RefreshDrawingCanvas();
         }
 
         // スライダーを掴んだらタイマーを止める（操作しやすくするため）
@@ -1409,6 +1509,40 @@ namespace TraceShot.Features
                 }
             }
         }
+        private void Slider_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            // ドラッグ中のみ処理を行う
+            if (_isDragging && sender is Slider slider)
+            {
+                Point mousePos = e.GetPosition(slider);
+                double ratio = mousePos.X / slider.ActualWidth;
+                double targetSeconds = slider.Maximum * ratio;
+
+                // 範囲制限
+                targetSeconds = Math.Max(0, Math.Min(slider.Maximum, targetSeconds));
+
+                TimeSpan time = TimeSpan.FromSeconds(targetSeconds);
+                ToolTipText.Text = time.ToString(@"mm\:ss\.fff");
+
+                // つまみの位置に合わせてツールチップを移動
+                SliderToolTip.PlacementTarget = slider;
+                SliderToolTip.Placement = System.Windows.Controls.Primitives.PlacementMode.Relative;
+                SliderToolTip.HorizontalOffset = mousePos.X;
+                SliderToolTip.VerticalOffset = -30;
+            }
+        }
+        private void Slider_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            var slider = sender as Slider;
+            if (slider != null)
+            {
+                var pos = TimeSpan.FromSeconds(slider.Value);
+                VideoPlayer.Position = pos;
+                PlayerPause(false);
+                StatusText.Text = $"Seek: {pos}";
+            }
+        }
+
 
         private void PlayPauseButton_Click(object? sender, RoutedEventArgs? e)
         {
@@ -1459,7 +1593,8 @@ namespace TraceShot.Features
                     (ModifierKeys)Default.VoiceHotkeyMod,
                     OnVoiceMemo);
             }
-            catch { /* エラー処理 */ }
+            catch { /* エラー処理 */
+        }
         }
 
         // ホットキーが押された時の動作
@@ -1524,7 +1659,7 @@ namespace TraceShot.Features
             StatusText.Text = "保存完了";
 
             VideoPlayer.Source = new Uri(_currentVideoPath);
-            PlayerPause(true);
+            //PlayerPause(true);
 
             RecordingIcon.Foreground = Brushes.Red;
             RecordingIcon.Kind = PackIconLucideKind.Dot;
@@ -1694,10 +1829,17 @@ namespace TraceShot.Features
                     PlayerPause(true);
                     StatusText.Text = $"Seek: {selected.Time}";
                 }
+                // マネージャーの表示リストを切り替える
+                _annotationManager.LoadAnnotationsFromBookmark(selected);
             }
-            RefreshDrawingCanvas();
+            else
+            {
+                // 何も選択されていない場合はキャンバスを空にする
+                _annotationManager.Annotations.Clear();
+            }
             RefreshBookmarkCanvas();
         }
+
         private void RefreshBookmarkCanvas()
         {
             if (RecService.Instance.Evidence == null || !VideoPlayer.NaturalDuration.HasTimeSpan) return;
@@ -1794,28 +1936,7 @@ namespace TraceShot.Features
             }
         }
 
-        private void Slider_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-            // ドラッグ中のみ処理を行う
-            if (_isDragging && sender is Slider slider)
-            {
-                Point mousePos = e.GetPosition(slider);
-                double ratio = mousePos.X / slider.ActualWidth;
-                double targetSeconds = slider.Maximum * ratio;
 
-                // 範囲制限
-                targetSeconds = Math.Max(0, Math.Min(slider.Maximum, targetSeconds));
-
-                TimeSpan time = TimeSpan.FromSeconds(targetSeconds);
-                ToolTipText.Text = time.ToString(@"mm\:ss\.fff");
-
-                // つまみの位置に合わせてツールチップを移動
-                SliderToolTip.PlacementTarget = slider;
-                SliderToolTip.Placement = System.Windows.Controls.Primitives.PlacementMode.Relative;
-                SliderToolTip.HorizontalOffset = mousePos.X;
-                SliderToolTip.VerticalOffset = -30;
-            }
-        }
 
         private void AddBookmarkWhileRecording_Click(object sender, RoutedEventArgs? e)
         {
@@ -1951,7 +2072,7 @@ namespace TraceShot.Features
                     return "(認識失敗)";
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return "(エラー発生)";
             }
@@ -1974,18 +2095,6 @@ namespace TraceShot.Features
             }
         }
 
-        private void Slider_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            var slider = sender as Slider;
-            if (slider != null)
-            {
-                var pos = TimeSpan.FromSeconds(slider.Value);
-                VideoPlayer.Position = pos;
-                PlayerPause(false);
-                StatusText.Text = $"Seek: {pos}";
-            }
-        }
-
         private void SpeedComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (VideoPlayer == null) return;
@@ -2002,34 +2111,6 @@ namespace TraceShot.Features
             PlayerPause(false);
             VideoPlayer.Stop();
         }
-
-        private void BalloonTextInput_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-        {
-            // Ctrl+Enterで確定
-            if (e.Key == Key.Enter)
-            {
-                if (Keyboard.Modifiers == ModifierKeys.Shift)
-                {
-                    return;
-                }
-                else
-                {
-                    e.Handled = true;
-                    FinalizeBalloonInput();
-                }
-            }
-            else if (e.Key == Key.Escape) 
-            {
-                e.Handled = true;
-                CancelBalloonInput();
-            }
-        }
-        private void BalloonTextInput_LostFocus(object sender, RoutedEventArgs e)
-        {
-            e.Handled = true;
-            FinalizeBalloonInput();
-        }
-
 
         private void ClickTriggerCheckBox_Checked(object sender, RoutedEventArgs e)
         {

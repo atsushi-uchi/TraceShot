@@ -16,7 +16,6 @@ public partial class RecEvidence : ObservableObject
     [ObservableProperty]
     private bool _isCropLocked = true;
 
-    // 💡 リスト自体を ObservableProperty にする
     [ObservableProperty]
     private ObservableCollection<Bookmark> _bookmarks = [];
 }

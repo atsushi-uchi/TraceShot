@@ -8,8 +8,9 @@ namespace TraceShot.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            bool boolValue = (bool)value;
-            return boolValue ? Visibility.Collapsed : Visibility.Visible; // 逆転！
+            // value が bool でない、または null の場合は false として扱う
+            bool boolValue = value is bool b && b;
+            return boolValue ? Visibility.Collapsed : Visibility.Visible;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();

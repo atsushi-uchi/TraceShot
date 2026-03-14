@@ -63,6 +63,12 @@ namespace TraceShot.Services
             };
         }
 
+        public Bookmark? GetBookmark(TimeSpan time)
+        {
+
+            return Bookmarks.FirstOrDefault(b => Math.Abs(b.Time.TotalSeconds - time.TotalSeconds) < 0.1);
+        }
+
         public string? SaveBackupFromWriteableBitmap(Bookmark bm, WriteableBitmap source)
         {
             if (string.IsNullOrEmpty(CurrentFolder) || source == null) return null;
@@ -126,9 +132,9 @@ namespace TraceShot.Services
                 drawingContext.DrawRectangle(info.VideoBrush, null, new Rect(0, 0, originalWidth, originalHeight));
 
                 // 矩形の合成 (ここまでは自動スケーリングでOK)
-                if (bm.Regions != null && bm.Regions.Count > 0)
+                if (bm.Rects != null && bm.Rects?.ToList().Count > 0)
                 {
-                    foreach (var relRect in bm.Regions)
+                    foreach (var relRect in bm.Rects)
                     {
                         Rect scaledRect = new Rect(
                             relRect.X * originalWidth,
@@ -139,12 +145,12 @@ namespace TraceShot.Services
 
                         double penThickness = Math.Max(2.0, originalWidth / 400.0);
                         //drawingContext.DrawRectangle(null, new System.Windows.Media.Pen(Brushes.Red, penThickness), scaledRect);
-                        if (relRect.IsMasked)
-                        {
-                            drawingContext.DrawRectangle(Brushes.Black, null, scaledRect);
+                        //if (relRect.IsMasked)
+                        //{
+                        //    drawingContext.DrawRectangle(Brushes.Black, null, scaledRect);
 
-                        }
-                        else
+                        //}
+                        //else
                         {
                             drawingContext.DrawRectangle(null, new Pen(SettingsService.Instance.MainBrush, penThickness), scaledRect);
 
@@ -160,13 +166,13 @@ namespace TraceShot.Services
                 // -------------------------------------------------------
 
                 // --- バルーンノート (Balloons) の合成 ---
-                foreach (var note in bm.Balloons)
+                foreach (var note in bm.Notes)
                 {
                     // --- 1. すべての計算を最初に行う ---
                     double outW = originalWidth * scale;
                     double outH = originalHeight * scale;
-                    var outputStartPt = new System.Windows.Point(note.TargetPoint.X * outW, note.TargetPoint.Y * outH);
-                    var outputEndPt = new System.Windows.Point(note.TextPoint.X * outW, note.TextPoint.Y * outH);
+                    var outputStartPt = new System.Windows.Point(note.StartX * outW, note.StartY * outH);
+                    var outputEndPt = new System.Windows.Point(note.X * outW, note.Y * outH);
 
                     double dynamicFontSize = Math.Max(16.0, outH * 0.03);
                     double padding = dynamicFontSize * 0.3;
@@ -288,11 +294,11 @@ namespace TraceShot.Services
                 drawingContext.DrawRectangle(info.VideoBrush, null, new Rect(0, 0, originalWidth, originalHeight));
 
                 // 矩形（赤枠）の合成
-                if (bm.Regions != null)
+                if (bm.Rects != null)
                 {
-                    foreach (var relRect in bm.Regions)
+                    foreach (var relRect in bm.Rects)
                     {
-                        if (relRect.IsCropArea) continue;
+                        //if (relRect.IsCropArea) continue;
 
                         Rect scaledRect = new Rect(
                             relRect.X * originalWidth, relRect.Y * originalHeight,
@@ -300,12 +306,12 @@ namespace TraceShot.Services
                         );
                         double penThickness = Math.Max(2.0, originalWidth / 400.0);
 
-                        if (relRect.IsMasked)
-                        {
-                            drawingContext.DrawRectangle(Brushes.Black, null, scaledRect);
+                        //if (relRect.IsMasked)
+                        //{
+                        //    drawingContext.DrawRectangle(Brushes.Black, null, scaledRect);
 
-                        }
-                        else
+                        //}
+                        //else
                         {
                             drawingContext.DrawRectangle(null, new Pen(SettingsService.Instance.MainBrush, penThickness), scaledRect);
 
@@ -317,16 +323,16 @@ namespace TraceShot.Services
                 drawingContext.Pop(); // ScaleTransform を解除
 
                 // --- バルーンノートの描画 (出力ピクセル基準) ---
-                foreach (var note in bm.Balloons)
+                foreach (var note in bm.Notes)
                 {
                     // クロップ後の座標系における相対位置を計算
                     var croppedRelTargetPt = new System.Windows.Point(
-                        (note.TargetPoint.X * originalWidth - cropRectPix.X) / cropRectPix.Width,
-                        (note.TargetPoint.Y * originalHeight - cropRectPix.Y) / cropRectPix.Height
+                        (note.StartX * originalWidth - cropRectPix.X) / cropRectPix.Width,
+                        (note.StartY * originalHeight - cropRectPix.Y) / cropRectPix.Height
                     );
                     var croppedRelTextPt = new System.Windows.Point(
-                        (note.TextPoint.X * originalWidth - cropRectPix.X) / cropRectPix.Width,
-                        (note.TextPoint.Y * originalHeight - cropRectPix.Y) / cropRectPix.Height
+                        (note.StartX * originalWidth - cropRectPix.X) / cropRectPix.Width,
+                        (note.StartY * originalHeight - cropRectPix.Y) / cropRectPix.Height
                     );
 
                     double outW = renderWidth;
@@ -628,7 +634,13 @@ namespace TraceShot.Services
             TraceLogs.Clear();
 
             _recorder.OnRecordingComplete += (s, e) => TraceLogs.Add("Window Recording Complete");
-            _recorder.OnRecordingFailed += (s, e) => TraceLogs.Add("Window Recording Failed: " + e.Error);
+            _recorder.OnRecordingFailed += (s, e) =>
+            {
+                var errorMsg = "Recording Failed: " + e.Error;
+                TraceLogs.Add(errorMsg);
+                Debug.WriteLine(errorMsg); // ★ 出力ウィンドウに表示
+                System.Windows.MessageBox.Show(errorMsg); // ★ 実行中に確実に気づけるようにする
+            };
 
             _actualStartTime = Evidence?.RecordingDate ?? DateTime.Now;
 

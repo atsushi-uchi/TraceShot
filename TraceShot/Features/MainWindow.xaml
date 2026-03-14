@@ -4,7 +4,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TraceShot"
+        xmlns:ctrl="clr-namespace:TraceShot.Controls"
         xmlns:service="clr-namespace:TraceShot.Services"
+        xmlns:conv="clr-namespace:TraceShot.Converters"
         xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
         mc:Ignorable="d"
         Title="TraceShot" Height="600" Width="900">
@@ -12,6 +14,10 @@
         <TaskbarItemInfo x:Name="taskbarInfo" />
     </Window.TaskbarItemInfo>
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisConverter" />
+        <conv:TypeNameConverter x:Key="TypeNameConverter" />
+        <conv:RelativeToAbsoluteConverter x:Key="RelConv"/>
         <Style x:Key="StandardToggleSwitchStyle" TargetType="ToggleButton">
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="20"/>
@@ -52,6 +58,284 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="AnnotationBaseStyle" TargetType="Control">
+            <Setter Property="Opacity" Value="0.8"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="1.0"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="CornerResizeHandleStyle" TargetType="Thumb">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Ellipse x:Name="handleVisual" 
+                             Fill="Transparent"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="EdgeResizeHandleStyle" TargetType="Thumb">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Grid Background="Transparent">
+                            <Rectangle x:Name="handleVisual" 
+                               Fill="Transparent" 
+                               RadiusX="1" RadiusY="1" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="MoveThumbStyle" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Rectangle x:Name="bodyVisual" 
+                           Stroke="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}" 
+                           StrokeThickness="2" 
+                           Fill="Transparent" 
+                           Cursor="SizeAll"/>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="bodyVisual" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsDrawing}" Value="True">
+                                <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="bodyVisual" Property="Opacity" Value="0.5"/>
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PointHandleStyle" TargetType="Thumb">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Ellipse x:Name="handleVisual" 
+                                 Width="6" Height="6" Margin="-3"
+                             Fill="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="handleVisual" Property="Fill" Value="Aqua" />
+                                <Setter TargetName="handleVisual" Property="Width" Value="10" />
+                                <Setter TargetName="handleVisual" Property="Height" Value="10" />
+                                <Setter TargetName="handleVisual" Property="Margin" Value="-5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate DataType="{x:Type ctrl:RectAnnotation}">
+            <Canvas>
+                <Canvas.Left>
+                    <MultiBinding Converter="{StaticResource RelConv}" Mode="TwoWay">
+                        <Binding Path="RelX"/>
+                        <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                    </MultiBinding>
+                </Canvas.Left>
+                <Canvas.Top>
+                    <MultiBinding Converter="{StaticResource RelConv}" Mode="TwoWay">
+                        <Binding Path="RelY"/>
+                        <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                    </MultiBinding>
+                </Canvas.Top>
+                <Canvas.Width>
+                    <MultiBinding Converter="{StaticResource RelConv}" Mode="TwoWay">
+                        <Binding Path="RelWidth"/>
+                        <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                    </MultiBinding>
+                </Canvas.Width>
+                <Canvas.Height>
+                    <MultiBinding Converter="{StaticResource RelConv}" Mode="TwoWay">
+                        <Binding Path="RelHeight"/>
+                        <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                    </MultiBinding>
+                </Canvas.Height>
+
+                <Thumb Canvas.Left="0" Canvas.Top="0" 
+                       Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
+                       Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}"
+                       Style="{StaticResource MoveThumbStyle}"
+                       DragDelta="OnMoveThumb_DragDelta">
+                    <Thumb.ContextMenu>
+                        <ContextMenu>
+                            <!--<MenuItem Header="OCRで読み取る" Click="OnOcrMenuItemClick"/>-->
+                            <MenuItem Header="削除" Click="OnDeleteMenu_Click"/>
+                        </ContextMenu>
+                    </Thumb.ContextMenu>
+                </Thumb>
+
+                <Thumb Canvas.Left="0" Canvas.Top="0" 
+                       Width="4" Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
+                       Style="{StaticResource EdgeResizeHandleStyle}"
+                       DragDelta="OnLeftResize_DragDelta" Cursor="SizeWE"/>
+
+                <Thumb Canvas.Left="0" Canvas.Top="0" 
+                       Height="4" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}"
+                       Style="{StaticResource EdgeResizeHandleStyle}"
+                       DragDelta="OnTopResize_DragDelta" Cursor="SizeNS"/>
+
+                <Thumb Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" Canvas.Top="0" 
+                       Width="4" Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
+                       Margin="-3,0,0,0"
+                       Style="{StaticResource EdgeResizeHandleStyle}"
+                       DragDelta="OnRightResize_DragDelta" Cursor="SizeWE"/>
+
+                <Thumb Canvas.Left="0" Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
+                       Height="4" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
+                       Margin="0,-3,0,0"
+                       Style="{StaticResource EdgeResizeHandleStyle}"
+                       DragDelta="OnBottomResize_DragDelta" Cursor="SizeNS"/>
+
+                <Thumb Canvas.Left="0" Canvas.Top="0" 
+                       Width="12" Height="12" Margin="-4,-4,0,0"
+                       Style="{StaticResource CornerResizeHandleStyle}"
+                       DragDelta="OnTopLeftResize_DragDelta" Cursor="SizeNWSE"/>
+
+                <Thumb Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
+                       Canvas.Top="0" 
+                       Width="12" Height="12" Margin="-4,-4,0,0"
+                       Style="{StaticResource CornerResizeHandleStyle}"
+                       DragDelta="OnTopRightResize_DragDelta" Cursor="SizeNESW"/>
+
+                <Thumb Canvas.Left="0" 
+                       Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
+                       Width="12" Height="12" Margin="-4,-4,0,0"
+                       Style="{StaticResource CornerResizeHandleStyle}"
+                       DragDelta="OnBottomLeftResize_DragDelta" Cursor="SizeNESW"/>
+
+                <Thumb Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
+                       Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
+                       Width="12" Height="12" Margin="-4,-4,0,0"
+                       Style="{StaticResource CornerResizeHandleStyle}"
+                       DragDelta="OnBottomRightResize_DragDelta" Cursor="SizeNWSE"/>
+
+            </Canvas>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type ctrl:NoteAnnotation}">
+            <Canvas>
+                <Line Stroke="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}" 
+                      StrokeThickness="2" StrokeDashCap="Round">
+                    <Line.X1>
+                        <MultiBinding Converter="{StaticResource RelConv}">
+                            <Binding Path="RelStartX"/>
+                            <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                        </MultiBinding>
+                    </Line.X1>
+                    <Line.Y1>
+                        <MultiBinding Converter="{StaticResource RelConv}">
+                            <Binding Path="RelStartY"/>
+                            <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                        </MultiBinding>
+                    </Line.Y1>
+                    <Line.X2>
+                        <MultiBinding Converter="{StaticResource RelConv}">
+                            <Binding Path="RelX"/>
+                            <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                        </MultiBinding>
+                    </Line.X2>
+                    <Line.Y2>
+                        <MultiBinding Converter="{StaticResource RelConv}">
+                            <Binding Path="RelY"/>
+                            <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                        </MultiBinding>
+                    </Line.Y2>
+                </Line>
+
+                <Thumb Style="{StaticResource PointHandleStyle}"
+                       Cursor="SizeAll"
+                       DragDelta="OnNoteStart_DragDelta">
+                    <Canvas.Left>
+                        <MultiBinding Converter="{StaticResource RelConv}" Mode="TwoWay">
+                            <Binding Path="RelStartX"/>
+                            <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                        </MultiBinding>
+                    </Canvas.Left>
+                    <Canvas.Top>
+                        <MultiBinding Converter="{StaticResource RelConv}" Mode="TwoWay">
+                            <Binding Path="RelStartY"/>
+                            <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                        </MultiBinding>
+                    </Canvas.Top>
+                </Thumb>
+
+                <Canvas>
+                    <Canvas.Left>
+                        <MultiBinding Converter="{StaticResource RelConv}" Mode="TwoWay">
+                            <Binding Path="RelX"/>
+                            <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                        </MultiBinding>
+                    </Canvas.Left>
+                    <Canvas.Top>
+                        <MultiBinding Converter="{StaticResource RelConv}" Mode="TwoWay">
+                            <Binding Path="RelY"/>
+                            <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                        </MultiBinding>
+                    </Canvas.Top>
+                    <Thumb DragDelta="OnNoteText_DragDelta" Cursor="SizeAll">
+                        <Thumb.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="削除" Click="OnDeleteMenu_Click"/>
+                            </ContextMenu>
+                        </Thumb.ContextMenu>
+                        <Thumb.Template>
+                            <ControlTemplate>
+                                <Grid>
+                                    <Border Visibility="{Binding IsCommitted, Converter={StaticResource BoolToVisConverter}}"
+                                            CornerRadius="5" Padding="5"
+                                            MouseLeftButtonDown="Border_MouseLeftButtonDown">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                                        <Setter Property="Cursor" Value="Hand" />
+                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding IsDragging, RelativeSource={RelativeSource AncestorType=Thumb}}" Value="True">
+                                                        <Setter Property="Background" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="{Binding Text}" Foreground="White" />
+                                    </Border>
+
+                                    <TextBox Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisConverter}}"
+                                             Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                             MinWidth="50" AcceptsReturn="True"
+                                             LostFocus="TextBox_LostFocus"
+                                             IsVisibleChanged="TextBox_IsVisibleChanged"
+                                             PreviewKeyDown="TextBox_PreviewKeyDown"/>
+                                </Grid>
+                            </ControlTemplate>
+                        </Thumb.Template>
+                    </Thumb>
+                </Canvas>
+            </Canvas>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -81,7 +365,7 @@
                 <ColumnDefinition Width="250" />
             </Grid.ColumnDefinitions>
 
-            <Grid Grid.Column="0" Background="Black">
+            <Grid  Grid.Column="0" Background="Black">
                 <MediaElement x:Name="VideoPlayer" 
                       Stretch="Uniform"
                       LoadedBehavior="Manual" 
@@ -102,72 +386,49 @@
                         </Style>
                     </MediaElement.Style>
                 </MediaElement>
-                <Canvas x:Name="DrawingCanvas" Background="#01FFFFFF" 
-                        MouseDown="DrawingCanvas_MouseDown"
-                        MouseMove="DrawingCanvas_MouseMove"
-                        MouseUp="DrawingCanvas_MouseUp" 
-                        SizeChanged="DrawingCanvas_SizeChanged">
-                   
-                    <!-- バルーンノート用 -->
 
-                    <Border x:Name="BalloonInputComposite" 
-        Visibility="Collapsed" 
-        Width="220"
-        Panel.ZIndex="1000"
-        BorderBrush="#FF4A90E2" 
-        BorderThickness="2"
-        CornerRadius="5"
-        Background="#F9FFFFFF">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="12" 
-                          ShadowDepth="2" 
-                          Opacity="0.35" 
-                          Color="#000000"/>
-                        </Border.Effect>
+                <ItemsControl x:Name="AnnotationItemsControl" ItemsSource="{Binding Annotations}"
+                          Width="{Binding ActualWidth, ElementName=VideoPlayer}"
+                          Height="{Binding ActualHeight, ElementName=VideoPlayer}"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Background="Transparent" 
+                          MouseDown="DrawingCanvas_MouseDown" 
+                          MouseMove="DrawingCanvas_MouseMove" 
+                          MouseUp="DrawingCanvas_MouseUp">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <Canvas x:Name="AnnotationCanvas" Background="Transparent" IsItemsHost="True"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-
-                            <TextBox x:Name="BalloonTextInput" 
-                                     PreviewKeyDown="BalloonTextInput_PreviewKeyDown"
-                                     LostFocus="BalloonTextInput_LostFocus"
-                 AcceptsReturn="True" 
-                 TextWrapping="Wrap" 
-                 FontSize="14" 
-                 FontWeight="SemiBold"
-                 BorderThickness="0" 
-                 Background="Transparent" 
-                 Padding="8" 
-                 MinHeight="50"
-                 VerticalContentAlignment="Top"/>
-
-                            <Border Grid.Column="1" 
-                Background="#F0F5FB" 
-                BorderBrush="#CCE0FF" 
-                BorderThickness="1,0,0,0"
-                CornerRadius="0,5,5,0">
-                                <Button x:Name="BalloonMicButton" Focusable="False"
-                    Width="32"
-                    Background="Transparent" 
-                    BorderThickness="0" 
-                    VerticalAlignment="Stretch"
-                    Click="BalloonMicButton_Click"
-                    ToolTip="音声入力開始">
-                                    <iconPacks:PackIconLucide x:Name="BalloonMicIcon" 
-                                           Kind="Mic" 
-                                           Width="18" Height="18" 
-                                           Foreground="#FF4A90E2"/>
-                                </Button>
-                            </Border>
-                        </Grid>
-                    </Border>
-
-                    <!-- バルーンノート用 -->
-                    <Path x:Name="VisualMaskPath" Fill="#C8282828" IsHitTestVisible="False" />
-                </Canvas>
+                    <ItemsControl.ItemContainerStyle>
+                        <Style TargetType="ContentPresenter">
+                            <Setter Property="Canvas.Left">
+                                <Setter.Value>
+                                    <MultiBinding Converter="{StaticResource RelConv}">
+                                        <Binding Path="RelX"/>
+                                        <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                                    </MultiBinding>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="Canvas.Top">
+                                <Setter.Value>
+                                    <MultiBinding Converter="{StaticResource RelConv}">
+                                        <Binding Path="RelY"/>
+                                        <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                                    </MultiBinding>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Converter={StaticResource TypeNameConverter}}" Value="NoteAnnotation">
+                                    <Setter Property="Canvas.Left" Value="0"/>
+                                    <Setter Property="Canvas.Top" Value="0"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ItemsControl.ItemContainerStyle>
+                </ItemsControl>
 
                 <Grid x:Name="RecordingOverlay">
                     <Grid.Style>
@@ -306,7 +567,6 @@
                     <Slider x:Name="TimelineSlider" Margin="20,0"
                             IsMoveToPointEnabled ="True"
                             Minimum="0" 
-                            Maximum="{Binding VideoDurationTotalSeconds}" 
                             Thumb.DragStarted="Slider_DragStarted" 
                             Thumb.DragCompleted="Slider_DragCompleted" 
                             ValueChanged="Slider_ValueChanged" 
