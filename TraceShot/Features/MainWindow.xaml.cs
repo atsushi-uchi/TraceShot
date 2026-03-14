@@ -58,9 +58,7 @@ namespace TraceShot.Features
         private WriteableBitmap? _previewBitmap;
         string _fullDeviceName = string.Empty;
         string _rectDeviceName = string.Empty;
-        //private FrameworkElement ?_draggingRect = null;
         private enum ResizeDirection { None, Left, Right, Top, Bottom, Move }
-        //private ResizeDirection _currentResizeDir = ResizeDirection.None;
         private DebugWindow? _debugWindow;
 
         public MainWindow()
@@ -196,11 +194,6 @@ namespace TraceShot.Features
             if (settingsWin.ShowDialog() == true)
             {
                 ApplyCurrentSettings();
-
-                if (_setting.IsPlayerMode)
-                {
-                    //RefreshDrawingCanvas();
-                }
 
                 if (_setting.IsVoiceEnabled && !_isSpeechInitalized)
                 {
@@ -459,6 +452,80 @@ namespace TraceShot.Features
             ((IInputElement)sender).ReleaseMouseCapture();
         }
 
+        private void BalloonTextInput_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
+            if (e.Key == Key.Enter)
+            {
+                // Ctrl や Shift が押されていない「Enter単体」の時だけ確定する
+                if (Keyboard.Modifiers == ModifierKeys.None)
+                {
+                    var textBox = sender as TextBox;
+                    if (textBox?.DataContext is NoteAnnotation note)
+                    {
+                        // 1. テキストが空（またはスペースのみ）かチェック
+                        if (string.IsNullOrWhiteSpace(note.Text))
+                        {
+                            // 空ならマネージャー経由で削除
+                            _annotationManager.Remove(bookmark, note);
+                        }
+                        else
+                        {
+                            // 文字があれば確定処理
+                            note.IsEditing = false;
+                            note.IsCommitted = true;
+                        }
+                    }
+
+                    // イベントをここで終了させ、TextBoxに改行を入れさせない
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.Escape)
+            {
+                var textBox = sender as TextBox;
+                if (textBox?.DataContext is NoteAnnotation note)
+                {
+                    if (string.IsNullOrEmpty(note.OriginText))
+                    {
+                        // 空ならマネージャー経由で削除
+                        _annotationManager.Remove(bookmark, note);
+                    }
+                    else
+                    {
+                        note.Text = note.OriginText;
+                        note.IsEditing = false;
+                        note.IsCommitted = true;
+                    }
+                }
+
+                // イベントをここで終了させ、TextBoxに改行を入れさせない
+                e.Handled = true;
+            }
+        }
+
+        private void BalloonTextInput_LostFocus(object sender, RoutedEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox?.DataContext is NoteAnnotation note)
+            {
+                // 1. テキストが空（またはスペースのみ）かチェック
+                if (string.IsNullOrWhiteSpace(note.Text))
+                {
+                    if (BookmarkListBox.SelectedItem is Bookmark bookmark)
+                    {
+                        _annotationManager.Remove(bookmark, note);
+                    }
+                }
+                else
+                {
+                    // 文字があれば確定処理
+                    note.IsEditing = false;
+                    note.IsCommitted = true;
+                }
+            }
+        }
+
         private void TextBox_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             if (sender is TextBox textBox && textBox.IsVisible)
@@ -547,6 +614,25 @@ namespace TraceShot.Features
                 // イベントをここで終了させ、TextBoxに改行を入れさせない
                 e.Handled = true;
             }
+        }
+
+        private Canvas GetAnnotationCanvas()
+        {
+            // AnnotationItemsControl の子要素から Canvas を探すヘルパー関数
+            return FindVisualChild<Canvas>(AnnotationItemsControl);
+        }
+
+        // 汎用的なビジュアルツリー探索メソッド
+        private T FindVisualChild<T>(DependencyObject obj) where T : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(obj, i);
+                if (child != null && child is T) return (T)child;
+                T childOfChild = FindVisualChild<T>(child);
+                if (childOfChild != null) return childOfChild;
+            }
+            return null;
         }
 
         private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -904,28 +990,8 @@ namespace TraceShot.Features
 
         private async void BalloonMicButton_Click(object sender, RoutedEventArgs e)
         {
-            /*
-            // 音声認識の処理
-            var originalColor = BalloonMicIcon.Foreground;
-            try
-            {
-                BalloonMicIcon.Foreground = Brushes.Red;
-                string recognizedText = await StartSpeechToText();
-                if (string.IsNullOrWhiteSpace(BalloonTextInput.Text))
-                {
-                    BalloonTextInput.Text = recognizedText;
-                }
-                else
-                {
-                    BalloonTextInput.Text += $"{Environment.NewLine}{recognizedText}";
-                }
-                FinalizeBalloonInput();
-            }
-            finally
-            {
-                BalloonMicIcon.Foreground = originalColor;
-            }
-            */
+
+            FinalizeBalloonInput();
         }
 
         private void CleanupDragLine()
@@ -1830,16 +1896,6 @@ namespace TraceShot.Features
             {
                 StatusText.Text = "文字を検出できませんでした";
             }
-        }
-
-        private void CropEnabledCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-
-        }
-
-        private void CropEnabledCheckBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-
         }
     }
 }

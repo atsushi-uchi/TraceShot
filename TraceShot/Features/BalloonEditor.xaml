@@ -1,0 +1,42 @@
+﻿<UserControl x:Class="TraceShot.Features.BalloonEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             Width="220">
+    <Border x:Name="RootBorder" 
+            BorderBrush="#FF4A90E2" BorderThickness="2"
+            CornerRadius="5" Background="#F9FFFFFF">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.35" Color="#000000"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBox x:Name="BalloonTextInput" 
+                     PreviewKeyDown="BalloonTextInput_PreviewKeyDown"
+                     LostFocus="BalloonTextInput_LostFocus"
+                     AcceptsReturn="True" TextWrapping="Wrap" 
+                     FontSize="14" FontWeight="SemiBold"
+                     BorderThickness="0" Background="Transparent" 
+                     Padding="8" MinHeight="50"
+                     VerticalContentAlignment="Top"/>
+
+            <Border Grid.Column="1" Background="#F0F5FB" 
+                    BorderBrush="#CCE0FF" BorderThickness="1,0,0,0"
+                    CornerRadius="0,5,5,0">
+                <Button x:Name="BalloonMicButton" Focusable="False"
+                        Width="32" Background="Transparent" 
+                        BorderThickness="0" VerticalAlignment="Stretch"
+                        Click="BalloonMicButton_Click">
+                    <iconPacks:PackIconLucide x:Name="BalloonMicIcon" 
+                                              Kind="Mic" Width="18" Height="18" 
+                                              Foreground="#FF4A90E2"/>
+                </Button>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

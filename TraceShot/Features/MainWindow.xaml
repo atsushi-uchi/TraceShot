@@ -415,15 +415,46 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
-                                        <TextBlock Text="{Binding Text}" Foreground="White" />
+                                        <TextBlock Text="{Binding Text}" 
+                                            Padding="3" Foreground="{Binding MainTextBrush, Source={x:Static service:SettingsService.Instance}}" />
                                     </Border>
 
-                                    <TextBox Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisConverter}}"
+                                    <!-- TextBox -->
+                                    <Border Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisConverter}}"
+                                            MinWidth="100"
+                                            Panel.ZIndex="1000"
+                                            BorderBrush="#FF4A90E2" 
+                                            BorderThickness="2"
+                                            CornerRadius="5"
+                                            Background="#F9FFFFFF">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="12" 
+                                            ShadowDepth="2" 
+                                            Opacity="0.35" 
+                                            Color="#000000"/>
+                                        </Border.Effect>
+
+                                        <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                            PreviewKeyDown="BalloonTextInput_PreviewKeyDown"
+                                            LostFocus="BalloonTextInput_LostFocus"
+                                            AcceptsReturn="True" 
+                                            TextWrapping="Wrap" 
+                                            FontSize="14" 
+                                            FontWeight="SemiBold"
+                                            BorderThickness="0" 
+                                            Background="Transparent" 
+                                            Padding="3" 
+                                            MinHeight="50"
+                                            VerticalContentAlignment="Top"/>
+                                    </Border>
+
+                                    <!--<TextBox Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisConverter}}"
                                              Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
                                              MinWidth="50" AcceptsReturn="True"
-                                             LostFocus="TextBox_LostFocus"
                                              IsVisibleChanged="TextBox_IsVisibleChanged"
-                                             PreviewKeyDown="TextBox_PreviewKeyDown"/>
+                                             LostFocus="TextBox_LostFocus"
+                                             PreviewKeyDown="TextBox_PreviewKeyDown"/>-->
+                                   
                                 </Grid>
                             </ControlTemplate>
                         </Thumb.Template>
@@ -492,7 +523,8 @@
                           MouseUp="DrawingCanvas_MouseUp">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <Canvas x:Name="AnnotationCanvas" Background="Transparent" IsItemsHost="True"/>
+                            <Canvas x:Name="AnnotationCanvas" 
+                                    Background="Transparent" IsItemsHost="True"/>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
 
