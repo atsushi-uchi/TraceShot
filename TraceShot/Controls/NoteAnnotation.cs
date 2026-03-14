@@ -27,6 +27,8 @@ namespace TraceShot.Controls
         [ObservableProperty]
         private bool _isCommitted;
 
+        public string OriginText = string.Empty;
+
         public override void OnStart(Point pos, Size size)
         {
             base.OnStart(pos, size);

@@ -298,8 +298,14 @@
                         <Thumb.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="削除" Click="OnDeleteMenu_Click"/>
+                                <MenuItem Header="編集" Click="OnEditMenu_Click"/>
                             </ContextMenu>
                         </Thumb.ContextMenu>
+
+                        <Thumb.RenderTransform>
+                            <TranslateTransform X="-25" Y="-15"/>
+                        </Thumb.RenderTransform>
+
                         <Thumb.Template>
                             <ControlTemplate>
                                 <Grid>
@@ -390,8 +396,6 @@
                 <ItemsControl x:Name="AnnotationItemsControl" ItemsSource="{Binding Annotations}"
                           Width="{Binding ActualWidth, ElementName=VideoPlayer}"
                           Height="{Binding ActualHeight, ElementName=VideoPlayer}"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Center"
                           Background="Transparent" 
                           MouseDown="DrawingCanvas_MouseDown" 
                           MouseMove="DrawingCanvas_MouseMove" 
@@ -404,6 +408,7 @@
 
                     <ItemsControl.ItemContainerStyle>
                         <Style TargetType="ContentPresenter">
+                            <Setter Property="Panel.ZIndex" Value="0"/>
                             <Setter Property="Canvas.Left">
                                 <Setter.Value>
                                     <MultiBinding Converter="{StaticResource RelConv}">
@@ -424,6 +429,16 @@
                                 <DataTrigger Binding="{Binding Converter={StaticResource TypeNameConverter}}" Value="NoteAnnotation">
                                     <Setter Property="Canvas.Left" Value="0"/>
                                     <Setter Property="Canvas.Top" Value="0"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Converter={StaticResource TypeNameConverter}}" Value="NoteAnnotation">
+                                    <Setter Property="Panel.ZIndex" Value="10"/>
+
+                                    <Setter Property="Canvas.Left" Value="0"/>
+                                    <Setter Property="Canvas.Top" Value="0"/>
+                                </DataTrigger>
+
+                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                    <Setter Property="Panel.ZIndex" Value="100"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
