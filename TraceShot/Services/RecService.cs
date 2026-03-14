@@ -10,9 +10,12 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using TraceShot.Controls;
 using TraceShot.Models;
+using Windows.Media.Playback;
 using Brushes = System.Windows.Media.Brushes;
 using Pen = System.Windows.Media.Pen;
+using Point = System.Windows.Point;
 
 namespace TraceShot.Services
 {
@@ -100,295 +103,127 @@ namespace TraceShot.Services
             }
         }
 
-        // 引数に double scale を追加 (例: 0.5 = 50%, 1.0 = 100%)
+
         public (string? Path, BitmapSource? Bitmap)? SaveSingleBookmarkImage(Bookmark bm, VideoSnapshotInfo? info, double scale = 0.5)
         {
-            if (string.IsNullOrEmpty(CurrentFolder)) return (null, null);
+            if (string.IsNullOrEmpty(CurrentFolder) || info is null) return null;
 
             string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot");
             if (!Directory.Exists(screenshotFolder)) Directory.CreateDirectory(screenshotFolder);
 
-            if (info is null) return null;
-
-            // 1. infoクラスから解像度を取得
+            // 1. 基本情報の取得
             int originalWidth = info.NaturalWidth;
             int originalHeight = info.NaturalHeight;
             if (originalWidth == 0 || originalHeight == 0) return (null, null);
 
-            int renderWidth = (int)(originalWidth * scale);
-            int renderHeight = (int)(originalHeight * scale);
+            // 2. クロップ設定の反映
+            bool isCrop = Evidence?.IsCropEnabled ?? false;
+            // クロップ有効なら設定値を使用、無効なら全範囲(0,0,1,1)
+            Rect cropRel = isCrop ? Evidence.CommonCropRect : new Rect(0, 0, 1, 1);
+
+            // 3. 最終的な出力ピクセルサイズを計算 (クロップ範囲 × スケール)
+            int renderWidth = (int)(originalWidth * cropRel.Width * scale);
+            int renderHeight = (int)(originalHeight * cropRel.Height * scale);
+
+            if (renderWidth <= 0 || renderHeight <= 0) return (null, null);
 
             DrawingVisual drawingVisual = new DrawingVisual();
             using (DrawingContext drawingContext = drawingVisual.RenderOpen())
             {
-                // ⭐ ポイント1：全体スケーリングを適用開始
-                drawingContext.PushTransform(new ScaleTransform(scale, scale));
+                // --- A. 動画・矩形用の座標変換 (Scale 内側) ---
+                var group = new TransformGroup();
+                // クロップの左上(Pixel)を (0,0) に持ってくるためにマイナス移動
+                group.Children.Add(new TranslateTransform(-originalWidth * cropRel.X, -originalHeight * cropRel.Y));
+                // スケーリングを適用
+                group.Children.Add(new ScaleTransform(scale, scale));
 
-                // 2. infoクラスの VisualBrush を使用
+                drawingContext.PushTransform(group);
+
+                // 動画の描画
                 drawingContext.DrawRectangle(info.VideoBrush, null, new Rect(0, 0, originalWidth, originalHeight));
 
-                // 矩形の合成 (ここまでは自動スケーリングでOK)
-                if (bm.Rects != null && bm.Rects?.ToList().Count > 0)
+                // 矩形注釈の描画
+                var rects = bm.Rects.Where(r => r is not CropAnnotation);
+                foreach (var rectAnno in rects)
                 {
-                    foreach (var relRect in bm.Rects)
-                    {
-                        Rect scaledRect = new Rect(
-                            relRect.X * originalWidth,
-                            relRect.Y * originalHeight,
-                            relRect.Width * originalWidth,
-                            relRect.Height * originalHeight
-                        );
-
-                        double penThickness = Math.Max(2.0, originalWidth / 400.0);
-                        //drawingContext.DrawRectangle(null, new System.Windows.Media.Pen(Brushes.Red, penThickness), scaledRect);
-                        //if (relRect.IsMasked)
-                        //{
-                        //    drawingContext.DrawRectangle(Brushes.Black, null, scaledRect);
-
-                        //}
-                        //else
-                        {
-                            drawingContext.DrawRectangle(null, new Pen(SettingsService.Instance.MainBrush, penThickness), scaledRect);
-
-                        }
-                    }
+                    Rect scaledRect = new Rect(
+                        rectAnno.RelX * originalWidth,
+                        rectAnno.RelY * originalHeight,
+                        rectAnno.RelWidth * originalWidth,
+                        rectAnno.RelHeight * originalHeight
+                    );
+                    double penThickness = Math.Max(2.0, originalWidth / 400.0);
+                    var pen = new Pen(SettingsService.Instance.MainBrush, penThickness);
+                    drawingContext.DrawRectangle(null, pen, scaledRect);
                 }
 
-                // ⭐ ポイント2：ここでスケーリングを解除
-                drawingContext.Pop();
+                drawingContext.Pop(); // Transform解除
 
-                // -------------------------------------------------------
-                // ⭐ ここから下はスケーリングの『外側』＝出力画像の実際のピクセルサイズで描画
-                // -------------------------------------------------------
-
-                // --- バルーンノート (Balloons) の合成 ---
-                foreach (var note in bm.Notes)
+                // --- B. バルーンノートの合成 (Scale 外側 / 出力サイズ基準) ---
+                foreach (var noteAnno in bm.Notes)
                 {
-                    // --- 1. すべての計算を最初に行う ---
-                    double outW = originalWidth * scale;
-                    double outH = originalHeight * scale;
-                    var outputStartPt = new System.Windows.Point(note.StartX * outW, note.StartY * outH);
-                    var outputEndPt = new System.Windows.Point(note.X * outW, note.Y * outH);
+                    // 全体に対する相対比率 (0.0~1.0)
+                    double ratioX = noteAnno.X / info.ActualViewWidth;
+                    double ratioY = noteAnno.Y / info.ActualViewHeight;
+                    double ratioStartX = noteAnno.StartX / info.ActualViewWidth;
+                    double ratioStartY = noteAnno.StartY / info.ActualViewHeight;
 
-                    double dynamicFontSize = Math.Max(16.0, outH * 0.03);
+                    // クロップ範囲内での位置に変換し、出力サイズを掛ける
+                    // (全体比率 - クロップ開始位置) / クロップ幅 = クロップ内での相対位置
+                    var outputEndPt = new Point(
+                        (ratioX - cropRel.X) / cropRel.Width * renderWidth,
+                        (ratioY - cropRel.Y) / cropRel.Height * renderHeight
+                    );
+                    var outputStartPt = new Point(
+                        (ratioStartX - cropRel.X) / cropRel.Width * renderWidth,
+                        (ratioStartY - cropRel.Y) / cropRel.Height * renderHeight
+                    );
+
+                    // フォント・サイズの計算
+                    double screenToOutputRatio = (originalWidth * scale) / info.ActualViewWidth;
+                    double dynamicFontSize = Math.Max(16.0, (originalHeight * scale * cropRel.Height) * 0.03);
                     double padding = dynamicFontSize * 0.3;
-                    double thickness = Math.Max(2.0, outW / 500.0);
+                    double thickness = Math.Max(2.0, renderWidth / 500.0);
 
-                    // FormattedText を作ってサイズを確定させる
                     FormattedText ft = new FormattedText(
-                        note.Text,
+                        noteAnno.Text ?? "",
                         System.Globalization.CultureInfo.CurrentCulture,
                         System.Windows.FlowDirection.LeftToRight,
                         new Typeface("Verdana"),
                         dynamicFontSize,
                         Brushes.White,
-                        info.DpiScale);
+                        VisualTreeHelper.GetDpi(drawingVisual).PixelsPerDip);
 
-                    // ⭐ ポイント1：画面上の 200px を出力サイズに合わせてスケーリング
-                    // 画面上の 1px が出力画像で何pxに相当するかを計算
-                    double screenToOutputRatio = outW / info.ActualViewWidth;
-                    double scaledMaxWidth = 200 * screenToOutputRatio;
-                    double scaledFontSize = 12 * screenToOutputRatio;
-
-                    // 背景矩形のサイズを確定させる
-                    ft.MaxTextWidth = scaledMaxWidth;
-
-                    // 文字が詰まりすぎないよう、配置を左寄せに（デフォルトですが念のため）
-                    ft.TextAlignment = TextAlignment.Left;
-
-                    // 背景矩形のサイズを確定させる（ft.Width は MaxTextWidth を考慮した値になります）
+                    ft.MaxTextWidth = Math.Max(100, 200 * screenToOutputRatio);
                     Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
 
-
-                    // --- 2. 下地（線・丸・背景箱）を描画する ---
-                    // 線と丸
-                    var linePen = new System.Windows.Media.Pen(System.Windows.Media.Brushes.Red, thickness);
-                    linePen.DashStyle = new System.Windows.Media.DashStyle(new double[] { 4, 2 }, 0);
+                    // 下地（線・丸・背景箱）
+                    var linePen = new Pen(Brushes.Red, thickness) { DashStyle = new DashStyle(new double[] { 4, 2 }, 0) };
                     drawingContext.DrawLine(linePen, outputStartPt, outputEndPt);
-                    drawingContext.DrawEllipse(System.Windows.Media.Brushes.Red, null, outputStartPt, thickness * 2, thickness * 2);
+                    drawingContext.DrawEllipse(Brushes.Red, null, outputStartPt, thickness * 2, thickness * 2);
 
-                    // 赤い背景箱
                     drawingContext.DrawRoundedRectangle(
                         new SolidColorBrush(System.Windows.Media.Color.FromArgb(220, 255, 0, 0)),
                         null, textRect, padding * 0.5, padding * 0.5);
 
-                    // --- 3. 最前面に袋文字を描画する ---
-                    var textPos = new System.Windows.Point(textRect.X + padding, textRect.Y + padding);
+                    // 袋文字
+                    var textPos = new Point(textRect.X + padding, textRect.Y + padding);
                     Geometry textGeometry = ft.BuildGeometry(textPos);
+                    var outlinePen = new Pen(Brushes.Black, dynamicFontSize * 0.15) { LineJoin = PenLineJoin.Round };
 
-                    // 黒い縁取り
-                    double outlineThickness = dynamicFontSize * 0.15;
-                    var outlinePen = new System.Windows.Media.Pen(System.Windows.Media.Brushes.Black, outlineThickness)
-                    {
-                        LineJoin = PenLineJoin.Round
-                    };
                     drawingContext.DrawGeometry(null, outlinePen, textGeometry);
-
-                    // 白い中身
-                    drawingContext.DrawGeometry(System.Windows.Media.Brushes.White, null, textGeometry);
-
-                    // ※
+                    drawingContext.DrawGeometry(Brushes.White, null, textGeometry);
                 }
             }
 
-            // 3. RenderTargetBitmap のサイズを「計算後のサイズ」にする
+            // 4. クロップ後のサイズでビットマップ化
             RenderTargetBitmap bmp = new RenderTargetBitmap(renderWidth, renderHeight, 96, 96, PixelFormats.Pbgra32);
             bmp.Render(drawingVisual);
 
             // --- 保存処理 ---
             DateTime startDate = Evidence?.RecordingDate ?? DateTime.Now;
             DateTime timestamp = startDate.Add(bm.Time);
-
             string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
-            string filePath = Path.Combine(screenshotFolder, fileName);
-
-            using (FileStream fs = new FileStream(filePath, FileMode.Create))
-            {
-                PngBitmapEncoder encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(bmp));
-                encoder.Save(fs);
-                fs.Flush();
-            }
-            return (filePath, bmp);
-        }
-
-        public (string? Path, BitmapSource? Bitmap)? SaveCroppedBookmarkImage(Bookmark bm, VideoSnapshotInfo info, EvidenceRect cropRectRel, double scale = 1.0)
-        {
-            if (string.IsNullOrEmpty(CurrentFolder)) return null;
-
-            string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot");
-            if (!Directory.Exists(screenshotFolder)) Directory.CreateDirectory(screenshotFolder);
-
-            // 1. info クラスから元の解像度を取得
-            int originalWidth = info.NaturalWidth;
-            int originalHeight = info.NaturalHeight;
-            if (originalWidth == 0 || originalHeight == 0) return null;
-
-            // クロップ範囲のピクセルサイズを計算
-            Rect cropRectPix = new Rect(
-                cropRectRel.X * originalWidth,
-                cropRectRel.Y * originalHeight,
-                cropRectRel.Width * originalWidth,
-                cropRectRel.Height * originalHeight
-            );
-
-            // 出力先のサイズ（クロップ範囲 × スケール）
-            int renderWidth = (int)(cropRectPix.Width * scale);
-            int renderHeight = (int)(cropRectPix.Height * scale);
-            if (renderWidth <= 0 || renderHeight <= 0) return null;
-
-            DrawingVisual drawingVisual = new DrawingVisual();
-            using (DrawingContext drawingContext = drawingVisual.RenderOpen())
-            {
-                // --- 描画キャンバスのトランスフォーム設定 ---
-                // 1. 全体スケールを適用
-                drawingContext.PushTransform(new ScaleTransform(scale, scale));
-                // 2. 平移: クロップ範囲の左上(X, Y)が(0, 0)に来るように、全体を負の方向にずらす
-                drawingContext.PushTransform(new TranslateTransform(-cropRectPix.X, -cropRectPix.Y));
-
-                // 動画全体の描画（info.VideoBrush を使用）
-                drawingContext.DrawRectangle(info.VideoBrush, null, new Rect(0, 0, originalWidth, originalHeight));
-
-                // 矩形（赤枠）の合成
-                if (bm.Rects != null)
-                {
-                    foreach (var relRect in bm.Rects)
-                    {
-                        //if (relRect.IsCropArea) continue;
-
-                        Rect scaledRect = new Rect(
-                            relRect.X * originalWidth, relRect.Y * originalHeight,
-                            relRect.Width * originalWidth, relRect.Height * originalHeight
-                        );
-                        double penThickness = Math.Max(2.0, originalWidth / 400.0);
-
-                        //if (relRect.IsMasked)
-                        //{
-                        //    drawingContext.DrawRectangle(Brushes.Black, null, scaledRect);
-
-                        //}
-                        //else
-                        {
-                            drawingContext.DrawRectangle(null, new Pen(SettingsService.Instance.MainBrush, penThickness), scaledRect);
-
-                        }
-                    }
-                }
-
-                drawingContext.Pop(); // TranslateTransform を解除
-                drawingContext.Pop(); // ScaleTransform を解除
-
-                // --- バルーンノートの描画 (出力ピクセル基準) ---
-                foreach (var note in bm.Notes)
-                {
-                    // クロップ後の座標系における相対位置を計算
-                    var croppedRelTargetPt = new System.Windows.Point(
-                        (note.StartX * originalWidth - cropRectPix.X) / cropRectPix.Width,
-                        (note.StartY * originalHeight - cropRectPix.Y) / cropRectPix.Height
-                    );
-                    var croppedRelTextPt = new System.Windows.Point(
-                        (note.StartX * originalWidth - cropRectPix.X) / cropRectPix.Width,
-                        (note.StartY * originalHeight - cropRectPix.Y) / cropRectPix.Height
-                    );
-
-                    double outW = renderWidth;
-                    double outH = renderHeight;
-                    var outputStartPt = new System.Windows.Point(croppedRelTargetPt.X * outW, croppedRelTargetPt.Y * outH);
-                    var outputEndPt = new System.Windows.Point(croppedRelTextPt.X * outW, croppedRelTextPt.Y * outH);
-
-                    double dynamicFontSize = Math.Max(16.0, outH * 0.03);
-                    double padding = dynamicFontSize * 0.3;
-                    double thickness = Math.Max(2.0, outW / 500.0);
-
-                    FormattedText ft = new FormattedText(
-                        note.Text,
-                        System.Globalization.CultureInfo.CurrentCulture,
-                        System.Windows.FlowDirection.LeftToRight,
-                        new Typeface("Verdana"),
-                        dynamicFontSize,
-                        System.Windows.Media.Brushes.White,
-                        info.DpiScale); // info から取得
-
-
-                    // ⭐ ポイント1：画面上の 200px を出力サイズに合わせてスケーリング
-                    // 画面上の 1px が出力画像で何pxに相当するかを計算
-                    double screenToOutputRatio = outW / info.ActualViewWidth;
-                    double scaledMaxWidth = 200 * screenToOutputRatio;
-                    double scaledFontSize = 12 * screenToOutputRatio;
-
-                    // 背景矩形のサイズを確定させる
-                    ft.MaxTextWidth = scaledMaxWidth;
-
-                    // 文字が詰まりすぎないよう、配置を左寄せに（デフォルトですが念のため）
-                    ft.TextAlignment = TextAlignment.Left;
-
-                    // 背景矩形のサイズを確定させる（ft.Width は MaxTextWidth を考慮した値になります）
-                    Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
-
-                    // 背景とラインの描画
-                    var linePen = new System.Windows.Media.Pen(System.Windows.Media.Brushes.Red, thickness);
-                    linePen.DashStyle = new System.Windows.Media.DashStyle(new double[] { 4, 2 }, 0);
-                    drawingContext.DrawLine(linePen, outputStartPt, outputEndPt);
-                    drawingContext.DrawEllipse(System.Windows.Media.Brushes.Red, null, outputStartPt, thickness * 2, thickness * 2);
-
-                    drawingContext.DrawRoundedRectangle(new SolidColorBrush(System.Windows.Media.Color.FromArgb(220, 255, 0, 0)), null, textRect, padding * 0.5, padding * 0.5);
-
-                    // 袋文字の描画
-                    var textPos = new System.Windows.Point(textRect.X + padding, textRect.Y + padding);
-                    Geometry textGeometry = ft.BuildGeometry(textPos);
-                    drawingContext.DrawGeometry(null, new System.Windows.Media.Pen(System.Windows.Media.Brushes.Black, dynamicFontSize * 0.15) { LineJoin = PenLineJoin.Round }, textGeometry);
-                    drawingContext.DrawGeometry(System.Windows.Media.Brushes.White, null, textGeometry);
-                }
-            }
-
-            // 画像生成
-            RenderTargetBitmap bmp = new RenderTargetBitmap(renderWidth, renderHeight, 96, 96, PixelFormats.Pbgra32);
-            bmp.Render(drawingVisual);
-
-            // ファイル保存
-            DateTime startDate = Evidence?.RecordingDate ?? DateTime.Now;
-            DateTime timestamp = startDate.Add(bm.Time);
-            string fileName = $"SS_Crop_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
             string filePath = Path.Combine(screenshotFolder, fileName);
 
             using (FileStream fs = new FileStream(filePath, FileMode.Create))

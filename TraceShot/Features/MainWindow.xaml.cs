@@ -298,7 +298,6 @@ namespace TraceShot.Features
                             {
                                 // 4. 再生準備
                                 VideoPlayer.Source = new Uri(videoPath);
-                                PlayerPause(true);
 
                                 // 5. UIに情報を反映
                                 StatusText.Text = $"読み込み: {evidence?.RecMode} {evidence?.VideoFileName}";
@@ -1437,27 +1436,6 @@ namespace TraceShot.Features
 
             if (_previewBitmap is not null)
             {
-                /*
-                // 1. UI上の表示要素（MediaElementやImage）を取得
-                var displayElement = VideoPlayer;
-
-                // 2. 表示上の相対座標に変換（デスクトップ座標の場合）
-                // ※フックで取得した座標なら、Windowの左上座標を引くなどの処理
-                System.Windows.Point relativePoint = displayElement.PointFromScreen(
-                    new System.Windows.Point(rawMousePos.X, rawMousePos.Y));
-
-                // 3. 表示サイズと画像実サイズの比率を計算
-                // source は WriteableBitmap (1920x1080など)
-                double scaleX = _previewBitmap.PixelWidth / displayElement.ActualWidth;
-                double scaleY = _previewBitmap.PixelHeight / displayElement.ActualHeight;
-
-                // 4. 画像上のピクセル座標を算出
-                System.Drawing.Point finalPoint = new System.Drawing.Point(
-                    (int)(relativePoint.X * scaleX),
-                    (int)(relativePoint.Y * scaleY)
-                );
-                */
-
                 Bookmark newBookmark = new()
                 {
                     Time = RecService.Instance.CurrentDuration,

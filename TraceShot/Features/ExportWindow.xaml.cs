@@ -8,7 +8,6 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media.Imaging;
 using TraceShot.Models;
 using TraceShot.Services;
 using MessageBox = System.Windows.MessageBox;
@@ -39,20 +38,19 @@ namespace TraceShot.Features
 
         private async Task RunExportTask(Func<IProgress<int>, Task> exportAction)
         {
-            // 1. UIをロックしてプログレス表示
             LoadingOverlay.Visibility = Visibility.Visible;
             ExportProgressBar.Value = 0;
 
-            // 進捗報告用のインスタンス
             var progress = new Progress<int>(value => {
-                ExportProgressBar.Value = value;
+                Dispatcher.BeginInvoke(() => {
+                    ExportProgressBar.Value = value;
+                    StatusText.Text = $"書き出し中... {value}%";
+                }, System.Windows.Threading.DispatcherPriority.Render);
             });
 
             try
             {
-                // 2. 重い処理を実行
                 await exportAction(progress);
-                //MessageBox.Show("エクスポートが完了しました。");
             }
             catch (Exception ex)
             {
@@ -98,13 +96,13 @@ namespace TraceShot.Features
         private async void ExportHtml_Click(object sender, RoutedEventArgs e)
         {
             var main = Owner as MainWindow;
+            if (main == null) return;
             if (RecService.Instance.Evidence == null) return;
 
             var evidence = RecService.Instance.Evidence;
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + "_full.html";
             var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
-            //var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
@@ -116,37 +114,32 @@ namespace TraceShot.Features
                 {
                     var bm = marks[i];
                     Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
-                    await Dispatcher.InvokeAsync(async () => main.VideoPlayer.Position = bm.Time);
-                    await Task.Delay(100);
+                    await Dispatcher.InvokeAsync(async () => {
+                            main.VideoPlayer.Position = bm.Time;
+                            await Task.Delay(300);
+                        }, System.Windows.Threading.DispatcherPriority.Background);
+
                     await Dispatcher.InvokeAsync(() => {
                         var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
-                        (string? Path, BitmapSource? Bitmap)? result;
-                        //if (crop != null)
-                        //{
-                        //    result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
-                        //}
-                        //else
-                        {
-                            result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
-                        }
-
+                        var result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
                         bm.ImagePath = result?.Path;
                         if (result?.Bitmap != null)
                         {
                             PreviewImage.Source = result?.Bitmap;
                         }
-                    });
+                    }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
                     progress.Report((i + 1) * 100 / (total + 1));
                 }
                 Dispatcher.Invoke(() => StatusText.Text = "レポート出力中...");
-
+                
                 await Task.Run(() =>
                 {
                     var htmlContent = GenerateHtmlFile(evidence);
                     File.WriteAllText(fullPath, htmlContent);
-                    var p = new System.Diagnostics.Process
+                    var p = new Process
                     {
-                        StartInfo = new System.Diagnostics.ProcessStartInfo(fullPath) { UseShellExecute = true }
+                        StartInfo = new ProcessStartInfo(fullPath) { UseShellExecute = true }
                     };
                     p.Start();
                 });
@@ -323,14 +316,13 @@ namespace TraceShot.Features
         private async void ExportPdf_Click(object sender, RoutedEventArgs e)
         {
             var main = Owner as MainWindow;
+            if (main == null) return;
             if (RecService.Instance.Evidence == null) return;
 
             var evidence = RecService.Instance.Evidence;
-            // 出力先の決定
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".pdf";
             var filePath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
-            //var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
@@ -338,31 +330,26 @@ namespace TraceShot.Features
                 int total = marks.Count;
                 var scale = GetSelectedScale();
 
-                // 1. 全ての画像を生成（HTML時と同じロジック）
                 for (int i = 0; i < total; i++)
                 {
                     var bm = marks[i];
                     Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
-                    await Dispatcher.InvokeAsync(async () => main.VideoPlayer.Position = bm.Time);
-                    await Task.Delay(100);
+                    await Dispatcher.InvokeAsync(async () => {
+                        main.VideoPlayer.Position = bm.Time;
+                        await Task.Delay(300);
+                    }, System.Windows.Threading.DispatcherPriority.Background);
+
                     await Dispatcher.InvokeAsync(() => {
                         var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
-                        (string? Path, BitmapSource? Bitmap)? result;
-                        //if (crop != null)
-                        //{
-                        //    result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
-                        //}
-                        //else
-                        {
-                            result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
-                        }
+                        var result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
+
                         bm.ImagePath = result?.Path;
                         if (result?.Bitmap != null)
                         {
                             PreviewImage.Source = result?.Bitmap;
                         }
-                    });
-                    progress.Report((i + 1) * 100 / (total + 2)); // 最後の2ステップをHTML/PDF用に残す
+                    }, System.Windows.Threading.DispatcherPriority.ApplicationIdle); 
+                    progress.Report((i + 1) * 100 / (total + 2)); 
                 }
 
                 // 2. HTML 文字列の生成（既存の GenerateHtmlFile を活用）
@@ -440,13 +427,13 @@ namespace TraceShot.Features
         private async void ExportExcel_Click(object sender, RoutedEventArgs e)
         {
             var main = Owner as MainWindow;
+            if (main ==  null) return;
             if (RecService.Instance.Evidence == null) return;
 
             var evidence = RecService.Instance.Evidence;
             var fileName = Path.GetFileNameWithoutExtension(evidence.VideoFileName) + ".xlsx";
             var fullPath = Path.Combine(string.IsNullOrEmpty(OutputPathBox.Text) ?
                 RecService.Instance.CurrentFolder : OutputPathBox.Text, fileName);
-            //var crop = evidence.Bookmarks.SelectMany(b => b.Regions).FirstOrDefault(r => r.IsCropArea);
 
             await RunExportTask(async (progress) =>
             {
@@ -454,45 +441,34 @@ namespace TraceShot.Features
                 int total = marks.Count;
                 var scale = GetSelectedScale();
 
-                // 1. 全ての画像を生成（HTML/PDFと同じ安定化ロジック）
                 for (int i = 0; i < total; i++)
                 {
                     var bm = marks[i];
                     Dispatcher.Invoke(() => StatusText.Text = $"画像生成中... ({i + 1}/{total})");
-                    await Dispatcher.InvokeAsync(async () => main.VideoPlayer.Position = bm.Time);
-                    await Task.Delay(100);
+                    await Dispatcher.InvokeAsync(async () => {
+                        main.VideoPlayer.Position = bm.Time;
+                        await Task.Delay(300);
+                    }, System.Windows.Threading.DispatcherPriority.Background);
+
                     await Dispatcher.InvokeAsync(() => {
                         var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
-                        (string? Path, BitmapSource? Bitmap)? result;
-                        //if (crop != null)
-                        //{
-                        //    result = RecService.Instance.SaveCroppedBookmarkImage(bm, snapshot, crop, scale); ;
-                        //}
-                        //else
-                        {
-                            result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
-                        }
+                        var result = RecService.Instance.SaveSingleBookmarkImage(bm, snapshot, scale);
                         bm.ImagePath = result?.Path;
                         if (result?.Bitmap != null)
                         {
                             PreviewImage.Source = result?.Bitmap;
                         }
-                    });
+                    }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
                     progress.Report((i + 1) * 100 / (total + 1));
                 }
-
-                // 2. Excelファイルの生成
                 Dispatcher.Invoke(() => StatusText.Text = "Excelファイルを構築中...");
                 await Task.Run(() =>
                 {
-                    // 💡 既存の ExportToExcel() メソッドを呼び出す
-                    // 引数で fullPath を渡せるように修正しておくとスムーズです
                     SaveAsExcel(evidence, fullPath, scale);
-
                     if (File.Exists(fullPath))
                     {
                         string argument = $"/select,\"{fullPath}\"";
-                        System.Diagnostics.Process.Start("explorer.exe", argument);
+                        Process.Start("explorer.exe", argument);
                     }
                 });
 
