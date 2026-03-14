@@ -32,9 +32,9 @@
                         Width="32" Background="Transparent" 
                         BorderThickness="0" VerticalAlignment="Stretch"
                         Click="BalloonMicButton_Click">
-                    <iconPacks:PackIconLucide x:Name="BalloonMicIcon" 
+                    <!--<iconPacks:PackIconLucide x:Name="BalloonMicIcon" 
                                               Kind="Mic" Width="18" Height="18" 
-                                              Foreground="#FF4A90E2"/>
+                                              Foreground="#FF4A90E2"/>-->
                 </Button>
             </Border>
         </Grid>

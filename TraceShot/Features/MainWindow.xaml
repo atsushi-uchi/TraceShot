@@ -745,19 +745,19 @@
                     </StackPanel>
                     <Button x:Name="RecordingButton" Click="RecordingButton_Click" Padding="15,5" Margin="10,0,10,0" Width="100">
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconLucide x:Name="RecordingIcon" Kind="Dot"  Width="14" Height="14" Margin="0,2,5,0" Foreground="Red" />
+                            <TextBlock x:Name="RecordingIcon" Text="🔴" Margin="0,0,5,0"/>
                             <TextBlock x:Name="RecordingText" Text="録画開始"/>
                         </StackPanel>
                     </Button>
                     <Button Click="AddBookmarkWhileRecording_Click" Padding="10,5" Margin="0,0,5,0">
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconLucide x:Name="RecordingEvidenceIcon" Kind="Camera" Width="14" Height="14" Margin="0,2,5,0" />
+                            <TextBlock Text="📌" Margin="0,0,5,0"/>
                             <TextBlock x:Name="RecordingEvidenceText" Text="証跡追加"/>
                         </StackPanel>
                     </Button>
                     <Button Click="AddVoiceMemoRecording_Click" Padding="10,5" Margin="0,0,5,0">
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconLucide x:Name="RecordingVoiceIcon" Kind="Mic"  Width="14" Height="14" Margin="0,2,5,0" />
+                            <TextBlock Text="🎙️" Margin="0,0,5,0"/>
                             <TextBlock x:Name="RecordingVoiceText" Text="音声メモ"/>
                         </StackPanel>
                     </Button>
@@ -794,20 +794,20 @@
                     </StackPanel>
                     <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click" Padding="15,5" Margin="0,0,5,0" Width="100">
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconLucide x:Name="PlayPauseIcon" Kind="Play" Width="14" Height="14" Margin="0,2,5,0" />
+                            <TextBlock x:Name="PlayPauseIcon" Text="▶️" Margin="0,0,5,0"/>
                             <TextBlock x:Name="PlayPauseText" Text="再生"/>
                         </StackPanel>
                     </Button>
                     <CheckBox x:Name="StopAtBookmarkCheckBox" Content="ポイント停止" IsChecked="True" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <Button Click="AddBookmarkWhilePlaying_Click" Padding="10,5" Margin="0,0,5,0">
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconLucide x:Name="PlayingEvidenceIcon" Kind="Camera" Width="14" Height="14" Margin="0,2,5,0" />
+                            <TextBlock Text="📌" Margin="0,0,5,0"/>
                             <TextBlock x:Name="PlayingEvidenceText" Text="証跡追加"/>
                         </StackPanel>
                     </Button>
                     <Button Click="AddVoiceMemoWhilePlaying_Click" Padding="10,5" Margin="0,0,5,0">
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconLucide x:Name="PlayingVoiceIcon" Kind="Mic" Width="14" Height="14" Margin="0,2,5,0" />
+                            <TextBlock Text="🎙️" Margin="0,0,5,0"/>
                             <TextBlock x:Name="PlayingVoiceText" Text="音声メモ"/>
                         </StackPanel>
                     </Button>

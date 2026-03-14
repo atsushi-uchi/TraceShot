@@ -1,5 +1,4 @@
-﻿using MahApps.Metro.IconPacks;
-using NHotkey;
+﻿using NHotkey;
 using ScreenRecorderLib;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -1321,7 +1320,7 @@ namespace TraceShot.Features
             {
                 // 再生処理
                 VideoPlayer.Play();
-                PlayPauseIcon.Kind = PackIconLucideKind.SquareX;
+                PlayPauseIcon.Text = "⏸️";
                 PlayPauseText.Text = "一時停止";
                 _isPlaying = true;
 
@@ -1336,7 +1335,7 @@ namespace TraceShot.Features
 
             // 一時停止処理
             VideoPlayer.Pause();
-            PlayPauseIcon.Kind = PackIconLucideKind.Play;
+            PlayPauseIcon.Text = "▶️";
             PlayPauseText.Text = "再生";
             _isPlaying = false;
 
@@ -1405,7 +1404,7 @@ namespace TraceShot.Features
             VideoPlayer.Stop();
 
             RecordingIcon.Foreground = Brushes.Black;
-            RecordingIcon.Kind = PackIconLucideKind.Square;
+            RecordingIcon.Text = "⏹️";
             RecordingText.Text = "録画停止";
         }
 
@@ -1429,7 +1428,7 @@ namespace TraceShot.Features
             //PlayerPause(true);
 
             RecordingIcon.Foreground = Brushes.Red;
-            RecordingIcon.Kind = PackIconLucideKind.Dot;
+            RecordingIcon.Text = "🔴";
             RecordingText.Text = "録画開始";
         }
 
