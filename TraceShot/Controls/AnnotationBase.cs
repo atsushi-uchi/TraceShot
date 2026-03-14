@@ -5,6 +5,7 @@ using Size = System.Windows.Size;
 
 namespace TraceShot.Controls
 {
+    [JsonDerivedType(typeof(CropAnnotation), typeDiscriminator: "crop")]
     [JsonDerivedType(typeof(RectAnnotation), typeDiscriminator: "rect")]
     [JsonDerivedType(typeof(NoteAnnotation), typeDiscriminator: "note")]
     public abstract partial class AnnotationBase : ObservableObject

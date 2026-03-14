@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
+using System.Windows;
 using TraceShot.Models;
 
 public partial class RecEvidence : ObservableObject
@@ -14,7 +15,13 @@ public partial class RecEvidence : ObservableObject
     private string _recMode = "";
 
     [ObservableProperty]
-    private bool _isCropLocked = true;
+    private CropState _cropState = CropState.Editing;
+
+    [ObservableProperty]
+    private bool _isCropEnabled = false;
+
+    [ObservableProperty]
+    private Rect _commonCropRect = new Rect(0.1, 0.1, 0.8, 0.8);
 
     [ObservableProperty]
     private ObservableCollection<Bookmark> _bookmarks = [];

@@ -24,10 +24,10 @@ public class MouseHook
     private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
     private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
-    private LowLevelMouseProc _proc;
+    private LowLevelMouseProc? _proc;
     private IntPtr _hookID = IntPtr.Zero;
 
-    public event Action<System.Drawing.Point> OnLeftClick;
+    public event Action<System.Drawing.Point>? OnLeftClick;
 
     // クールタイムを外部から調整したい場合
     public void SetCoolDown(int milliseconds) => _coolDown = TimeSpan.FromMilliseconds(milliseconds);

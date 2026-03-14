@@ -51,7 +51,6 @@ namespace TraceShot.Features
         private bool _isSpeechInitalized = false;
         private DispatcherTimer _playerTimer;
         private MouseHook _mouseHook = new();
-        private List<RegionUI> _displayedRegionUIs = new List<RegionUI>();
         private Drawing.Rectangle? _selectedRegion = null; // 選択された範囲を保持
 
         private IntPtr _targetWindowHandle;
@@ -59,9 +58,9 @@ namespace TraceShot.Features
         private WriteableBitmap? _previewBitmap;
         string _fullDeviceName = string.Empty;
         string _rectDeviceName = string.Empty;
-        private FrameworkElement ?_draggingRect = null;
+        //private FrameworkElement ?_draggingRect = null;
         private enum ResizeDirection { None, Left, Right, Top, Bottom, Move }
-        private ResizeDirection _currentResizeDir = ResizeDirection.None;
+        //private ResizeDirection _currentResizeDir = ResizeDirection.None;
         private DebugWindow? _debugWindow;
 
         public MainWindow()
@@ -730,6 +729,42 @@ namespace TraceShot.Features
             }
         }
 
+        private void OnConfirmCrop_Click(object sender, RoutedEventArgs e)
+        {
+            var existingCrop = _annotationManager.Annotations.OfType<CropAnnotation>().FirstOrDefault();
+            if (existingCrop != null)
+            {
+                if (RecService.Instance.Evidence.CropState == CropState.Editing)
+                {
+                    RecService.Instance.Evidence.CropState = CropState.Confirmed;
+                }
+                else
+                {
+                    RecService.Instance.Evidence.CropState = CropState.Editing;
+                }
+            }
+            else
+            {
+                RecService.Instance.Evidence.CropState = CropState.Editing;
+                var crop = new CropAnnotation();
+                //crop.State = CropState.Editing;
+                crop.RelWidth = 0.5;
+                crop.RelHeight = 0.5;
+                // 中央に配置するための座標計算
+                // (1.0 - 0.5) / 2 = 0.25
+                crop.RelX = (1.0 - crop.RelWidth) / 2;
+                crop.RelY = (1.0 - crop.RelHeight) / 2;
+                _annotationManager.Annotations.Add(crop);
+            }
+        }
+
+
+        private void CropEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
+            _annotationManager.RefreshCropOverlay();
+        }
+
         // 重複していたガイド線更新を共通化するとスッキリします
         private void UpdateDragLine(Point currentPoint, Brush brush)
         {
@@ -1092,6 +1127,7 @@ namespace TraceShot.Features
 
                 // 何も選択されていない場合はキャンバスを空にする
                 _annotationManager.Annotations.Clear();
+                _annotationManager.RefreshCropOverlay();
             }
             else
             {
@@ -1502,6 +1538,7 @@ namespace TraceShot.Features
             {
                 // 何も選択されていない場合はキャンバスを空にする
                 _annotationManager.Annotations.Clear();
+                _annotationManager.RefreshCropOverlay();
             }
             RefreshBookmarkCanvas();
         }
@@ -1571,15 +1608,6 @@ namespace TraceShot.Features
 
                 // Slider側のクリックイベントが動かないように「処理済み」とする
                 e.Handled = true;
-            }
-        }
-
-        private void BookmarkCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            //RefreshBookmarkCanvas();
-            foreach (var ui in _displayedRegionUIs)
-            {
-                ui.ApplyDataToUI();
             }
         }
 
@@ -1824,6 +1852,16 @@ namespace TraceShot.Features
             {
                 StatusText.Text = "文字を検出できませんでした";
             }
+        }
+
+        private void CropEnabledCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void CropEnabledCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+
         }
     }
 }

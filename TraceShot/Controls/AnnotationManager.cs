@@ -1,12 +1,16 @@
-﻿using DocumentFormat.OpenXml.Drawing.Charts;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using DocumentFormat.OpenXml.Drawing.Charts;
 using System.Collections.ObjectModel;
+using System.Security.Policy;
+using System.Windows;
 using TraceShot.Models;
+using TraceShot.Services;
 using Point = System.Windows.Point;
 using Size = System.Windows.Size;
 
 namespace TraceShot.Controls
 {
-    public class AnnotationManager
+    public partial class AnnotationManager
     {
         // 確定した注釈のリスト（これをXAMLのItemsControlにバインドする）
         public ObservableCollection<AnnotationBase> Annotations { get; } = new();
@@ -15,6 +19,37 @@ namespace TraceShot.Controls
 
         private Point _startPoint;
 
+        // クロップ範囲の同期
+        // 現在表示中のブックマークに共通枠を適用する
+        public void RefreshCropOverlay()
+        {
+            // 既存の CropAnnotation を一旦クリア
+            var existing = Annotations.OfType<CropAnnotation>().ToList();
+            foreach (var a in existing) Annotations.Remove(a);
+
+            if (RecService.Instance.Evidence.IsCropEnabled)
+            {
+                // 共通座標から新しい Annotation を生成
+                var crop = new CropAnnotation
+                {
+                    RelX = RecService.Instance.Evidence.CommonCropRect.X,
+                    RelY = RecService.Instance.Evidence.CommonCropRect.Y,
+                    RelWidth = RecService.Instance.Evidence.CommonCropRect.Width,
+                    RelHeight = RecService.Instance.Evidence.CommonCropRect.Height,
+                };
+                RecService.Instance.Evidence.CropState = CropState.Confirmed;
+
+                // 枠が動かされた時に、共通データに書き戻すイベントを購読
+                crop.PropertyChanged += (s, e) => {
+                    if (s is CropAnnotation ca)
+                    {
+                        RecService.Instance.Evidence.CommonCropRect = new Rect(ca.RelX, ca.RelY, ca.RelWidth, ca.RelHeight);
+                    }
+                };
+
+                Annotations.Add(crop);
+            }
+        }
         public void LoadAnnotationsFromBookmark(Bookmark bookmark)
         {
             // 現在画面に表示されている注釈をすべてクリア
@@ -28,6 +63,7 @@ namespace TraceShot.Controls
                     Annotations.Add(item);
                 }
             }
+            RefreshCropOverlay();
         }
 
         public void Remove(Bookmark? bookmark, AnnotationBase target)
