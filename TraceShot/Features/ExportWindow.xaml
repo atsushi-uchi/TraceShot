@@ -13,7 +13,7 @@
         <Border Grid.Column="0" Background="#2D2D2D" Margin="15" CornerRadius="8">
             <Grid>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10">
-                    <ItemsControl x:Name="ExportPreviewList"
+                    <ItemsControl x:Name="ExportPreviewList" Background="#2D2D2D"
                                   dd:DragDrop.IsDragSource="True"
                                   dd:DragDrop.IsDropTarget="True"
                                   dd:DragDrop.UseDefaultDragAdorner="True"
@@ -23,18 +23,33 @@
                                 <WrapPanel Orientation="Horizontal" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
+                        
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Margin="5" Background="#3D3D3D" CornerRadius="4">
+                                <Border Margin="5" Background="#3D3D3D" CornerRadius="4"
+                                        MouseLeftButtonDown="Thumbnail_MouseLeftButtonDown">
                                     <StackPanel Width="240">
                                         <Grid>
                                             <Image Source="{Binding SnapshotImage}" 
                                                    Width="240" 
-                                                   Height="135" Stretch="UniformToFill" IsHitTestVisible="False" />
+                                                   Height="135" Stretch="UniformToFill" IsHitTestVisible="False">
+                                                <Image.Style>
+                                                    <Style TargetType="Image">
+                                                        <Setter Property="Opacity" Value="1.0" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="False">
+                                                                <Setter Property="Opacity" Value="0.3" />
+
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Image.Style>
+                                            </Image>
+
                                             <CheckBox IsChecked="{Binding IsSelected}" Margin="5" HorizontalAlignment="Left" VerticalAlignment="Top" />
                                         </Grid>
                                         <TextBlock Text="{Binding OriginalBookmark.Time, StringFormat='{}{0:mm\\:ss}'}" 
-                               Foreground="White" HorizontalAlignment="Center" Margin="2"/>
+                                            Foreground="White" HorizontalAlignment="Center" Margin="2"/>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
@@ -45,12 +60,36 @@
                 <TextBlock x:Name="EmptyGuideText" Text="右下の「撮影開始」を押すとキャプチャが始まります" 
                            Foreground="#888" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
 
-                <Grid x:Name="LoadingOverlay" Visibility="Collapsed" Background="#CC000000">
+                <Grid x:Name="LoadingOverlay" Visibility="Collapsed" Background="#2D2D2D" Margin="15">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <ProgressBar x:Name="ExportProgressBar" Width="300" Height="10" Foreground="#4472C4"/>
                         <TextBlock x:Name="StatusText" Text="キャプチャ中... (0/0)" Foreground="White" 
                                    FontSize="16" Margin="0,15,0,0" HorizontalAlignment="Center"/>
                     </StackPanel>
+                </Grid>
+
+                <Grid x:Name="PreviewArea" Visibility="Collapsed" Background="#2D2D2D">
+                    <Image x:Name="LargePreviewImage" 
+                           Source="{Binding SelectedPreviewItem.SnapshotImage}" 
+                           Stretch="Uniform" 
+                           Margin="20,40"
+                           MouseDown="ClosePreview_Click" />
+                    <StackPanel Orientation="Horizontal" 
+                            HorizontalAlignment="Center" 
+                            VerticalAlignment="Top" 
+                            Margin="0,15,0,0">
+                        <TextBlock x:Name="PreviewPageCounter" 
+                           Text="1 / 10" 
+                           Foreground="White" 
+                           FontSize="16" 
+                           FontWeight="Bold">
+                            <TextBlock.Effect>
+                                <DropShadowEffect BlurRadius="5" ShadowDepth="0" Opacity="0.8"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
+                    </StackPanel>
+                    <TextBlock Text="左右キーで移動 / クリックで一覧に戻る" 
+                       Foreground="#888" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="10"/>
                 </Grid>
             </Grid>
         </Border>

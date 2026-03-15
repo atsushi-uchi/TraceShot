@@ -3,6 +3,7 @@ namespace TraceShot.Features
 {
     using ClosedXML.Excel;
     using ClosedXML.Excel.Drawings;
+    using DocumentFormat.OpenXml.Spreadsheet;
     using Microsoft.Win32;
     using PuppeteerSharp;
     using PuppeteerSharp.Media;
@@ -10,6 +11,7 @@ namespace TraceShot.Features
     using System.Collections.ObjectModel;
     using System.Diagnostics;
     using System.IO;
+    using System.Linq;
     using System.Text;
     using System.Windows;
     using System.Windows.Controls;
@@ -18,6 +20,7 @@ namespace TraceShot.Features
     using TraceShot.Models;
     using TraceShot.Services;
     using TraceShot.ViewModels;
+    using Border = System.Windows.Controls.Border;
     using MessageBox = System.Windows.MessageBox;
     using Path = System.IO.Path;
 
@@ -28,6 +31,10 @@ namespace TraceShot.Features
     {
         // クラスのメンバとしてリストを保持
         private ObservableCollection<ExportItemViewModel> _exportItems = [];
+
+        private bool _isPreviewMode = false;
+
+        private int _currentIdx = 0;
 
         public ExportWindow()
         {
@@ -601,6 +608,110 @@ namespace TraceShot.Features
                 // もし単なる List なら削除と挿入が必要です
                 dynamic observableList = list;
                 observableList.Move(oldIndex, newIndex);
+            }
+        }
+
+
+        private void Thumbnail_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // ダブルクリック（2回連続クリック）の時だけ実行
+            if (e.ClickCount == 2)
+            {
+                if (sender is FrameworkElement elem && elem.DataContext is ExportItemViewModel item)
+                {
+                    _currentIdx = ExportPreviewList.Items.IndexOf(item);
+
+                    // プレビューモードへ移行
+                    _isPreviewMode = true;
+                    EnterPreviewMode();
+
+                    // イベントを完了させる（ドラッグ処理などへ流さない）
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void EnterPreviewMode()
+        {
+            _isPreviewMode = true;
+
+            ExportPreviewList.Visibility = Visibility.Collapsed;
+            PreviewArea.Visibility = Visibility.Visible;
+
+            UpdatePreviewDisplay();
+            // UIの表示切り替え（Bindingを使っている場合はProperty通知）
+        }
+
+        private void UpdatePreviewDisplay()
+        {
+            var allItems = ExportPreviewList.Items.Cast<ExportItemViewModel>().ToList();
+            var selectedItems = allItems.Where(x => x.IsSelected).ToList();
+
+            if (_currentIdx >= 0 && _currentIdx < allItems.Count)
+            {
+                var item = allItems[_currentIdx];
+                LargePreviewImage.Source = item?.SnapshotImage;
+
+                // 「選択されているアイテムの中での順番 / 選択総数」を表示
+                int displayIdx = selectedItems.IndexOf(item) + 1;
+                PreviewPageCounter.Text = $"{displayIdx} / {selectedItems.Count}";
+
+                //ExportPreviewList.ScrollIntoView(item);
+            }
+        }
+
+        private void ClosePreview_Click(object sender, MouseButtonEventArgs e)
+        {
+            _isPreviewMode = false;
+            PreviewArea.Visibility = Visibility.Collapsed;
+            ExportPreviewList.Visibility = Visibility.Visible;
+        }
+
+        protected override void OnPreviewKeyDown(KeyEventArgs e)
+        {
+            if (!_isPreviewMode)
+            {
+                base.OnKeyDown(e);
+                return;
+            }
+
+            var allItems = ExportPreviewList.Items.Cast<ExportItemViewModel>().ToList();
+
+            switch (e.Key)
+            {
+                case Key.Left:
+                    // 前にある「選択されているアイテム」を探す
+                    int prevIdx = allItems.Take(_currentIdx).ToList().FindLastIndex(x => x.IsSelected);
+                    if (prevIdx != -1)
+                    {
+                        _currentIdx = prevIdx;
+                        UpdatePreviewDisplay();
+                    }
+                    e.Handled = true;
+                    break;
+                case Key.Right:
+                    // 次にある「選択されているアイテム」を探す
+                    int nextIdx = allItems.Skip(_currentIdx + 1).ToList().FindIndex(x => x.IsSelected);
+                    if (nextIdx != -1)
+                    {
+                        // FindIndexはSkip後の相対インデックスなので、現在の位置を足す
+                        _currentIdx = _currentIdx + 1 + nextIdx;
+                        UpdatePreviewDisplay();
+                    }
+                    e.Handled = true;
+                    break;
+                case Key.Escape:
+                    _isPreviewMode = false;
+                    PreviewArea.Visibility = Visibility.Collapsed;
+                    ExportPreviewList.Visibility = Visibility.Visible;
+                    // 一覧に戻る
+                    e.Handled = true;
+                    break;
+            }
+
+            if (!e.Handled)
+            {
+                base.OnPreviewKeyDown(e);
             }
         }
     }
