@@ -67,7 +67,7 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
-        <Style x:Key="CornerResizeHandleStyle" TargetType="Thumb">
+        <Style x:Key="PointResizeHandleStyle" TargetType="Thumb">
             <Setter Property="Opacity" Value="1" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -146,6 +146,54 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="CropEdgeResizeHandleStyle" TargetType="Thumb">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Grid Background="Transparent">
+                            <Rectangle x:Name="handleVisual" 
+                               Fill="Transparent" 
+                               RadiusX="1" RadiusY="1" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding CropBrush, Source={x:Static service:SettingsService.Instance}}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CropPointResizeHandleStyle" TargetType="Thumb">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Ellipse x:Name="handleVisual" 
+                             Fill="Transparent"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding CropBrush, Source={x:Static service:SettingsService.Instance}}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CropMoveThumbStyle" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Rectangle x:Name="bodyVisual" 
+                   Stroke="#AAFFFFFF" 
+                   StrokeThickness="2" 
+                   Fill="{Binding CropFillBrush, Source={x:Static service:SettingsService.Instance}}" 
+                   Cursor="SizeAll"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <DataTemplate DataType="{x:Type ctrl:CropAnnotation}">
             <Canvas x:Name="RootCanvas">
@@ -162,7 +210,7 @@
                     </MultiBinding>
                 </Canvas.Height>
 
-                <Path Fill="#80000000" IsHitTestVisible="False">
+                <Path Fill="#A0000000" IsHitTestVisible="False">
                     <Path.Data>
                         <CombinedGeometry GeometryCombineMode="Exclude">
                             <CombinedGeometry.Geometry1>
@@ -185,11 +233,10 @@
                 <Rectangle x:Name="CropBorder"
                      Width="{Binding ActualWidth, ElementName=RootCanvas}" 
                      Height="{Binding ActualHeight, ElementName=RootCanvas}"
-                     Stroke="Yellow" StrokeThickness="2" StrokeDashArray="4 2"
                      IsHitTestVisible="False"/>
 
                 <Thumb x:Name="MoveHandle"
-                     Style="{StaticResource MoveThumbStyle}" DragDelta="OnMoveThumb_DragDelta" 
+                     Style="{StaticResource CropMoveThumbStyle}" DragDelta="OnMoveThumb_DragDelta" 
                      Width="{Binding ActualWidth, ElementName=RootCanvas}" 
                      Height="{Binding ActualHeight, ElementName=RootCanvas}"/>
 
@@ -198,30 +245,30 @@
                       Height="{Binding ActualHeight, ElementName=RootCanvas}">
 
                     <Canvas>
-                        <Thumb Canvas.Left="-3" Width="6" Height="{Binding ActualHeight, ElementName=RootCanvas}" 
-                               Style="{StaticResource EdgeResizeHandleStyle}"
-                               Cursor="SizeWE" DragDelta="OnLeftResize_DragDelta" Background="Transparent"/>
+                        <Thumb Canvas.Left="-3" Width="4" Height="{Binding ActualHeight, ElementName=RootCanvas}" 
+                               Style="{StaticResource CropEdgeResizeHandleStyle}"
+                               Cursor="SizeWE" DragDelta="OnLeftResize_DragDelta" />
                         <Thumb Canvas.Left="{Binding ActualWidth, ElementName=RootCanvas}" Margin="-3,0,0,0" 
-                               Width="6" Height="{Binding ActualHeight, ElementName=RootCanvas}" 
-                               Style="{StaticResource EdgeResizeHandleStyle}"
-                               Cursor="SizeWE" DragDelta="OnRightResize_DragDelta" Background="Transparent"/>
-                        <Thumb Canvas.Top="-3" Height="6" Width="{Binding ActualWidth, ElementName=RootCanvas}" 
-                               Style="{StaticResource EdgeResizeHandleStyle}"
-                               Cursor="SizeNS" DragDelta="OnTopResize_DragDelta" Background="Transparent"/>
+                               Width="4" Height="{Binding ActualHeight, ElementName=RootCanvas}" 
+                               Style="{StaticResource CropEdgeResizeHandleStyle}"
+                               Cursor="SizeWE" DragDelta="OnRightResize_DragDelta"/>
+                        <Thumb Canvas.Top="-3" Height="4" Width="{Binding ActualWidth, ElementName=RootCanvas}" 
+                               Style="{StaticResource CropEdgeResizeHandleStyle}"
+                               Cursor="SizeNS" DragDelta="OnTopResize_DragDelta"/>
                         <Thumb Canvas.Top="{Binding ActualHeight, ElementName=RootCanvas}" Margin="0,-3,0,0" 
-                               Height="6" Width="{Binding ActualWidth, ElementName=RootCanvas}" 
-                               Style="{StaticResource EdgeResizeHandleStyle}"
-                               Cursor="SizeNS" DragDelta="OnBottomResize_DragDelta" Background="Transparent"/>
+                               Height="4" Width="{Binding ActualWidth, ElementName=RootCanvas}" 
+                               Style="{StaticResource CropEdgeResizeHandleStyle}"
+                               Cursor="SizeNS" DragDelta="OnBottomResize_DragDelta" />
 
-                        <Thumb Canvas.Left="-5" Canvas.Top="-5" Width="10" Height="10" Cursor="SizeNWSE" 
-                               Style="{StaticResource CornerResizeHandleStyle}" DragDelta="OnTopLeftResize_DragDelta"/>
-                        <Thumb Canvas.Left="{Binding ActualWidth, ElementName=RootCanvas}" Canvas.Top="-5" Margin="-5,0,0,0" 
-                               Style="{StaticResource CornerResizeHandleStyle}" Width="10" Height="10" Cursor="SizeNESW" DragDelta="OnTopRightResize_DragDelta"/>
-                        <Thumb Canvas.Left="-5" Canvas.Top="{Binding ActualHeight, ElementName=RootCanvas}" Margin="0,-5,0,0" 
-                               Style="{StaticResource CornerResizeHandleStyle}" Width="10" Height="10" Cursor="SizeNESW" DragDelta="OnBottomLeftResize_DragDelta"/>
+                        <Thumb Canvas.Left="0" Canvas.Top="0" Width="8" Height="8" Cursor="SizeNWSE" 
+                               Style="{StaticResource CropPointResizeHandleStyle}" DragDelta="OnTopLeftResize_DragDelta"/>
+                        <Thumb Canvas.Left="{Binding ActualWidth, ElementName=RootCanvas}" Canvas.Top="0" Margin="-6,0,0,0" 
+                               Style="{StaticResource CropPointResizeHandleStyle}" Width="8" Height="8" Cursor="SizeNESW" DragDelta="OnTopRightResize_DragDelta"/>
+                        <Thumb Canvas.Left="0" Canvas.Top="{Binding ActualHeight, ElementName=RootCanvas}" Margin="0,-6,0,0" 
+                               Style="{StaticResource CropPointResizeHandleStyle}" Width="8" Height="8" Cursor="SizeNESW" DragDelta="OnBottomLeftResize_DragDelta"/>
                         <Thumb Canvas.Left="{Binding ActualWidth, ElementName=RootCanvas}" Canvas.Top="{Binding ActualHeight, ElementName=RootCanvas}" 
-                               Style="{StaticResource CornerResizeHandleStyle}"
-                               Margin="-5,-5,0,0" Width="10" Height="10" Cursor="SizeNWSE" DragDelta="OnBottomRightResize_DragDelta"/>
+                               Style="{StaticResource CropPointResizeHandleStyle}"
+                               Margin="-6,-6,0,0" Width="8" Height="8" Cursor="SizeNWSE" DragDelta="OnBottomRightResize_DragDelta"/>
                     </Canvas>
                 </Grid>
 
@@ -299,25 +346,25 @@
 
                 <Thumb Canvas.Left="0" Canvas.Top="0" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
-                       Style="{StaticResource CornerResizeHandleStyle}"
+                       Style="{StaticResource PointResizeHandleStyle}"
                        DragDelta="OnTopLeftResize_DragDelta" Cursor="SizeNWSE"/>
 
                 <Thumb Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Canvas.Top="0" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
-                       Style="{StaticResource CornerResizeHandleStyle}"
+                       Style="{StaticResource PointResizeHandleStyle}"
                        DragDelta="OnTopRightResize_DragDelta" Cursor="SizeNESW"/>
 
                 <Thumb Canvas.Left="0" 
                        Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
-                       Style="{StaticResource CornerResizeHandleStyle}"
+                       Style="{StaticResource PointResizeHandleStyle}"
                        DragDelta="OnBottomLeftResize_DragDelta" Cursor="SizeNESW"/>
 
                 <Thumb Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
-                       Style="{StaticResource CornerResizeHandleStyle}"
+                       Style="{StaticResource PointResizeHandleStyle}"
                        DragDelta="OnBottomRightResize_DragDelta" Cursor="SizeNWSE"/>
 
             </Canvas>
