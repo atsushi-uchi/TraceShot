@@ -3,6 +3,7 @@ namespace TraceShot.Features
 {
     using ClosedXML.Excel;
     using ClosedXML.Excel.Drawings;
+    using DocumentFormat.OpenXml.Drawing.Charts;
     using Microsoft.Win32;
     using PuppeteerSharp;
     using PuppeteerSharp.Media;
@@ -478,18 +479,17 @@ namespace TraceShot.Features
         private async void StartCapture_Click(object sender, RoutedEventArgs e)
         {
             _exportItems.Clear();
-            ExportPreviewList.ItemsSource = _exportItems; // UIに紐付け
+            ExportPreviewList.ItemsSource = _exportItems;
 
-            var marks = RecService.Instance.Bookmarks;
+            //var marks = RecService.Instance.Bookmarks;
             var main = Owner as MainWindow;
             var scale = GetSelectedScale();
-
+            int index = 0;
             await RunExportTask(async (progress) =>
             {
-                for (int i = 0; i < marks.Count; i++)
+                //for (int i = 0; i < RecService.Instance.Bookmarks.Count; i++)
+                foreach(var bm in RecService.Instance.Bookmarks)
                 {
-                    var bm = marks[i];
-
                     // 1. 指定時間に移動
                     main.VideoPlayer.Position = bm.Time;
                     await Task.Delay(500); // 描画待ち
@@ -506,12 +506,12 @@ namespace TraceShot.Features
                             OriginalBookmark = bm,
                             SnapshotImage = result?.Bitmap,
                             ImagePath = result?.Path,
-                            Order = i,
+                            Order = index++,
                             Scale = scale,
                         });
                     });
 
-                    progress.Report((i + 1) * 100 / marks.Count);
+                    progress.Report((index) * 100 / RecService.Instance.Bookmarks.Count);
                 }
 
                 // 全撮影終了後のメッセージ
