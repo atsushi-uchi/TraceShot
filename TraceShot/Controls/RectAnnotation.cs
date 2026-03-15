@@ -1,5 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using System.Diagnostics;
+using CommunityToolkit.Mvvm.Input;
+using System.Text.Json.Serialization;
+using System.Windows.Input;
 using Point = System.Windows.Point;
 using Size = System.Windows.Size;
 
@@ -9,8 +11,27 @@ namespace TraceShot.Controls
     {
         [ObservableProperty] private bool _isDrawing = true;
         [ObservableProperty] private bool _isMasking = false;
+        // 外部から代入してもらうためのアクション（非同期対応）
+        [JsonIgnore] public Func<RectAnnotation, Task> OcrAction { get; set; }
 
-        protected Point _startPoint;
+        public ICommand RunOcrCommand { get; }
+        private Point _startPoint;
+
+        public RectAnnotation() : base()
+        {
+            RunOcrCommand = new RelayCommand(async () =>
+            {
+                if (OcrAction != null)
+                {
+                    await OcrAction(this);
+                }
+            });
+        }
+
+
+        private async Task RequestOcr()
+        {
+        }
 
         public override void OnStart(Point pos, Size size)
         {

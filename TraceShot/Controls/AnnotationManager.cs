@@ -101,7 +101,7 @@ namespace TraceShot.Controls
         /// <summary>
         /// 注釈の描画を開始する（MouseDownで呼ぶ）
         /// </summary>
-        public void StartDrawing<T>(Bookmark bookmark, Point pos, Size size) where T : AnnotationBase, new()
+        public AnnotationBase StartDrawing<T>(Bookmark bookmark, Point pos, Size size) where T : AnnotationBase, new()
         {
             SelectedAnnotation = new T
             {
@@ -116,6 +116,8 @@ namespace TraceShot.Controls
             bookmark.Annotations.Add(SelectedAnnotation);
 
             Annotations.Add(SelectedAnnotation);
+
+            return SelectedAnnotation;
         }
 
         /// <summary>

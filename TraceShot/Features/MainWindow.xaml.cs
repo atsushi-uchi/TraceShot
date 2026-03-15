@@ -425,7 +425,11 @@ namespace TraceShot.Features
             else
             {
                 // 通常の RectAnnotation モード
-                _annotationManager.StartDrawing<RectAnnotation>(bookmark, currentPos, actualPos);
+                var annotation = _annotationManager.StartDrawing<RectAnnotation>(bookmark, currentPos, actualPos);
+                if (annotation is RectAnnotation rect)
+                {
+                    rect.OcrAction = ExecuteOcrOnAnnotation;
+                }
             }
             RefreshBookmarkCanvas();
             ((IInputElement)sender).CaptureMouse();
@@ -1815,36 +1819,42 @@ namespace TraceShot.Features
             _mouseHook.Stop();
         }
 
-        private async Task ExecuteOcrOnAnnotation(EvidenceRect rect)
+        private async Task ExecuteOcrOnAnnotation(RectAnnotation rect)
         {
             var bm = BookmarkListBox.SelectedItem as Bookmark;
             if (bm == null) return;
 
-            // 1. エクスポート時と同じ「ビデオ正味の情報」をスナップショットとして取得
+            // 1. ビデオ情報を取得
             var info = new VideoSnapshotInfo(VideoPlayer);
 
-            // 2. 余白を排除した「正味の画像」を生成
-            // SaveSingleBookmarkImage のロジックを流用（ファイル保存はせずメモリ上だけで完結させる）
+            // 2. 正味の画像を生成（既存の ImageService を利用）
             BitmapSource pureVideoBitmap = ImageService.GeneratePureVideoBitmap(bm, info);
 
-            // 3. この画像は「ビデオ本来の解像度」なので、余白計算（offset）は不要！
-            // 0.0〜1.0 の比率をそのまま掛けるだけで座標が確定します
-            int px = (int)(rect.X * pureVideoBitmap.PixelWidth);
-            int py = (int)(rect.Y * pureVideoBitmap.PixelHeight);
-            int pw = (int)(rect.Width * pureVideoBitmap.PixelWidth);
-            int ph = (int)(rect.Height * pureVideoBitmap.PixelHeight);
+            // 3. RectAnnotation の相対座標（RelX, RelY...）を使用
+            // 0.0〜1.0 なので、そのまま PixelWidth/Height を掛けるだけ
+            int px = (int)(rect.RelX * pureVideoBitmap.PixelWidth);
+            int py = (int)(rect.RelY * pureVideoBitmap.PixelHeight);
+            int pw = (int)(rect.RelWidth * pureVideoBitmap.PixelWidth);
+            int ph = (int)(rect.RelHeight * pureVideoBitmap.PixelHeight);
+
+            // 範囲チェック（画像の外にはみ出さないように）
+            px = Math.Clamp(px, 0, pureVideoBitmap.PixelWidth - 1);
+            py = Math.Clamp(py, 0, pureVideoBitmap.PixelHeight - 1);
+            pw = Math.Min(pw, pureVideoBitmap.PixelWidth - px);
+            ph = Math.Min(ph, pureVideoBitmap.PixelHeight - py);
+
+            if (pw <= 0 || ph <= 0) return;
 
             var cropped = new CroppedBitmap(pureVideoBitmap, new Int32Rect(px, py, pw, ph));
-            //ImageService.DebugImageSave(cropped);
 
-            // 4. OCR実行 (前述の RecognizeTextAsync メソッドを CroppedBitmap 対応に調整)
+            // 4. OCR実行
             StatusText.Text = "解析中...";
             string result = await ImageService.RecognizeTextFromBitmapSource(cropped);
 
             if (!string.IsNullOrWhiteSpace(result))
             {
                 string cleanText = result.Replace("\r", "").Replace("\n", " ").Trim();
-                bm.AddNewLine(cleanText);
+                bm.AddNewLine(cleanText); // Bookmarkにテキストを追加
                 StatusText.Text = "OCR完了";
             }
             else
