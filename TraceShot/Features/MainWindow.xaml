@@ -136,7 +136,7 @@
                              Fill="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}"/>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="handleVisual" Property="Fill" Value="Aqua" />
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
                                 <Setter TargetName="handleVisual" Property="Width" Value="10" />
                                 <Setter TargetName="handleVisual" Property="Height" Value="10" />
                                 <Setter TargetName="handleVisual" Property="Margin" Value="-5" />
@@ -283,6 +283,13 @@
                     <Setter TargetName="ResizeHandles" Property="Visibility" Value="Collapsed"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type ctrl:GuardAnnotation}">
+            <Grid Background="Transparent" 
+                  Width="{Binding ActualWidth, ElementName=VideoPlayer}"
+                  Height="{Binding ActualHeight, ElementName=VideoPlayer}"
+                  IsHitTestVisible="True" />
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type ctrl:RectAnnotation}">
@@ -538,13 +545,14 @@
             <!--<MenuItem x:Name="DebugMenuItem" Header="デバッグ ON" IsCheckable="True" Click="DebugButton_Click" />-->
         </Menu>
 
+
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="250" />
             </Grid.ColumnDefinitions>
 
-            <Grid  Grid.Column="0" Background="Black">
+            <Grid Grid.Column="0" Background="Black">
                 <MediaElement x:Name="VideoPlayer" 
                       Stretch="Uniform"
                       LoadedBehavior="Manual" 
@@ -583,7 +591,7 @@
 
                     <ItemsControl.ItemContainerStyle>
                         <Style TargetType="ContentPresenter">
-                            <Setter Property="Panel.ZIndex" Value="0"/>
+                            <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}"/>
                             <Setter Property="Canvas.Left">
                                 <Setter.Value>
                                     <MultiBinding Converter="{StaticResource RelToAbsConverter}">
@@ -606,8 +614,7 @@
                                     <Setter Property="Canvas.Top" Value="0"/>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Converter={StaticResource TypeNameConverter}}" Value="NoteAnnotation">
-                                    <Setter Property="Panel.ZIndex" Value="10"/>
-
+                                    <Setter Property="Panel.ZIndex" Value="100"/>
                                     <Setter Property="Canvas.Left" Value="0"/>
                                     <Setter Property="Canvas.Top" Value="0"/>
                                 </DataTrigger>

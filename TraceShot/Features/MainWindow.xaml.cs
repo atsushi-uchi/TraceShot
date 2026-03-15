@@ -745,7 +745,22 @@ namespace TraceShot.Features
                 _annotationManager.Remove(bookmark, annotation);
             }
         }
+        //private void UpdateCropOverlayVisibility()
+        //{
+        //    var rec = RecService.Instance.Evidence.IsCropEnabled;
+        //    var existingCrop = _annotationManager.Annotations.OfType<CropAnnotation>().FirstOrDefault();
 
+        //    // 条件：クロップ機能が有効 かつ クロップ注釈が存在し かつ まだ確定していない
+        //    if (RecService.Instance.Evidence.IsCropEnabled && existingCrop != null &&
+        //        RecService.Instance.Evidence.CropState == CropState.Editing)
+        //    {
+        //        CropModeOverlay.Visibility = Visibility.Visible;
+        //    }
+        //    else
+        //    {
+        //        CropModeOverlay.Visibility = Visibility.Collapsed;
+        //    }
+        //}
         private void OnConfirmCrop_Click(object sender, RoutedEventArgs e)
         {
             var existingCrop = _annotationManager.Annotations.OfType<CropAnnotation>().FirstOrDefault();
@@ -773,11 +788,13 @@ namespace TraceShot.Features
                 crop.RelY = (1.0 - crop.RelHeight) / 2;
                 _annotationManager.Annotations.Add(crop);
             }
+            _annotationManager.RefreshCropOverlay();
         }
 
 
         private void CropEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
         {
+            RecService.Instance.Evidence.CropState = CropState.Confirmed;
             var bookmark = BookmarkListBox.SelectedItem as Bookmark;
             _annotationManager.RefreshCropOverlay();
         }

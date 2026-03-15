@@ -16,6 +16,7 @@ namespace TraceShot.Controls
             RelHeight = 0.5;
             RelX = 0.25;
             RelY = 0.25;
+            ZIndex = 10000;
         }
     }
 }

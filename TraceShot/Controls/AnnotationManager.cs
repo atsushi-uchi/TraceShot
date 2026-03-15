@@ -17,11 +17,17 @@ namespace TraceShot.Controls
         public void RefreshCropOverlay()
         {
             // 既存の CropAnnotation を一旦クリア
-            var existing = Annotations.OfType<CropAnnotation>().ToList();
+            var existing = Annotations.Where(a => a is GuardAnnotation || a is CropAnnotation).ToList();
             foreach (var a in existing) Annotations.Remove(a);
 
             if (RecService.Instance.Evidence.IsCropEnabled)
             {
+                if (RecService.Instance.Evidence.CropState == CropState.Editing)
+                {
+                    // 1. まずガードを入れる（ZIndex 5000）
+                    Annotations.Add(new GuardAnnotation());
+                }
+
                 // 共通座標から新しい Annotation を生成
                 var crop = new CropAnnotation
                 {
@@ -30,7 +36,7 @@ namespace TraceShot.Controls
                     RelWidth = RecService.Instance.Evidence.CommonCropRect.Width,
                     RelHeight = RecService.Instance.Evidence.CommonCropRect.Height,
                 };
-                RecService.Instance.Evidence.CropState = CropState.Confirmed;
+                //RecService.Instance.Evidence.CropState = CropState.Confirmed;
 
                 // 枠が動かされた時に、共通データに書き戻すイベントを購読
                 crop.PropertyChanged += (s, e) => {

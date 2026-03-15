@@ -109,7 +109,7 @@ namespace TraceShot.Services
         partial void OnIsPlayerModeChanged(bool value)
         {
             // 必要であればここでログ出力やモード切替時の共通処理を行う
-            System.Diagnostics.Debug.WriteLine($"Mode changed to: {(value ? "Player" : "Record")}");
+            //System.Diagnostics.Debug.WriteLine($"Mode changed to: {(value ? "Player" : "Record")}");
         }
     }
 }

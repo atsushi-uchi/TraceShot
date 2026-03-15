@@ -10,6 +10,7 @@ namespace TraceShot.Controls
     [JsonDerivedType(typeof(NoteAnnotation), typeDiscriminator: "note")]
     public abstract partial class AnnotationBase : ObservableObject
     {
+        [ObservableProperty] private int _zIndex = 0;
         // 0.0 ～ 1.0 の相対値
         [ObservableProperty] private double _relX;
         [ObservableProperty] private double _relY;
