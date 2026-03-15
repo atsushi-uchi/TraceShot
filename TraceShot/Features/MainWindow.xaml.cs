@@ -1687,7 +1687,7 @@ namespace TraceShot.Features
         {
             SoundService.Instance.PlayShutter();
 
-            Bookmark newBookmark = new()
+            Bookmark bookmark = new()
             {
                 Time = RecService.Instance.CurrentDuration,
                 Icon = "📌",
@@ -1696,15 +1696,17 @@ namespace TraceShot.Features
 
             if (_previewBitmap is not null)
             {
-                var path = RecService.Instance.SaveBackupFromWriteableBitmap(newBookmark, _previewBitmap);
-                newBookmark.ImagePath = path;
-                StatusText.Text = $"記録 {newBookmark.Time} {newBookmark.Note} SS作成 {path}";
+                var path = RecService.Instance.SaveBackupFromWriteableBitmap(bookmark, _previewBitmap);
+                bookmark.ImagePath = path;
+                StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note} SS作成 {path}";
             }
             else
             {
-                StatusText.Text = $"記録 {newBookmark.Time} {newBookmark.Note}";
+                StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note}";
             }
-            RecService.Instance.Bookmarks.Add(newBookmark);
+            RecService.Instance.Bookmarks.Add(bookmark);
+            BookmarkListBox.SelectedItem = bookmark;
+            BookmarkListBox.ScrollIntoView(bookmark);
             RefreshBookmarkCanvas();
         }
 
@@ -1718,6 +1720,8 @@ namespace TraceShot.Features
             };
 
             RecService.Instance.Bookmarks.Add(bookmark);
+            BookmarkListBox.SelectedItem = bookmark;
+            BookmarkListBox.ScrollIntoView(bookmark);
             RefreshBookmarkCanvas();
 
             Task.Run(async () => {
@@ -1750,15 +1754,16 @@ namespace TraceShot.Features
             // 選択されているブックマークがある場合は何もしない（誤操作防止）
             if (BookmarkListBox.SelectedItem is Bookmark selected) return;
 
-            Bookmark newBookmark = new()
+            Bookmark bookmark = new()
             {
                 Time = VideoPlayer.Position,
                 Note = "Add",
                 Icon = "📋"
             };
 
-            RecService.Instance.Bookmarks.Add(newBookmark);
-            BookmarkListBox.SelectedItem = newBookmark;
+            RecService.Instance.Bookmarks.Add(bookmark);
+            BookmarkListBox.SelectedItem = bookmark;
+            BookmarkListBox.ScrollIntoView(bookmark);
             RefreshBookmarkCanvas();
         }
 
@@ -1775,6 +1780,7 @@ namespace TraceShot.Features
                 };
                 RecService.Instance.Bookmarks.Add(bookmark);
                 BookmarkListBox.SelectedItem = bookmark;
+                BookmarkListBox.ScrollIntoView(bookmark);
             }
 
             RefreshBookmarkCanvas();
