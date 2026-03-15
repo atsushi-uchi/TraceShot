@@ -7,26 +7,15 @@ namespace TraceShot.Controls
 {
     public partial class NoteAnnotation : AnnotationBase
     {
-        [ObservableProperty]
-        private double _startX;
-
-        [ObservableProperty]
-        private double _startY;
-
-        [ObservableProperty]
-        private double _relStartX;
-
-        [ObservableProperty]
-        private double _relStartY;
-
-        [ObservableProperty]
-        private string _text = string.Empty;
-
-        [ObservableProperty]
-        private bool _isEditing;
-
-        [ObservableProperty]
-        private bool _isCommitted;
+        [ObservableProperty] private double _startX;
+        [ObservableProperty] private double _startY;
+        [ObservableProperty] private double _relStartX;
+        [ObservableProperty] private double _relStartY;
+        [ObservableProperty] private string _text = string.Empty;
+        [ObservableProperty] private bool _isEditing;
+        [ObservableProperty] private bool _isCommitted;
+        [ObservableProperty] private double _actualTextWidth = 120; // 初期値（目安）
+        [ObservableProperty] private double _actualTextHeight = 60; // 初期値（目安）
 
         public string OriginText = string.Empty;
 
@@ -68,6 +57,7 @@ namespace TraceShot.Controls
 
         public override bool OnComplete(Point pos, Size size, string tag)
         {
+            Debug.WriteLine($"OnComplete AW={ActualTextWidth} AH={ActualTextHeight} X={pos.X} Y={pos.Y} W={size.Width} H={size.Height}");
             if (tag == "Start")
             {
                 StartX = pos.X;

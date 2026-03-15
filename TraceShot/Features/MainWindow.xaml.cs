@@ -1835,5 +1835,16 @@ namespace TraceShot.Features
                 StatusText.Text = "文字を検出できませんでした";
             }
         }
+
+        private void NoteBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            // sender(Border) から DataContext(NoteAnnotation) を取得
+            if (sender is FrameworkElement element && element.DataContext is NoteAnnotation note)
+            {
+                // 実際のサイズを ViewModel のプロパティにセット
+                note.ActualTextWidth = e.NewSize.Width;
+                note.ActualTextHeight = e.NewSize.Height;
+            }
+        }
     }
 }

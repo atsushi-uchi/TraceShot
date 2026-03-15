@@ -378,12 +378,14 @@
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelX"/>
                             <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                            <Binding Path="ActualTextWidth"/>
                         </MultiBinding>
                     </Canvas.Left>
                     <Canvas.Top>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelY"/>
                             <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                            <Binding Path="ActualTextHeight"/>
                         </MultiBinding>
                     </Canvas.Top>
                     <Thumb Tag="End" Cursor="SizeAll"
@@ -396,16 +398,14 @@
                             </ContextMenu>
                         </Thumb.ContextMenu>
 
-                        <Thumb.RenderTransform>
-                            <TranslateTransform X="-25" Y="-15"/>
-                        </Thumb.RenderTransform>
-
                         <Thumb.Template>
                             <ControlTemplate>
                                 <Grid>
                                     <Border Visibility="{Binding IsCommitted, Converter={StaticResource BoolToVisConverter}}"
                                             CornerRadius="5" Padding="5"
+                                            SizeChanged="NoteBorder_SizeChanged"
                                             MouseLeftButtonDown="Border_MouseLeftButtonDown">
+
                                         <Border.Style>
                                             <Style TargetType="Border">
                                                 <Setter Property="Background" Value="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}" />
@@ -432,7 +432,7 @@
                                             BorderBrush="#FF4A90E2" 
                                             BorderThickness="2"
                                             CornerRadius="5"
-                                            Background="#F9FFFFFF">
+                                            Background="#FFFFFFFF">
                                         <Border.Effect>
                                             <DropShadowEffect BlurRadius="12" 
                                             ShadowDepth="2" 

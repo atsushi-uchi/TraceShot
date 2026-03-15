@@ -182,7 +182,7 @@ namespace TraceShot.Services
                     // フォント・サイズの計算
                     double screenToOutputRatio = (originalWidth * scale) / info.ActualViewWidth;
                     double dynamicFontSize = Math.Max(16.0, (originalHeight * scale * cropRel.Height) * 0.03);
-                    double padding = dynamicFontSize * 0.3;
+                    double padding = dynamicFontSize * 0.5;
                     double thickness = Math.Max(2.0, renderWidth / 500.0);
 
                     FormattedText ft = new FormattedText(
@@ -191,19 +191,26 @@ namespace TraceShot.Services
                         System.Windows.FlowDirection.LeftToRight,
                         new Typeface("Verdana"),
                         dynamicFontSize,
-                        Brushes.White,
+                        SettingsService.Instance.MainTextBrush,
                         VisualTreeHelper.GetDpi(drawingVisual).PixelsPerDip);
 
                     ft.MaxTextWidth = Math.Max(100, 200 * screenToOutputRatio);
-                    Rect textRect = new Rect(outputEndPt.X, outputEndPt.Y, ft.Width + (padding * 2), ft.Height + (padding * 2));
+
+                    double boxWidth = ft.Width + (padding * 2);
+                    double boxHeight = ft.Height + (padding * 2);
+
+                    Rect textRect = new Rect(
+                        outputEndPt.X - (boxWidth / 2.0),
+                        outputEndPt.Y - (boxHeight / 2.0),
+                        boxWidth, boxHeight);
 
                     // 下地（線・丸・背景箱）
-                    var linePen = new Pen(Brushes.Red, thickness) { DashStyle = new DashStyle(new double[] { 4, 2 }, 0) };
+                    var linePen = new Pen(SettingsService.Instance.MainBrush, thickness) { DashStyle = new DashStyle(new double[] { 4, 2 }, 0) };
                     drawingContext.DrawLine(linePen, outputStartPt, outputEndPt);
-                    drawingContext.DrawEllipse(Brushes.Red, null, outputStartPt, thickness * 2, thickness * 2);
+                    drawingContext.DrawEllipse(SettingsService.Instance.MainBrush, null, outputStartPt, thickness * 2, thickness * 2);
 
                     drawingContext.DrawRoundedRectangle(
-                        new SolidColorBrush(System.Windows.Media.Color.FromArgb(220, 255, 0, 0)),
+                        SettingsService.Instance.MainBrush,
                         null, textRect, padding * 0.5, padding * 0.5);
 
                     // 袋文字
