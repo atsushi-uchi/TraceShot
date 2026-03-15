@@ -145,5 +145,24 @@ namespace TraceShot.Services
                 return "";
             }
         }
+
+        public static string BitmapSourceToBase64(BitmapSource bitmapSource)
+        {
+            if (bitmapSource == null) return string.Empty;
+
+            // 1. エンコーダーを準備（PNGまたはJPEG）
+            var encoder = new PngBitmapEncoder(); // 画質重視ならPNG、容量重視ならJpegBitmapEncoder
+            encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
+
+            using (var ms = new MemoryStream())
+            {
+                // 2. メモリストリームに保存
+                encoder.Save(ms);
+                byte[] imageBytes = ms.ToArray();
+
+                // 3. バイト配列をBase64文字列に変換
+                return Convert.ToBase64String(imageBytes);
+            }
+        }
     }
 }

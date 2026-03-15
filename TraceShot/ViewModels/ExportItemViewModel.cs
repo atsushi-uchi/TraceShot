@@ -10,7 +10,8 @@
         public Bookmark OriginalBookmark { get; set; }
 
         // プレビュー用画像（撮影直後にメモリ上のBitmapをセット）
-        public BitmapSource SnapshotImage { get; set; }
+        [ObservableProperty]
+        private BitmapSource _snapshotImage;
 
         // ファイルパス
         public string ImagePath { get; set; }

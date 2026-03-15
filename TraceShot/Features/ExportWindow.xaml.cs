@@ -3,10 +3,10 @@ namespace TraceShot.Features
 {
     using ClosedXML.Excel;
     using ClosedXML.Excel.Drawings;
-    using DocumentFormat.OpenXml.Drawing.Charts;
     using Microsoft.Win32;
     using PuppeteerSharp;
     using PuppeteerSharp.Media;
+    using System.Collections;
     using System.Collections.ObjectModel;
     using System.Diagnostics;
     using System.IO;
@@ -15,7 +15,6 @@ namespace TraceShot.Features
     using System.Windows.Controls;
     using System.Windows.Input;
     using System.Windows.Media;
-    using System.Windows.Media.Imaging;
     using TraceShot.Models;
     using TraceShot.Services;
     using TraceShot.ViewModels;
@@ -28,7 +27,7 @@ namespace TraceShot.Features
     public partial class ExportWindow : Window
     {
         // クラスのメンバとしてリストを保持
-        private ObservableCollection<ExportItemViewModel> _exportItems = new ObservableCollection<ExportItemViewModel>();
+        private ObservableCollection<ExportItemViewModel> _exportItems = [];
 
         public ExportWindow()
         {
@@ -180,8 +179,8 @@ namespace TraceShot.Features
                 sb.AppendLine("<tr>");
                 sb.AppendLine($"<td class='col-time'>{time}</td>");
                 sb.AppendLine($"<td class='col-note'>{item.OriginalBookmark.Note}</td>");
-
-                string base64String = "data:image/png;base64," + BitmapSourceToBase64(item.SnapshotImage);
+                var base64Image = ImageService.BitmapSourceToBase64(item.SnapshotImage);
+                var base64String = "data:image/png;base64," + base64Image;
                 sb.AppendLine($"<td class='col-ss'><img src='{base64String}' class='ss-image' onclick='openModal(this)'></td>");
                 sb.AppendLine("</tr>");
             }
@@ -311,15 +310,14 @@ namespace TraceShot.Features
                 sb.AppendLine("<tr>");
                 sb.AppendLine($"<td class='col-time'>{time}</td>");
                 sb.AppendLine($"<td class='col-note'>{item.Note}</td>");
-
-                string base64String = "data:image/png;base64," + BitmapSourceToBase64(item.SnapshotImage);
+                var base64Image = ImageService.BitmapSourceToBase64(item.SnapshotImage);
+                var base64String = "data:image/png;base64," + base64Image;
                 sb.AppendLine($"<td class='col-ss'><img src='{base64String}' class='ss-image'></td>");
                 sb.AppendLine("</tr>");
             }
             sb.AppendLine("</table></div></body></html>");
             return sb.ToString();
         }
-
 
         private async Task ExportToPdfAsync(string htmlPath, string pdfPath)
         {
@@ -475,7 +473,6 @@ namespace TraceShot.Features
             workbook.SaveAs(fullPath);
         }
 
-
         private async void StartCapture_Click(object sender, RoutedEventArgs e)
         {
             _exportItems.Clear();
@@ -537,69 +534,73 @@ namespace TraceShot.Features
             });
         }
 
-        // ドラッグ開始の処理
-        private void Item_MouseMove(object sender, MouseEventArgs e)
-        {
-            if (e.LeftButton == MouseButtonState.Pressed && sender is FrameworkElement element)
-            {
-                // ドラッグするデータ（ViewModel）を取得
-                var data = element.DataContext as ExportItemViewModel;
-                if (data == null) return;
-
-                // ドラッグ＆ドロップ操作を開始
-                DragDrop.DoDragDrop(element, data, DragDropEffects.Move);
-            }
-        }
-
-        // ドロップ時の処理
-        private void Item_Drop(object sender, DragEventArgs e)
-        {
-            // ドロップされたデータ（移動元）
-            var sourceData = e.Data.GetData(typeof(ExportItemViewModel)) as ExportItemViewModel;
-            // ドロップ先のデータ（移動先）
-            var targetData = (sender as FrameworkElement)?.DataContext as ExportItemViewModel;
-
-            if (sourceData != null && targetData != null && sourceData != targetData)
-            {
-                // コレクション内でのインデックスを取得
-                int oldIndex = _exportItems.IndexOf(sourceData);
-                int newIndex = _exportItems.IndexOf(targetData);
-
-                if (oldIndex >= 0 && newIndex >= 0)
-                {
-                    // ObservableCollection の要素を移動（UIも自動更新される）
-                    _exportItems.Move(oldIndex, newIndex);
-
-                    // 必要に応じて全アイテムの Order プロパティを更新
-                    for (int i = 0; i < _exportItems.Count; i++)
-                    {
-                        _exportItems[i].Order = i;
-                    }
-                }
-            }
-        }
-
         private List<ExportItemViewModel> GetTargetItems()
         {
             return _exportItems.Where(x => x.IsSelected).ToList();
         }
 
-        public string BitmapSourceToBase64(BitmapSource bitmapSource)
+        private void Item_MouseMove(object sender, MouseEventArgs e)
         {
-            if (bitmapSource == null) return string.Empty;
-
-            // 1. エンコーダーを準備（PNGまたはJPEG）
-            var encoder = new PngBitmapEncoder(); // 画質重視ならPNG、容量重視ならJpegBitmapEncoder
-            encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
-
-            using (var ms = new MemoryStream())
+            // 左クリックが押されている時だけドラッグ開始
+            if (e.LeftButton == MouseButtonState.Pressed && sender is Border border)
             {
-                // 2. メモリストリームに保存
-                encoder.Save(ms);
-                byte[] imageBytes = ms.ToArray();
+                var draggedItem = border.DataContext;
+                if (draggedItem == null) return;
 
-                // 3. バイト配列をBase64文字列に変換
-                return Convert.ToBase64String(imageBytes);
+                // データオブジェクトを作成
+                var dataObject = new DataObject("TiledImage", draggedItem);
+
+                // 【重要】ここでドラッグ開始。このメソッドが終わるまで処理は止まります。
+                DragDrop.DoDragDrop(border, dataObject, DragDropEffects.Move);
+            }
+        }
+
+        private void Item_DragOver(object sender, DragEventArgs e)
+        {
+            // 「TiledImage」というデータを持っている場合のみ、ドロップを許可する
+            if (e.Data.GetDataPresent("TiledImage"))
+            {
+                e.Effects = DragDropEffects.Move;
+                e.Handled = true;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+        }
+
+        private void Item_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("TiledImage") && sender is Border targetBorder)
+            {
+                var draggedData = e.Data.GetData("TiledImage"); // 掴んでいたデータ
+                var targetData = targetBorder.DataContext;    // 重なった（離した）場所のデータ
+
+                if (draggedData != null && targetData != null && draggedData != targetData)
+                {
+                    // ここでリストを入れ替える
+                    // 例: ObservableCollection から古い位置を消して新しい位置に入れる
+                    ReorderItems(draggedData, targetData);
+                }
+            }
+        }
+
+        private void ReorderItems(object draggedData, object targetData)
+        {
+            // ViewModel側のリスト（ObservableCollection）にアクセス
+            var list = ExportPreviewList.ItemsSource as IList;
+            if (list == null) return;
+
+            int oldIndex = list.IndexOf(draggedData);
+            int newIndex = list.IndexOf(targetData);
+
+            if (oldIndex != -1 && newIndex != -1)
+            {
+                // 簡易的な入れ替えロジック
+                // ObservableCollection<T> なら Move(oldIndex, newIndex) が使えます
+                // もし単なる List なら削除と挿入が必要です
+                dynamic observableList = list;
+                observableList.Move(oldIndex, newIndex);
             }
         }
     }
