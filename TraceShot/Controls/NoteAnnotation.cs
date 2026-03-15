@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.Diagnostics;
 using Point = System.Windows.Point;
 using Size = System.Windows.Size;
 
@@ -42,6 +43,7 @@ namespace TraceShot.Controls
 
         public override void OnUpdate(Point pos, Size size)
         {
+            Debug.WriteLine($"NoteAnnotation OnUpdate {pos} {size}");
             // ドラッグ中は「終点（テキスト側）」だけを更新する
             // 始点 (RelStartX) は OnStart の位置に固定される
             RelX = Normalize(pos.X, size.Width);
@@ -54,8 +56,28 @@ namespace TraceShot.Controls
 
         public override bool OnComplete(ICollection<AnnotationBase> parentCollection)
         {
+            Debug.WriteLine($"NoteAnnotation OnComplete {parentCollection}");
+
             // ノートはサイズに関わらず残し、編集モードを有効にする
-            IsEditing = true;
+            if (!IsCommitted)
+            {
+                IsEditing = true;
+            }
+            return true;
+        }
+
+        public override bool OnComplete(Point pos, Size size, string tag)
+        {
+            if (tag == "Start")
+            {
+                StartX = pos.X;
+                StartY = pos.Y;
+            }
+            else if (tag == "End")
+            {
+                X = pos.X;
+                Y = pos.Y;
+            }
             return true;
         }
     }

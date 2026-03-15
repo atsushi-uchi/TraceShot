@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 using TraceShot.Controls;
 
@@ -16,7 +17,7 @@ namespace TraceShot.Models
 
         public string? ImagePath { get; set; }
 
-        public List<AnnotationBase> Annotations { get; set; } = [];
+        public ObservableCollection<AnnotationBase> Annotations { get; set; } = [];
 
         [JsonIgnore]
         public IEnumerable<RectAnnotation> Rects => Annotations.OfType<RectAnnotation>();

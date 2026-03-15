@@ -24,16 +24,12 @@ namespace TraceShot.Controls
         [ObservableProperty] private bool _isVisible = true;
         [ObservableProperty] private bool _isSelected;
 
-        protected Point _startPoint;
-
         public Guid Id { get; } = Guid.NewGuid();
 
         public virtual void Delete() { }
 
         public virtual void OnStart(Point pos, Size size)
         {
-            _startPoint = pos;
-
             // 基本的な位置を相対座標で保持
             X = pos.X;
             Y = pos.Y;
@@ -54,6 +50,12 @@ namespace TraceShot.Controls
         {
             return true;
         }
+
+        public virtual bool OnComplete(Point pos, Size size, string tag)
+        {
+            return true;
+        }
+
         public double Normalize(double pos, double total) => total > 0 ? pos / total : 0;
     }
 }

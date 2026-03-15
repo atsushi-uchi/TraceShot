@@ -30,6 +30,7 @@ using Path = System.IO.Path;
 using Point = System.Windows.Point;
 using Size = System.Windows.Size;
 using TextBox = System.Windows.Controls.TextBox;
+using Thumb = System.Windows.Controls.Primitives.Thumb;
 
 namespace TraceShot.Features
 {
@@ -448,10 +449,29 @@ namespace TraceShot.Features
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
             _annotationManager.CompleteDrawing();
+
             ((IInputElement)sender).ReleaseMouseCapture();
         }
 
-        private void BalloonTextInput_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void OnAnnotation_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            if (sender is Thumb thumb && thumb.DataContext is AnnotationBase annotation)
+            {
+                var transform = thumb.TransformToVisual(VideoPlayer);
+                Point currentPos = transform.Transform(new Point(0, 0));
+
+                var actualPos = new Size
+                {
+                    Width = VideoPlayer.ActualWidth,
+                    Height = VideoPlayer.ActualHeight,
+                };
+                var tag = thumb.Tag.ToString() ?? "";
+
+                _annotationManager.CompleteDrawing(annotation, currentPos, actualPos, tag);
+            }
+        }
+
+        private void TextInput_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             var bookmark = BookmarkListBox.SelectedItem as Bookmark;
             if (e.Key == Key.Enter)
@@ -503,7 +523,7 @@ namespace TraceShot.Features
             }
         }
 
-        private void BalloonTextInput_LostFocus(object sender, RoutedEventArgs e)
+        private void TextInput_LostFocus(object sender, RoutedEventArgs e)
         {
             var textBox = sender as TextBox;
             if (textBox?.DataContext is NoteAnnotation note)
@@ -545,101 +565,6 @@ namespace TraceShot.Features
                     }), System.Windows.Threading.DispatcherPriority.Input);
                 }
             }
-        }
-
-        // 他の場所をクリックしたりして、TextBoxから離れたときに確定
-        private void TextBox_LostFocus(object sender, RoutedEventArgs e)
-        {
-            var textBox = sender as TextBox;
-            if (textBox?.DataContext is NoteAnnotation note)
-            {
-                // 1. テキストが空（またはスペースのみ）かチェック
-                if (string.IsNullOrWhiteSpace(note.Text))
-                {
-                    if (BookmarkListBox.SelectedItem is  Bookmark bookmark)
-                    {
-                        _annotationManager.Remove(bookmark, note);
-                    }
-                }
-                else
-                {
-                    // 文字があれば確定処理
-                    note.IsEditing = false;
-                    note.IsCommitted = true;
-                }
-            }
-        }
-
-        // Enterキーが押されたら確定
-        private void TextBox_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
-            if (e.Key == Key.Enter)
-            {
-                // Ctrl や Shift が押されていない「Enter単体」の時だけ確定する
-                if (Keyboard.Modifiers == ModifierKeys.None)
-                {
-                    var textBox = sender as TextBox;
-                    if (textBox?.DataContext is NoteAnnotation note)
-                    {
-                        // 1. テキストが空（またはスペースのみ）かチェック
-                        if (string.IsNullOrWhiteSpace(note.Text))
-                        {
-                            // 空ならマネージャー経由で削除
-                            _annotationManager.Remove(bookmark, note);
-                        }
-                        else
-                        {
-                            // 文字があれば確定処理
-                            note.IsEditing = false;
-                            note.IsCommitted = true;
-                        }
-                    }
-
-                    // イベントをここで終了させ、TextBoxに改行を入れさせない
-                    e.Handled = true;
-                }
-            }
-            else if (e.Key == Key.Escape)
-            {
-                var textBox = sender as TextBox;
-                if (textBox?.DataContext is NoteAnnotation note)
-                {
-                    if (string.IsNullOrEmpty(note.OriginText))
-                    {
-                        // 空ならマネージャー経由で削除
-                        _annotationManager.Remove(bookmark, note);
-                    }
-                    else
-                    {
-                        note.Text = note.OriginText;
-                        note.IsEditing = false;
-                        note.IsCommitted = true;
-                    }
-                }
-
-                // イベントをここで終了させ、TextBoxに改行を入れさせない
-                e.Handled = true;
-            }
-        }
-
-        private Canvas GetAnnotationCanvas()
-        {
-            // AnnotationItemsControl の子要素から Canvas を探すヘルパー関数
-            return FindVisualChild<Canvas>(AnnotationItemsControl);
-        }
-
-        // 汎用的なビジュアルツリー探索メソッド
-        private T FindVisualChild<T>(DependencyObject obj) where T : DependencyObject
-        {
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(obj, i);
-                if (child != null && child is T) return (T)child;
-                T childOfChild = FindVisualChild<T>(child);
-                if (childOfChild != null) return childOfChild;
-            }
-            return null;
         }
 
         private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -792,7 +717,6 @@ namespace TraceShot.Features
 
                 rect.RelX += deltaX;
                 rect.RelWidth -= deltaX;
-
                 rect.RelHeight += deltaY;
             }
         }
@@ -804,6 +728,7 @@ namespace TraceShot.Features
             // MenuItem -> ContextMenu -> 紐付いている Thumb を辿って DataContext を取得
             if (sender is MenuItem menuItem && menuItem.DataContext is NoteAnnotation note)
             {
+                
                 note.OriginText = note.Text;
                 note.IsEditing = true;
                 note.IsCommitted = false;

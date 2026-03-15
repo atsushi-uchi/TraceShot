@@ -353,17 +353,20 @@
                     </Line.Y2>
                 </Line>
 
-                <Thumb Style="{StaticResource PointHandleStyle}"
+                <Thumb Style="{StaticResource PointHandleStyle}" 
                        Cursor="SizeAll"
-                       DragDelta="OnNoteStart_DragDelta">
+                       Tag="Start" 
+                       DragDelta="OnNoteStart_DragDelta"
+                       DragCompleted="OnAnnotation_DragCompleted">
+
                     <Canvas.Left>
-                        <MultiBinding Converter="{StaticResource RelToAbsConverter}" Mode="TwoWay">
+                        <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelStartX"/>
                             <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
                         </MultiBinding>
                     </Canvas.Left>
                     <Canvas.Top>
-                        <MultiBinding Converter="{StaticResource RelToAbsConverter}" Mode="TwoWay">
+                        <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelStartY"/>
                             <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
                         </MultiBinding>
@@ -372,18 +375,20 @@
 
                 <Canvas>
                     <Canvas.Left>
-                        <MultiBinding Converter="{StaticResource RelToAbsConverter}" Mode="TwoWay">
+                        <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelX"/>
                             <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
                         </MultiBinding>
                     </Canvas.Left>
                     <Canvas.Top>
-                        <MultiBinding Converter="{StaticResource RelToAbsConverter}" Mode="TwoWay">
+                        <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelY"/>
                             <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
                         </MultiBinding>
                     </Canvas.Top>
-                    <Thumb DragDelta="OnNoteText_DragDelta" Cursor="SizeAll">
+                    <Thumb Tag="End" Cursor="SizeAll"
+                           DragDelta="OnNoteText_DragDelta" 
+                           DragCompleted="OnAnnotation_DragCompleted">
                         <Thumb.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="削除" Click="OnDeleteMenu_Click"/>
@@ -436,8 +441,8 @@
                                         </Border.Effect>
 
                                         <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
-                                            PreviewKeyDown="BalloonTextInput_PreviewKeyDown"
-                                            LostFocus="BalloonTextInput_LostFocus"
+                                            PreviewKeyDown="TextInput_PreviewKeyDown"
+                                            LostFocus="TextInput_LostFocus"
                                             AcceptsReturn="True" 
                                             TextWrapping="Wrap" 
                                             FontSize="14" 
@@ -520,7 +525,7 @@
                           Background="Transparent" 
                           ClipToBounds="True"
                           MouseDown="DrawingCanvas_MouseDown" 
-                          MouseMove="DrawingCanvas_MouseMove" 
+                          MouseMove="DrawingCanvas_MouseMove"
                           MouseUp="DrawingCanvas_MouseUp">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>

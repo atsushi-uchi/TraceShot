@@ -1,7 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using DocumentFormat.OpenXml.Drawing.Charts;
-using System.Collections.ObjectModel;
-using System.Security.Policy;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using TraceShot.Models;
 using TraceShot.Services;
@@ -17,10 +14,6 @@ namespace TraceShot.Controls
 
         public AnnotationBase? SelectedAnnotation { get; private set; }
 
-        private Point _startPoint;
-
-        // クロップ範囲の同期
-        // 現在表示中のブックマークに共通枠を適用する
         public void RefreshCropOverlay()
         {
             // 既存の CropAnnotation を一旦クリア
@@ -104,7 +97,6 @@ namespace TraceShot.Controls
         /// </summary>
         public void StartDrawing<T>(Bookmark bookmark, Point pos, Size size) where T : AnnotationBase, new()
         {
-            _startPoint = pos;
             SelectedAnnotation = new T
             {
                 X = pos.X,
@@ -145,6 +137,12 @@ namespace TraceShot.Controls
                 Annotations.Remove(SelectedAnnotation);
             }
 
+            SelectedAnnotation = null;
+        }
+
+        public void CompleteDrawing(AnnotationBase annotation, Point pos, Size size, string tag)
+        {
+            annotation.OnComplete(pos, size, tag);
             SelectedAnnotation = null;
         }
 
