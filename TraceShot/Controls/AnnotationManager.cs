@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using DocumentFormat.OpenXml.Office2010.PowerPoint;
+using System.Collections.ObjectModel;
 using System.Windows;
 using TraceShot.Models;
 using TraceShot.Services;
@@ -133,7 +134,7 @@ namespace TraceShot.Controls
         /// <summary>
         /// 描画を確定させる（MouseUpで呼ぶ）
         /// </summary>
-        public void CompleteDrawing()
+        public void CompleteDrawing(Bookmark? bookmark)
         {
             if (SelectedAnnotation == null) return;
 
@@ -143,6 +144,7 @@ namespace TraceShot.Controls
             if (!shouldKeep)
             {
                 Annotations.Remove(SelectedAnnotation);
+                bookmark?.Annotations.Remove(SelectedAnnotation);
             }
 
             SelectedAnnotation = null;

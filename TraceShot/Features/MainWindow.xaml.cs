@@ -277,6 +277,13 @@ namespace TraceShot.Features
 
                     if (evidence != null)
                     {
+                        foreach (var bm in evidence.Bookmarks)
+                        {
+                            foreach (var rect in bm.Rects.OfType<RectAnnotation>())
+                            {
+                                rect.OcrAction = ExecuteOcrOnAnnotation;
+                            }
+                        }
                         RecService.Instance.Evidence = evidence;
                         RecService.Instance.JsonPath = openFileDialog.FileName;
 
@@ -452,7 +459,8 @@ namespace TraceShot.Features
 
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            _annotationManager.CompleteDrawing();
+            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
+            _annotationManager.CompleteDrawing(bookmark);
 
             ((IInputElement)sender).ReleaseMouseCapture();
         }
