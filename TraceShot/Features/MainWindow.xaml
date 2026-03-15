@@ -14,6 +14,15 @@
         <TaskbarItemInfo x:Name="taskbarInfo" />
     </Window.TaskbarItemInfo>
     <Window.Resources>
+        <VisualBrush x:Key="DiagonalHatchBrush" TileMode="Tile" Viewport="0,0,10,10" ViewportUnits="Absolute">
+            <VisualBrush.Visual>
+                <Canvas Width="10" Height="10" Background="#FF888888">
+                    <Line X1="0" Y1="0" X2="10" Y2="10" Stroke="Black" StrokeThickness="1"/>
+                    <Line X1="10" Y1="00" X2="00" Y2="10" Stroke="Black" StrokeThickness="1"/>
+                </Canvas>
+            </VisualBrush.Visual>
+        </VisualBrush>
+
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
         <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisConverter" />
         <conv:TypeNameConverter x:Key="TypeNameConverter" />
@@ -103,13 +112,14 @@
             </Setter>
         </Style>
         <Style x:Key="MoveThumbStyle" TargetType="Thumb">
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Thumb">
                         <Rectangle x:Name="bodyVisual" 
                            Stroke="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}" 
                            StrokeThickness="2" 
-                           Fill="Transparent" 
+                           Fill="{TemplateBinding Background}" 
                            Cursor="SizeAll"/>
 
                         <ControlTemplate.Triggers>
@@ -322,12 +332,25 @@
                 <Thumb Canvas.Left="0" Canvas.Top="0" 
                        Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}"
-                       Style="{StaticResource MoveThumbStyle}"
                        DragDelta="OnMoveThumb_DragDelta">
+                    <Thumb.Style>
+                        <Style TargetType="Thumb" BasedOn="{StaticResource MoveThumbStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsMasking}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource DiagonalHatchBrush}" />
+                                    <Setter Property="Opacity" Value="0.7" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Thumb.Style>
                     <Thumb.ContextMenu>
                         <ContextMenu>
                             <!--<MenuItem Header="OCRで読み取る" Click="OnOcrMenuItemClick"/>-->
                             <MenuItem Header="削除" Click="OnDeleteMenu_Click"/>
+                            <Separator />
+                            <MenuItem Header="機密情報として黒塗り" 
+                              IsCheckable="True" 
+                              IsChecked="{Binding IsMasking}" />
                         </ContextMenu>
                     </Thumb.ContextMenu>
                 </Thumb>

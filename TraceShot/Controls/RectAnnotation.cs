@@ -7,8 +7,8 @@ namespace TraceShot.Controls
 {
     public partial class RectAnnotation : AnnotationBase
     {
-        [ObservableProperty]
-        private bool _isDrawing = true;
+        [ObservableProperty] private bool _isDrawing = true;
+        [ObservableProperty] private bool _isMasking = false;
 
         protected Point _startPoint;
 
@@ -22,8 +22,6 @@ namespace TraceShot.Controls
 
         public override void OnUpdate(Point pos, Size size)
         {
-            Debug.WriteLine($"RectAnnotation OnUpdate {pos} {size}");
-
             base.OnUpdate(pos, size);
 
             // 1. 左上座標を特定
@@ -49,8 +47,6 @@ namespace TraceShot.Controls
 
         public override bool OnComplete(ICollection<AnnotationBase> parentCollection)
         {
-            Debug.WriteLine($"RectAnnotation OnComplete {parentCollection}");
-
             IsDrawing = false;
 
             // 小さすぎる場合は自分を削除リストに入れてもらうために false を返す

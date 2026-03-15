@@ -143,9 +143,11 @@ namespace TraceShot.Services
                 drawingContext.DrawRectangle(info.VideoBrush, null, new Rect(0, 0, originalWidth, originalHeight));
 
                 // 矩形注釈の描画
-                var rects = bm.Rects.Where(r => r is not CropAnnotation);
+                var rects = bm.Rects.OfType<RectAnnotation>();
                 foreach (var rectAnno in rects)
                 {
+                    Debug.WriteLine($"type is {rectAnno.GetType().FullName} IsMask={rectAnno.IsMasking} ZIndex{rectAnno.ZIndex}");
+
                     Rect scaledRect = new Rect(
                         rectAnno.RelX * originalWidth,
                         rectAnno.RelY * originalHeight,
@@ -153,13 +155,21 @@ namespace TraceShot.Services
                         rectAnno.RelHeight * originalHeight
                     );
                     double penThickness = Math.Max(2.0, originalWidth / 400.0);
-                    var pen = new Pen(SettingsService.Instance.MainBrush, penThickness);
-                    drawingContext.DrawRectangle(null, pen, scaledRect);
+
+                    if (rectAnno.IsMasking)
+                    {
+                        drawingContext.DrawRectangle(Brushes.Black, null, scaledRect);
+                    }
+                    else
+                    {
+                        Pen pen = new Pen(SettingsService.Instance.MainBrush, penThickness);
+                        drawingContext.DrawRectangle(null, pen, scaledRect);
+                    }
                 }
 
                 drawingContext.Pop(); // Transform解除
 
-                // --- B. バルーンノートの合成 (Scale 外側 / 出力サイズ基準) ---
+                //---B.バルーンノートの合成(Scale 外側 / 出力サイズ基準)-- -
                 foreach (var noteAnno in bm.Notes)
                 {
                     // 全体に対する相対比率 (0.0~1.0)
