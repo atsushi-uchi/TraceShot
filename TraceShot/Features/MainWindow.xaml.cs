@@ -527,15 +527,23 @@ namespace TraceShot.Features
 
         private void TextBox_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            if (sender is TextBox textBox && textBox.IsVisible)
+            // Visible になった（表示された）タイミングかチェック
+            if (sender is Border border && (bool)e.NewValue)
             {
-                textBox.Focus();
-                // 2. キャレット（カーソル）の位置をテキストの末尾に設定
-                // Text が null の場合に備えて null 条件演算子を使用
-                textBox.CaretIndex = textBox.Text?.Length ?? 0;
+                // Border の中にある子要素（TextBox）を取得
+                var textBox = border.Child as TextBox;
 
-                // 3. (オプション) スクロールが必要な長いテキストの場合、末尾までスクロールする
-                textBox.ScrollToEnd();
+                if (textBox != null)
+                {
+                    // UIスレッドの優先度を少し下げて実行（表示が完了した直後にフォーカスするため）
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        textBox.Focus();
+                        // 必要であれば、末尾にカーソルを移動、または全選択
+                        textBox.CaretIndex = textBox.Text.Length;
+                        // textBox.SelectAll(); 
+                    }), System.Windows.Threading.DispatcherPriority.Input);
+                }
             }
         }
 

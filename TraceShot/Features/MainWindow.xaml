@@ -421,6 +421,7 @@
 
                                     <!-- TextBox -->
                                     <Border Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisConverter}}"
+                                            IsVisibleChanged="TextBox_IsVisibleChanged"
                                             MinWidth="100"
                                             Panel.ZIndex="1000"
                                             BorderBrush="#FF4A90E2" 
