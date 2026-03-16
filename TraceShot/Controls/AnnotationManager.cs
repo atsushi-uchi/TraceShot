@@ -1,5 +1,6 @@
 ﻿using DocumentFormat.OpenXml.Office2010.PowerPoint;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
 using TraceShot.Models;
 using TraceShot.Services;
@@ -156,9 +157,6 @@ namespace TraceShot.Controls
             SelectedAnnotation = null;
         }
 
-        /// <summary>
-        /// 全ての注釈をクリアする
-        /// </summary>
         public void ClearAll() => Annotations.Clear();
     }
 }

@@ -332,7 +332,8 @@
                 <Thumb Canvas.Left="0" Canvas.Top="0" 
                        Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}"
-                       DragDelta="OnMoveThumb_DragDelta">
+                       DragDelta="OnMoveThumb_DragDelta"
+                       DragCompleted="OnAnnotation_DragCompleted">
                     <Thumb.Style>
                         <Style TargetType="Thumb" BasedOn="{StaticResource MoveThumbStyle}">
                             <Style.Triggers>
@@ -359,43 +360,51 @@
                 <Thumb Canvas.Left="0" Canvas.Top="0" 
                        Width="4" Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Style="{StaticResource EdgeResizeHandleStyle}"
-                       DragDelta="OnLeftResize_DragDelta" Cursor="SizeWE"/>
+                       DragDelta="OnLeftResize_DragDelta" 
+                       DragCompleted="OnAnnotation_DragCompleted" Cursor="SizeWE"/>
                 <Thumb Canvas.Left="0" Canvas.Top="0" 
                        Height="4" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}"
                        Style="{StaticResource EdgeResizeHandleStyle}"
-                       DragDelta="OnTopResize_DragDelta" Cursor="SizeNS"/>
+                       DragDelta="OnTopResize_DragDelta" 
+                       DragCompleted="OnAnnotation_DragCompleted" Cursor="SizeNS"/>
                 <Thumb Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" Canvas.Top="0" 
                        Width="4" Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Margin="-3,0,0,0"
                        Style="{StaticResource EdgeResizeHandleStyle}"
-                       DragDelta="OnRightResize_DragDelta" Cursor="SizeWE"/>
+                       DragDelta="OnRightResize_DragDelta"
+                       DragCompleted="OnAnnotation_DragCompleted" Cursor="SizeWE"/>
                 <Thumb Canvas.Left="0" Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Height="4" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Margin="0,-3,0,0"
                        Style="{StaticResource EdgeResizeHandleStyle}"
-                       DragDelta="OnBottomResize_DragDelta" Cursor="SizeNS"/>
+                       DragDelta="OnBottomResize_DragDelta" 
+                       DragCompleted="OnAnnotation_DragCompleted" Cursor="SizeNS"/>
 
                 <Thumb Canvas.Left="0" Canvas.Top="0" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
                        Style="{StaticResource PointResizeHandleStyle}"
-                       DragDelta="OnTopLeftResize_DragDelta" Cursor="SizeNWSE"/>
+                       DragDelta="OnTopLeftResize_DragDelta" 
+                       DragCompleted="OnAnnotation_DragCompleted" Cursor="SizeNWSE"/>
 
                 <Thumb Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Canvas.Top="0" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
                        Style="{StaticResource PointResizeHandleStyle}"
+                       DragCompleted="OnAnnotation_DragCompleted"
                        DragDelta="OnTopRightResize_DragDelta" Cursor="SizeNESW"/>
 
                 <Thumb Canvas.Left="0" 
                        Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
                        Style="{StaticResource PointResizeHandleStyle}"
+                       DragCompleted="OnAnnotation_DragCompleted"
                        DragDelta="OnBottomLeftResize_DragDelta" Cursor="SizeNESW"/>
 
                 <Thumb Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
                        Style="{StaticResource PointResizeHandleStyle}"
+                       DragCompleted="OnAnnotation_DragCompleted"
                        DragDelta="OnBottomRightResize_DragDelta" Cursor="SizeNWSE"/>
 
             </Canvas>
@@ -521,6 +530,7 @@
                                         <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
                                             PreviewKeyDown="TextInput_PreviewKeyDown"
                                             LostFocus="TextInput_LostFocus"
+                                            TextChanged="TextBox_TextChanged"
                                             AcceptsReturn="True" 
                                             TextWrapping="Wrap" 
                                             FontSize="14" 

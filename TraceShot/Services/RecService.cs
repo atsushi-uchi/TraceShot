@@ -104,7 +104,7 @@ namespace TraceShot.Services
         }
 
 
-        public (string? Path, BitmapSource? Bitmap)? SaveImage(Bookmark bm, VideoSnapshotInfo? info, double scale = 0.5)
+        public (string? Path, BitmapSource? Bitmap)? SaveImage(Bookmark bm, VideoSnapshotInfo? info, double scale = 0.5, bool saveToFile = true)
         {
             if (string.IsNullOrEmpty(CurrentFolder) || info is null) return null;
 
@@ -243,13 +243,15 @@ namespace TraceShot.Services
             string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
             string filePath = Path.Combine(screenshotFolder, fileName);
 
-            using (FileStream fs = new FileStream(filePath, FileMode.Create))
+            if (saveToFile)
             {
-                PngBitmapEncoder encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(bmp));
-                encoder.Save(fs);
+                using (FileStream fs = new FileStream(filePath, FileMode.Create))
+                {
+                    PngBitmapEncoder encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bmp));
+                    encoder.Save(fs);
+                }
             }
-
             return (filePath, bmp);
         }
 

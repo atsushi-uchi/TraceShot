@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Diagnostics;
 using System.Text.Json.Serialization;
 using System.Windows.Input;
 using Point = System.Windows.Point;
@@ -28,10 +29,6 @@ namespace TraceShot.Controls
             });
         }
 
-
-        private async Task RequestOcr()
-        {
-        }
 
         public override void OnStart(Point pos, Size size)
         {

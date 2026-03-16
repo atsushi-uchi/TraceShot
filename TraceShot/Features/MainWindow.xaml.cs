@@ -354,11 +354,18 @@ namespace TraceShot.Features
                 }
             }
         }
-
+        ExportCacheManager _cacheManager = new();
         private void OpenExport_Click(object sender, RoutedEventArgs e)
         {
+            // 1. その瞬間のスナップショット情報を生成
+            var info = new VideoSnapshotInfo(VideoPlayer);
+
+            // 2. キャッシュマネージャーからアイテムを取得（差分更新）
+            // this.CurrentCropRect は Main で管理している Rect
+            var items = _cacheManager.GetOrUpdateCache(info);
+
             // エクスポート画面を表示
-            var exportWin = new ExportWindow();
+            var exportWin = new ExportWindow(items);
             exportWin.Owner = this; // 親ウィンドウをセットして中央に表示
             exportWin.ShowDialog();
         }
@@ -459,8 +466,12 @@ namespace TraceShot.Features
 
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
-            _annotationManager.CompleteDrawing(bookmark);
+            if (BookmarkListBox.SelectedItem is Bookmark bookmark)
+            {
+                _annotationManager.CompleteDrawing(bookmark);
+
+                bookmark.IsDirty = true;
+            }
 
             ((IInputElement)sender).ReleaseMouseCapture();
         }
@@ -477,9 +488,14 @@ namespace TraceShot.Features
                     Width = VideoPlayer.ActualWidth,
                     Height = VideoPlayer.ActualHeight,
                 };
-                var tag = thumb.Tag.ToString() ?? "";
+                var tag = thumb.Tag?.ToString() ?? "";
 
                 _annotationManager.CompleteDrawing(annotation, currentPos, actualPos, tag);
+
+                if (BookmarkListBox.SelectedItem is Bookmark bookmark)
+                {
+                    bookmark.IsDirty = true;
+                }
             }
         }
 
@@ -757,22 +773,7 @@ namespace TraceShot.Features
                 _annotationManager.Remove(bookmark, annotation);
             }
         }
-        //private void UpdateCropOverlayVisibility()
-        //{
-        //    var rec = RecService.Instance.Evidence.IsCropEnabled;
-        //    var existingCrop = _annotationManager.Annotations.OfType<CropAnnotation>().FirstOrDefault();
 
-        //    // 条件：クロップ機能が有効 かつ クロップ注釈が存在し かつ まだ確定していない
-        //    if (RecService.Instance.Evidence.IsCropEnabled && existingCrop != null &&
-        //        RecService.Instance.Evidence.CropState == CropState.Editing)
-        //    {
-        //        CropModeOverlay.Visibility = Visibility.Visible;
-        //    }
-        //    else
-        //    {
-        //        CropModeOverlay.Visibility = Visibility.Collapsed;
-        //    }
-        //}
         private void OnConfirmCrop_Click(object sender, RoutedEventArgs e)
         {
             var existingCrop = _annotationManager.Annotations.OfType<CropAnnotation>().FirstOrDefault();
@@ -803,7 +804,6 @@ namespace TraceShot.Features
             _annotationManager.RefreshCropOverlay();
         }
 
-
         private void CropEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             RecService.Instance.Evidence.CropState = CropState.Confirmed;
@@ -811,188 +811,6 @@ namespace TraceShot.Features
             _annotationManager.RefreshCropOverlay();
         }
 
-        // 重複していたガイド線更新を共通化するとスッキリします
-        private void UpdateDragLine(Point currentPoint, Brush brush)
-        {
-            /*
-            if (_dragLine == null)
-            {
-                _dragLine = new Line
-                {
-                    Stroke = brush,
-                    StrokeThickness = 1,
-                    StrokeDashArray = new DoubleCollection { 4, 2 },
-                    IsHitTestVisible = false
-                };
-                DrawingCanvas.Children.Add(_dragLine);
-            }
-            _dragLine.X1 = _startPoint.X;
-            _dragLine.Y1 = _startPoint.Y;
-            _dragLine.X2 = currentPoint.X;
-            _dragLine.Y2 = currentPoint.Y;
-
-            var dragStartDot = new Ellipse
-            {
-                // 新規ドラッグ中なのでハイライト用の設定を適用
-                Width = 6,
-                Height = 6,
-                Fill = _setting.OverBrush, // ドラッグ中用の色
-                IsHitTestVisible = false
-            };
-            DrawingCanvas.Children.Add(dragStartDot);
-
-            // ドットの中心が _startPoint に来るように配置
-            Canvas.SetLeft(dragStartDot, _startPoint.X - (dragStartDot.Width / 2));
-            Canvas.SetTop(dragStartDot, _startPoint.Y - (dragStartDot.Height / 2));
-            */
-        }
-
-        private void ShowBalloonInput(Models.BalloonNote? targetNote = null)
-        {
-            /*
-            // 設定から色を取得
-            //var mainBrush = new SolidColorBrush(_setting.MainTextColor);
-
-            double targetX, targetY;
-
-            // --- 💡 座標計算ロジックの共通化 ---
-            double containerW = DrawingCanvas.ActualWidth;
-            double containerH = DrawingCanvas.ActualHeight;
-
-            if (VideoPlayer.NaturalVideoWidth == 0 || containerW == 0) return;
-
-            double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
-            double dispW = VideoPlayer.NaturalVideoWidth * ratio;
-            double dispH = VideoPlayer.NaturalVideoHeight * ratio;
-            double offsetX = (containerW - dispW) / 2.0;
-            double offsetY = (containerH - dispH) / 2.0;
-
-            if (targetNote != null)
-            {
-                // 再編集モード：保存されている正規化座標を表示座標に変換
-                targetX = (targetNote.TextPoint.X * dispW) + offsetX;
-                targetY = (targetNote.TextPoint.Y * dispH) + offsetY;
-
-                var dragStartDot = new Ellipse
-                {
-                    // 新規ドラッグ中なのでハイライト用の設定を適用
-                    Width = 6,
-                    Height = 6,
-                    Fill = _setting.MainBrush, // ドラッグ中用の色
-                    IsHitTestVisible = false
-                };
-                DrawingCanvas.Children.Add(dragStartDot);
-
-                // 保存されている比率座標に表示サイズを掛けて「ピクセル座標」に復元する
-                double startX = (targetNote.TargetPoint.X * dispW) + offsetX;
-                double startY = (targetNote.TargetPoint.Y * dispH) + offsetY;
-
-                // 配置（ドットの中心を始点に合わせる）
-                Canvas.SetLeft(dragStartDot, startX - (dragStartDot.Width / 2));
-                Canvas.SetTop(dragStartDot, startY - (dragStartDot.Height / 2));
-            }
-            else
-            {
-                // 新規作成モード：マウスを離した座標を使用
-                targetX = _endPoint.X;
-                targetY = _endPoint.Y;
-
-                // 💡 始点（_startPoint）を正規化して Tag に保存する
-                double normStartX = (_startPoint.X - offsetX) / dispW;
-                double normStartY = (_startPoint.Y - offsetY) / dispH;
-            }
-
-            // 💡 1. パネルを表示し、位置をセット
-            BalloonInputComposite.Visibility = Visibility.Visible;
-            Canvas.SetLeft(BalloonInputComposite, targetX);
-            Canvas.SetTop(BalloonInputComposite, targetY);
-
-            // 💡 2. テキストの初期化とフォーカス
-            BalloonTextInput.Text = targetNote?.Text ?? "";
-            BalloonTextInput.Tag = targetNote;
-            BalloonTextInput.Focus();
-            */
-        }
-
-        // 確定処理（XAMLのTextBoxを参照するように変更）
-        private void FinalizeBalloonInput()
-        {
-            /*
-            if (!BalloonInputComposite.IsVisible) return;
-
-            var targetNote = BalloonTextInput.Tag as Models.BalloonNote;
-            string newText = BalloonTextInput.Text;
-
-            if (targetNote != null)
-            {
-                targetNote.Text = newText;
-                RefreshDrawingCanvas();
-            }
-            else
-            {
-                ConfirmBalloon(_startPoint, _endPoint, newText);
-            }
-            BalloonInputComposite.Visibility = Visibility.Collapsed;
-            CleanupDragLine();
-            */
-        }
-
-        private void CancelBalloonInput()
-        {
-            /*
-            if (BalloonInputComposite.Visibility != Visibility.Visible) return;
-
-            BalloonInputComposite.Visibility = Visibility.Collapsed;
-            CleanupDragLine();
-
-            RefreshDrawingCanvas();
-            */
-        }
-
-        private async void BalloonMicButton_Click(object sender, RoutedEventArgs e)
-        {
-
-            FinalizeBalloonInput();
-        }
-
-        private void CleanupDragLine()
-        {
-            /*
-            if (_dragLine != null)
-            {
-                DrawingCanvas.Children.Remove(_dragLine);
-                _dragLine = null;
-            }
-            */
-        }
-
-        private void ConfirmBalloon(Point start, Point end, string text)
-        {
-            /*
-            var selected = BookmarkListBox.SelectedItem as Bookmark;
-
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                double containerW = DrawingCanvas.ActualWidth;
-                double containerH = DrawingCanvas.ActualHeight;
-                double ratio = Math.Min(containerW / VideoPlayer.NaturalVideoWidth, containerH / VideoPlayer.NaturalVideoHeight);
-                double dispW = VideoPlayer.NaturalVideoWidth * ratio;
-                double dispH = VideoPlayer.NaturalVideoHeight * ratio;
-                double offsetX = (containerW - dispW) / 2.0;
-                double offsetY = (containerH - dispH) / 2.0;
-
-                var note = new Models.BalloonNote
-                {
-                    TargetPoint = new WpfPoint((start.X - offsetX) / dispW, (start.Y - offsetY) / dispH),
-                    TextPoint = new WpfPoint((end.X - offsetX) / dispW, (end.Y - offsetY) / dispH),
-                    Text = text
-                };
-                selected?.Balloons.Add(note);
-            }
-            CleanupDragLine();
-            RefreshDrawingCanvas();
-            */
-        }
 
         private void DeleteBookmarkButton_Click(object? sender, RoutedEventArgs? e)
         {
@@ -1879,6 +1697,14 @@ namespace TraceShot.Features
                 // 実際のサイズを ViewModel のプロパティにセット
                 note.ActualTextWidth = e.NewSize.Width;
                 note.ActualTextHeight = e.NewSize.Height;
+            }
+        }
+
+        private void TextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (BookmarkListBox.SelectedItem is Bookmark bookmark)
+            {
+                bookmark.IsDirty = true;
             }
         }
     }

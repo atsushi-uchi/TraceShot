@@ -54,7 +54,6 @@ namespace TraceShot.Controls
 
         public override bool OnComplete(Point pos, Size size, string tag)
         {
-            Debug.WriteLine($"OnComplete AW={ActualTextWidth} AH={ActualTextHeight} X={pos.X} Y={pos.Y} W={size.Width} H={size.Height}");
             if (tag == "Start")
             {
                 StartX = pos.X;

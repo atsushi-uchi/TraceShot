@@ -30,26 +30,34 @@ namespace TraceShot.Features
     public partial class ExportWindow : Window
     {
         // クラスのメンバとしてリストを保持
-        private ObservableCollection<ExportItemViewModel> _exportItems = [];
+        public ObservableCollection<ExportItemViewModel> ExportItems { get; set; } = [];
 
         private bool _isPreviewMode = false;
 
         private int _currentIdx = 0;
 
-        public ExportWindow()
+        public ExportWindow(List<ExportItemViewModel> cachedItems)
         {
             InitializeComponent();
+
+            // 1. 受け取ったキャッシュリストを ObservableCollection に変換
+            // これにより、この画面内での並び替えなどが可能になります
+            ExportItems = new ObservableCollection<ExportItemViewModel>(cachedItems);
+
+            // 2. DataContext にセット（XAML側で {Binding ExportItems} できるようにする）
+            this.DataContext = this;
+
             OutputPathBox.Text = Properties.Settings.Default.SavePath;
 
-            // 💡 画面が開いた時に、現在の動画の見た目をプレビューにセット
-            this.Loaded += (s, e) => {
-                var main = Owner as MainWindow;
-                if (main != null)
-                {
-                    // 現在の表示内容をキャプチャしてプレビューに表示するロジック（RenderTargetBitmap等）
-                    // または、最新のブックマーク画像を一時的に表示
-                }
-            };
+            //// 💡 画面が開いた時に、現在の動画の見た目をプレビューにセット
+            //this.Loaded += (s, e) => {
+            //    var main = Owner as MainWindow;
+            //    if (main != null)
+            //    {
+            //        // 現在の表示内容をキャプチャしてプレビューに表示するロジック（RenderTargetBitmap等）
+            //        // または、最新のブックマーク画像を一時的に表示
+            //    }
+            //};
         }
 
 
@@ -482,8 +490,8 @@ namespace TraceShot.Features
 
         private async void StartCapture_Click(object sender, RoutedEventArgs e)
         {
-            _exportItems.Clear();
-            ExportPreviewList.ItemsSource = _exportItems;
+            ExportItems.Clear();
+            ExportPreviewList.ItemsSource = ExportItems;
 
             //var marks = RecService.Instance.Bookmarks;
             var main = Owner as MainWindow;
@@ -505,7 +513,7 @@ namespace TraceShot.Features
                     // 3. ViewModelを作成してリストに追加
                     // UIスレッドで実行する必要があるため、Dispatcher経由で行う
                     this.Dispatcher.Invoke(() => {
-                        _exportItems.Add(new ExportItemViewModel
+                        ExportItems.Add(new ExportItemViewModel
                         {
                             OriginalBookmark = bm,
                             SnapshotImage = result?.Bitmap,
@@ -521,19 +529,19 @@ namespace TraceShot.Features
                 // 全撮影終了後のメッセージ
                 StatusText.Text = "撮影完了。出力する画像を選択・確認してください。";
                 OutputGroupBox.IsEnabled = true;
-                EmptyGuideText.Visibility = Visibility.Collapsed;
+                //EmptyGuideText.Visibility = Visibility.Collapsed;
             });
 
             this.Dispatcher.Invoke(() =>
             {
                 // _exportItems を時系列（Time）で並べ替えたリストを作成
-                var sortedList = _exportItems.OrderBy(x => x.Time).ToList();
+                var sortedList = ExportItems.OrderBy(x => x.Time).ToList();
 
                 // 元の ObservableCollection をクリアして、正しい順序で再登録
-                _exportItems.Clear();
+                ExportItems.Clear();
                 foreach (var item in sortedList)
                 {
-                    _exportItems.Add(item);
+                    ExportItems.Add(item);
                 }
 
                 // ガイド表示を更新
@@ -543,7 +551,7 @@ namespace TraceShot.Features
 
         private List<ExportItemViewModel> GetTargetItems()
         {
-            return _exportItems.Where(x => x.IsSelected).ToList();
+            return ExportItems.Where(x => x.IsSelected).ToList();
         }
 
         private void Item_MouseMove(object sender, MouseEventArgs e)
