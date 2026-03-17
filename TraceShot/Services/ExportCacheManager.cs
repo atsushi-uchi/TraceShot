@@ -6,6 +6,8 @@ namespace TraceShot.Services
     {
         private readonly Dictionary<Guid, BitmapSource> _imageStore = [];
 
+        private readonly Dictionary<Guid, int> _itemOrders = [];
+
         private readonly HashSet<Guid> _excludedIds = [];
         public double LastScale { get; private set; }  = 0;
 
@@ -45,6 +47,21 @@ namespace TraceShot.Services
                 // チェックを外したなら、除外リストに入れる
                 _excludedIds.Add(id);
             }
+        }
+
+        public void UpdateOrders(IEnumerable<Guid> ids)
+        {
+            _itemOrders.Clear();
+            int index = 0;
+            foreach (var id in ids)
+            {
+                _itemOrders[id] = index++;
+            }
+        }
+
+        public int GetOrder(Guid id)
+        {
+            return _itemOrders.TryGetValue(id, out var order) ? order : int.MaxValue;
         }
 
         public bool IsPreviouslySelected(Guid id)

@@ -6,8 +6,8 @@ namespace TraceShot.Features
     using Microsoft.Win32;
     using PuppeteerSharp;
     using PuppeteerSharp.Media;
-    using System.Collections;
     using System.Collections.ObjectModel;
+    using System.Collections.Specialized;
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
@@ -24,13 +24,9 @@ namespace TraceShot.Features
     using MessageBox = System.Windows.MessageBox;
     using Path = System.IO.Path;
 
-    /// <summary>
-    /// ExportWindow.xaml の相互作用ロジック
-    /// </summary>
     public partial class ExportWindow : Window
     {
         public ObservableCollection<ExportItemViewModel> ExportItems { get; set; } = [];
-        private double _lastScale = 0;
         private bool _isPreviewMode = false;
         private int _currentIdx = 0;
 
@@ -45,16 +41,36 @@ namespace TraceShot.Features
             SetScaleComboBoxValue(initialScale);
 
             var list = RecService.Instance.Bookmarks
-                .OrderBy(b => b.Time)
                 .Select(b => {
                     var cachedImage = _cacheManager.GetCachedImage(b.Id, initialScale);
-                    return new ExportItemViewModel(b, cachedImage, _cacheManager);
-                });
+                    return new ExportItemViewModel(b, cachedImage, _cacheManager)
+                    {
+                        IsSelected = b.IsExportEnabled,
+                        Order = b.ExportOrder,
+                    };
+                })
+                .OrderBy(vm => vm.Order)
+                .ThenBy(vm => vm.Time);
 
             ExportItems = new ObservableCollection<ExportItemViewModel>(list);
+            ExportItems.CollectionChanged += (s, e) =>
+            {
+                if (e.Action == NotifyCollectionChangedAction.Move ||
+                    e.Action == NotifyCollectionChangedAction.Add ||
+                    e.Action == NotifyCollectionChangedAction.Remove)
+                {
+                    // 1. 全アイテムの現在の並び順を Bookmark に反映
+                    for (int i = 0; i < ExportItems.Count; i++)
+                    {
+                        ExportItems[i].OriginalBookmark.ExportOrder = i;
+                    }
+
+                    // 2. JSONを上書き保存
+                    RecService.Instance.SaveEvidenceJson();
+                }
+            };
             bool hasImages = ExportItems.Any(item => item.SnapshotImage != null);
 
-            // ガイドの表示も連動させる（DataTriggerで行わない場合）
             EmptyGuideText.Visibility = hasImages ? Visibility.Collapsed : Visibility.Visible;
             ExportPreviewList.Visibility = !hasImages ? Visibility.Collapsed : Visibility.Visible;
 
@@ -578,55 +594,16 @@ namespace TraceShot.Features
             }
         }
 
-        private void Item_DragOver(object sender, DragEventArgs e)
+        private void SaveCurrentOrder()
         {
-            // 「TiledImage」というデータを持っている場合のみ、ドロップを許可する
-            if (e.Data.GetDataPresent("TiledImage"))
-            {
-                e.Effects = DragDropEffects.Move;
-                e.Handled = true;
-            }
-            else
-            {
-                e.Effects = DragDropEffects.None;
-            }
+            if (ExportItems == null) return;
+
+            // 現在画面に並んでいる順番で ID のリストを作成
+            var ids = ExportItems.Select(vm => vm.OriginalBookmark.Id);
+
+            // マネージャーに保存
+            _cacheManager.UpdateOrders(ids);
         }
-
-        private void Item_Drop(object sender, DragEventArgs e)
-        {
-            if (e.Data.GetDataPresent("TiledImage") && sender is Border targetBorder)
-            {
-                var draggedData = e.Data.GetData("TiledImage"); // 掴んでいたデータ
-                var targetData = targetBorder.DataContext;    // 重なった（離した）場所のデータ
-
-                if (draggedData != null && targetData != null && draggedData != targetData)
-                {
-                    // ここでリストを入れ替える
-                    // 例: ObservableCollection から古い位置を消して新しい位置に入れる
-                    ReorderItems(draggedData, targetData);
-                }
-            }
-        }
-
-        private void ReorderItems(object draggedData, object targetData)
-        {
-            // ViewModel側のリスト（ObservableCollection）にアクセス
-            var list = ExportPreviewList.ItemsSource as IList;
-            if (list == null) return;
-
-            int oldIndex = list.IndexOf(draggedData);
-            int newIndex = list.IndexOf(targetData);
-
-            if (oldIndex != -1 && newIndex != -1)
-            {
-                // 簡易的な入れ替えロジック
-                // ObservableCollection<T> なら Move(oldIndex, newIndex) が使えます
-                // もし単なる List なら削除と挿入が必要です
-                dynamic observableList = list;
-                observableList.Move(oldIndex, newIndex);
-            }
-        }
-
 
         private void Thumbnail_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {

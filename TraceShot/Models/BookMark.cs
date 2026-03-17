@@ -13,6 +13,12 @@ namespace TraceShot.Models
         public string Name { get; set; }
         public void MarkAsDirty() => IsDirty = true;
 
+        // エクスポート対象かどうか
+        public bool IsExportEnabled { get; set; } = true;
+
+        // エクスポート時の並び順
+        public int ExportOrder { get; set; } = 0;
+
         [ObservableProperty] private TimeSpan _time;
         [ObservableProperty] private string? _icon;
         [ObservableProperty] private string? _note;

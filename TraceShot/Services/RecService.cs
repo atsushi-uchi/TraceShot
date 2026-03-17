@@ -12,7 +12,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using TraceShot.Controls;
 using TraceShot.Models;
-using Windows.Media.Playback;
 using Brushes = System.Windows.Media.Brushes;
 using Pen = System.Windows.Media.Pen;
 using Point = System.Windows.Point;

@@ -20,7 +20,8 @@
         partial void OnIsSelectedChanged(bool value)
         {
             // チェックが変わるたびにマネージャーに記録
-            _cacheManager?.UpdateSelection(OriginalBookmark.Id, value);
+            OriginalBookmark.IsExportEnabled = value;
+            RecService.Instance.SaveEvidenceJson();
         }
 
         public string EditableNote
