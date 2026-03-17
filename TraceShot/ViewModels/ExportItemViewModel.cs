@@ -3,9 +3,26 @@
     using CommunityToolkit.Mvvm.ComponentModel;
     using System.Windows.Media.Imaging;
     using TraceShot.Models;
+    using TraceShot.Services;
 
     public partial class ExportItemViewModel : ObservableObject
     {
+        private readonly ExportCacheManager _cacheManager;
+        public ExportItemViewModel(Bookmark bookmark, BitmapSource? image, ExportCacheManager cacheManager)
+        {
+            OriginalBookmark = bookmark;
+            SnapshotImage = image;
+            _cacheManager = cacheManager;
+
+            _isSelected = _cacheManager.IsPreviouslySelected(bookmark.Id);
+        }
+
+        partial void OnIsSelectedChanged(bool value)
+        {
+            // チェックが変わるたびにマネージャーに記録
+            _cacheManager?.UpdateSelection(OriginalBookmark.Id, value);
+        }
+
         public string EditableNote
         {
             get => OriginalBookmark.Note;
@@ -14,20 +31,12 @@
                 if (OriginalBookmark.Note != value)
                 {
                     OriginalBookmark.Note = value;
-                    OriginalBookmark.IsDirty = true; // 編集されたら再出力フラグを立てる
+                    OriginalBookmark.IsDirty = true;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(Note));
                 }
             }
         }
-
-        public ExportItemViewModel(Bookmark bookmark, BitmapSource? image)
-        {
-            OriginalBookmark = bookmark;
-            SnapshotImage = image;
-        }
-
-        // デザイン時や、空のアイテムが必要な場合用のデフォルトコンストラクタ
-        public ExportItemViewModel() { }
 
         // 参照用
         public Bookmark OriginalBookmark { get; set; }
@@ -53,5 +62,6 @@
         public TimeSpan Time => OriginalBookmark.Time;
 
         public string Note => OriginalBookmark.Note ?? "";
+        public ExportItemViewModel() { }
     }
 }

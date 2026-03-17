@@ -3,7 +3,6 @@ namespace TraceShot.Features
 {
     using ClosedXML.Excel;
     using ClosedXML.Excel.Drawings;
-    using DocumentFormat.OpenXml.Spreadsheet;
     using Microsoft.Win32;
     using PuppeteerSharp;
     using PuppeteerSharp.Media;
@@ -30,9 +29,8 @@ namespace TraceShot.Features
     public partial class ExportWindow : Window
     {
         public ObservableCollection<ExportItemViewModel> ExportItems { get; set; } = [];
-
+        private double _lastScale = 0;
         private bool _isPreviewMode = false;
-
         private int _currentIdx = 0;
 
         private readonly ExportCacheManager _cacheManager;
@@ -42,11 +40,15 @@ namespace TraceShot.Features
             InitializeComponent();
             _cacheManager = cacheManager;
 
-            var bookmarks = RecService.Instance.Bookmarks.OrderBy(b => b.Time);
-            var list = bookmarks.Select(b => {
-                var cachedImage = _cacheManager.GetCachedImage(b.Id);
-                return new ExportItemViewModel(b, cachedImage);
-            });
+            double initialScale = _cacheManager.LastScale > 0 ? _cacheManager.LastScale : 0.5;
+            SetScaleComboBoxValue(initialScale);
+
+            var list = RecService.Instance.Bookmarks
+                .OrderBy(b => b.Time)
+                .Select(b => {
+                    var cachedImage = _cacheManager.GetCachedImage(b.Id, initialScale);
+                    return new ExportItemViewModel(b, cachedImage, _cacheManager);
+                });
 
             ExportItems = new ObservableCollection<ExportItemViewModel>(list);
             bool hasImages = ExportItems.Any(item => item.SnapshotImage != null);
@@ -60,22 +62,35 @@ namespace TraceShot.Features
             OutputPathBox.Text = Properties.Settings.Default.SavePath;
         }
 
-        private ExportItemViewModel CreateViewModel(Bookmark b)
+        private void SetScaleComboBoxValue(double scale)
         {
-            // 倉庫に画像があるか確認
-            var cached = _cacheManager.GetCachedImage(b.Id);
+            foreach (var item in ExportScaleComboBox.Items.OfType<ComboBoxItem>())
+            {
+                if (double.TryParse(item.Tag?.ToString(), out double val))
+                {
+                    if (Math.Abs(val - scale) < 0.001)
+                    {
+                        ExportScaleComboBox.SelectedItem = item;
+                        return;
+                    }
+                }
+            }
+            ExportScaleComboBox.SelectedIndex = 0; // デフォルト
+        }
 
-            var vm = new ExportItemViewModel(b, cached);
-
-            // 画像がない場合、このタイミングで1枚だけ非同期で生成しにいく、
-            // あるいは「実行」ボタンを押すまで待機する
-            return vm;
+        private void CheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is CheckBox cb && cb.DataContext is ExportItemViewModel vm)
+            {
+                // 操作された瞬間にマネージャーに覚えさせる
+                _cacheManager.UpdateSelection(vm.OriginalBookmark.Id, vm.IsSelected);
+            }
         }
 
         private async Task RunExportTask(Func<IProgress<int>, Task> exportAction)
         {
-            EmptyGuideText.Visibility = Visibility.Collapsed;
             ExportPreviewList.Visibility = Visibility.Collapsed;
+            EmptyGuideText.Visibility = Visibility.Collapsed;
             LoadingOverlay.Visibility = Visibility.Visible;
             ExportProgressBar.Value = 0;
 
@@ -514,11 +529,10 @@ namespace TraceShot.Features
                 {
                     foreach (var item in items)
                     {
-                        var cached = _cacheManager.GetCachedImage(item.OriginalBookmark.Id);
+                        var cached = _cacheManager.GetCachedImage(item.OriginalBookmark.Id, scale);
 
                         if (cached != null && !item.OriginalBookmark.IsDirty)
                         {
-                            // キャッシュを画面に反映（一瞬で終わる）
                             item.SnapshotImage = cached;
                         }
                         else
@@ -529,7 +543,7 @@ namespace TraceShot.Features
                             var result = RecService.Instance.SaveImage(item.OriginalBookmark, snapshot, scale);
                             if (result != null && result.Value.Bitmap != null)
                             {
-                                _cacheManager.RegisterCache(item.OriginalBookmark.Id, result.Value.Bitmap);
+                                _cacheManager.RegisterCache(item.OriginalBookmark.Id, result.Value.Bitmap, scale);
                                 item.SnapshotImage = result.Value.Bitmap;
                                 item.OriginalBookmark.IsDirty = false;
                             }

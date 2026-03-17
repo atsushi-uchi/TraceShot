@@ -1,8 +1,4 @@
-﻿using System.IO;
-using System.Windows;
-using System.Windows.Media.Imaging;
-using TraceShot.Models;
-using TraceShot.ViewModels;
+﻿using System.Windows.Media.Imaging;
 
 namespace TraceShot.Services
 {
@@ -10,23 +6,54 @@ namespace TraceShot.Services
     {
         private readonly Dictionary<Guid, BitmapSource> _imageStore = [];
 
-        public void RegisterCache(Guid id, BitmapSource bitmap)
+        private readonly HashSet<Guid> _excludedIds = [];
+        public double LastScale { get; private set; }  = 0;
+
+        public void RegisterCache(Guid id, BitmapSource bitmap, double currentScale)
         {
+            if (Math.Abs(LastScale - currentScale) > 0.001)
+            {
+                _imageStore.Clear();
+                LastScale = currentScale;
+            }
+
             if (bitmap != null)
             {
-                // 既に freeze されていない場合は、スレッド間共有のために freeze する
                 if (!bitmap.IsFrozen) bitmap.Freeze();
                 _imageStore[id] = bitmap;
             }
         }
 
-        // キャッシュがあれば返す、なければ null
-        public BitmapSource? GetCachedImage(Guid id)
+        public BitmapSource? GetCachedImage(Guid id, double currentScale)
         {
+            if (Math.Abs(LastScale - currentScale) > 0.001)
+            {
+                return null;
+            }
             return _imageStore.TryGetValue(id, out var bitmap) ? bitmap : null;
         }
 
-        // クロップ範囲が変わったら倉庫を空にする（RecServiceから呼ばれる想定）
+        public void UpdateSelection(Guid id, bool isSelected)
+        {
+            if (isSelected)
+            {
+                // チェックを入れたなら、除外リストから消す
+                _excludedIds.Remove(id);
+            }
+            else
+            {
+                // チェックを外したなら、除外リストに入れる
+                _excludedIds.Add(id);
+            }
+        }
+
+        public bool IsPreviouslySelected(Guid id)
+        {
+            return !_excludedIds.Contains(id);
+        }
+
+        public bool HasSelectionHistory => _excludedIds.Count > 0;
+
         public void ClearAll() => _imageStore.Clear();
     }
 }

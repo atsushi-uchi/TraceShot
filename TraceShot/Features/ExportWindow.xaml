@@ -68,7 +68,8 @@
                                                     Visibility="{Binding OriginalBookmark.IsDirty, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                 <TextBlock Text="要更新" Foreground="White" FontSize="10" FontWeight="Bold"/>
                                             </Border>
-                                            <CheckBox IsChecked="{Binding IsSelected}" Margin="5" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                                            <CheckBox IsChecked="{Binding IsSelected}" Click="CheckBox_Click"
+                                                      Margin="5" HorizontalAlignment="Left" VerticalAlignment="Top" />
                                         </Grid>
                                         <TextBlock Text="{Binding OriginalBookmark.Time, StringFormat='{}{0:mm\\:ss}'}" 
                                             Foreground="White" HorizontalAlignment="Center" Margin="2"/>
