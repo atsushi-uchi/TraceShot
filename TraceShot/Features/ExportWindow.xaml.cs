@@ -29,40 +29,53 @@ namespace TraceShot.Features
     /// </summary>
     public partial class ExportWindow : Window
     {
-        // クラスのメンバとしてリストを保持
         public ObservableCollection<ExportItemViewModel> ExportItems { get; set; } = [];
 
         private bool _isPreviewMode = false;
 
         private int _currentIdx = 0;
 
-        public ExportWindow(List<ExportItemViewModel> cachedItems)
+        private readonly ExportCacheManager _cacheManager;
+
+        public ExportWindow(ExportCacheManager cacheManager)
         {
             InitializeComponent();
+            _cacheManager = cacheManager;
 
-            // 1. 受け取ったキャッシュリストを ObservableCollection に変換
-            // これにより、この画面内での並び替えなどが可能になります
-            ExportItems = new ObservableCollection<ExportItemViewModel>(cachedItems);
+            var bookmarks = RecService.Instance.Bookmarks.OrderBy(b => b.Time);
+            var list = bookmarks.Select(b => {
+                var cachedImage = _cacheManager.GetCachedImage(b.Id);
+                return new ExportItemViewModel(b, cachedImage);
+            });
 
-            // 2. DataContext にセット（XAML側で {Binding ExportItems} できるようにする）
-            this.DataContext = this;
+            ExportItems = new ObservableCollection<ExportItemViewModel>(list);
+            bool hasImages = ExportItems.Any(item => item.SnapshotImage != null);
+
+            // ガイドの表示も連動させる（DataTriggerで行わない場合）
+            EmptyGuideText.Visibility = hasImages ? Visibility.Collapsed : Visibility.Visible;
+            ExportPreviewList.Visibility = !hasImages ? Visibility.Collapsed : Visibility.Visible;
+
+            DataContext = this;
 
             OutputPathBox.Text = Properties.Settings.Default.SavePath;
-
-            //// 💡 画面が開いた時に、現在の動画の見た目をプレビューにセット
-            //this.Loaded += (s, e) => {
-            //    var main = Owner as MainWindow;
-            //    if (main != null)
-            //    {
-            //        // 現在の表示内容をキャプチャしてプレビューに表示するロジック（RenderTargetBitmap等）
-            //        // または、最新のブックマーク画像を一時的に表示
-            //    }
-            //};
         }
 
+        private ExportItemViewModel CreateViewModel(Bookmark b)
+        {
+            // 倉庫に画像があるか確認
+            var cached = _cacheManager.GetCachedImage(b.Id);
+
+            var vm = new ExportItemViewModel(b, cached);
+
+            // 画像がない場合、このタイミングで1枚だけ非同期で生成しにいく、
+            // あるいは「実行」ボタンを押すまで待機する
+            return vm;
+        }
 
         private async Task RunExportTask(Func<IProgress<int>, Task> exportAction)
         {
+            EmptyGuideText.Visibility = Visibility.Collapsed;
+            ExportPreviewList.Visibility = Visibility.Collapsed;
             LoadingOverlay.Visibility = Visibility.Visible;
             ExportProgressBar.Value = 0;
 
@@ -87,6 +100,8 @@ namespace TraceShot.Features
                 ExportProgressBar.Value = 0;
                 StatusText.Text = "準備完了";
                 LoadingOverlay.Visibility = Visibility.Collapsed;
+                ExportPreviewList.Visibility = Visibility.Visible;
+
             }
         }
 
@@ -490,63 +505,41 @@ namespace TraceShot.Features
 
         private async void StartCapture_Click(object sender, RoutedEventArgs e)
         {
-            ExportItems.Clear();
-            ExportPreviewList.ItemsSource = ExportItems;
-
-            //var marks = RecService.Instance.Bookmarks;
-            var main = Owner as MainWindow;
-            var scale = GetSelectedScale();
-            int index = 0;
-            await RunExportTask(async (progress) =>
+            if(Owner is MainWindow main)
             {
-                //for (int i = 0; i < RecService.Instance.Bookmarks.Count; i++)
-                foreach(var bm in RecService.Instance.Bookmarks)
+                var scale = GetSelectedScale();
+                var items = ExportItems.Where(x => x.IsSelected);
+                int index = 0;
+                await RunExportTask(async (progress) =>
                 {
-                    // 1. 指定時間に移動
-                    main.VideoPlayer.Position = bm.Time;
-                    await Task.Delay(500); // 描画待ち
+                    foreach (var item in items)
+                    {
+                        var cached = _cacheManager.GetCachedImage(item.OriginalBookmark.Id);
 
-                    // 2. キャプチャ実行
-                    var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
-                    var result = RecService.Instance.SaveImage(bm, snapshot, scale);
-
-                    // 3. ViewModelを作成してリストに追加
-                    // UIスレッドで実行する必要があるため、Dispatcher経由で行う
-                    this.Dispatcher.Invoke(() => {
-                        ExportItems.Add(new ExportItemViewModel
+                        if (cached != null && !item.OriginalBookmark.IsDirty)
                         {
-                            OriginalBookmark = bm,
-                            SnapshotImage = result?.Bitmap,
-                            ImagePath = result?.Path,
-                            Order = index++,
-                            Scale = scale,
-                        });
-                    });
-
-                    progress.Report((index) * 100 / RecService.Instance.Bookmarks.Count);
-                }
-
-                // 全撮影終了後のメッセージ
+                            // キャッシュを画面に反映（一瞬で終わる）
+                            item.SnapshotImage = cached;
+                        }
+                        else
+                        {
+                            main.VideoPlayer.Position = item.OriginalBookmark.Time;
+                            await Task.Delay(500);
+                            var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
+                            var result = RecService.Instance.SaveImage(item.OriginalBookmark, snapshot, scale);
+                            if (result != null && result.Value.Bitmap != null)
+                            {
+                                _cacheManager.RegisterCache(item.OriginalBookmark.Id, result.Value.Bitmap);
+                                item.SnapshotImage = result.Value.Bitmap;
+                                item.OriginalBookmark.IsDirty = false;
+                            }
+                        }
+                        progress.Report((++index) * 100 / items.Count());
+                    }
+                });
                 StatusText.Text = "撮影完了。出力する画像を選択・確認してください。";
                 OutputGroupBox.IsEnabled = true;
-                //EmptyGuideText.Visibility = Visibility.Collapsed;
-            });
-
-            this.Dispatcher.Invoke(() =>
-            {
-                // _exportItems を時系列（Time）で並べ替えたリストを作成
-                var sortedList = ExportItems.OrderBy(x => x.Time).ToList();
-
-                // 元の ObservableCollection をクリアして、正しい順序で再登録
-                ExportItems.Clear();
-                foreach (var item in sortedList)
-                {
-                    ExportItems.Add(item);
-                }
-
-                // ガイド表示を更新
-                StatusText.Text = "撮影完了。並べ替えや選択が可能です。";
-            });
+            }
         }
 
         private List<ExportItemViewModel> GetTargetItems()

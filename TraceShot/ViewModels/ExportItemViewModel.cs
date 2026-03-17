@@ -1,10 +1,8 @@
 ﻿namespace TraceShot.ViewModels
 {
     using CommunityToolkit.Mvvm.ComponentModel;
-    using System.Windows;
     using System.Windows.Media.Imaging;
     using TraceShot.Models;
-    using TraceShot.Services;
 
     public partial class ExportItemViewModel : ObservableObject
     {
@@ -22,14 +20,10 @@
             }
         }
 
-        public ExportItemViewModel(Bookmark bookmark, BitmapSource image)
+        public ExportItemViewModel(Bookmark bookmark, BitmapSource? image)
         {
-            this.OriginalBookmark = bookmark;
-            this.SnapshotImage = image;
-
-            // Bookmark 側の情報を反映
-            // もし Note が変更されたら Bookmark 側も更新したい場合は、
-            // ここで双方向の工夫が必要になりますが、まずはシンプルに同期します。
+            OriginalBookmark = bookmark;
+            SnapshotImage = image;
         }
 
         // デザイン時や、空のアイテムが必要な場合用のデフォルトコンストラクタ

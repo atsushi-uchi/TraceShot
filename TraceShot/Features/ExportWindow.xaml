@@ -4,6 +4,9 @@
         xmlns:dd="clr-namespace:GongSolutions.Wpf.DragDrop;assembly=GongSolutions.Wpf.DragDrop"
         Title="エクスポート設定 - TraceShot" Height="600" Width="1160"
         Background="#F3F3F3" WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <SolidColorBrush x:Key="NoImagePlaceholder" Color="#1A1A1A" />
+    </Window.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
@@ -27,11 +30,21 @@
                         
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Margin="5" Background="#3D3D3D" CornerRadius="4"
+                                <Border x:Name="ThumbnailBorder" Margin="5" Background="#3D3D3D" CornerRadius="4"
                                         MouseLeftButtonDown="Thumbnail_MouseLeftButtonDown">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding OriginalBookmark.IsDirty}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="#FFA500"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <StackPanel Width="240">
                                         <Grid>
-                                            <Image Source="{Binding SnapshotImage}" 
+                                            <Image Source="{Binding SnapshotImage, TargetNullValue={StaticResource NoImagePlaceholder}}" 
                                                    Width="240" 
                                                    Height="135" Stretch="UniformToFill" IsHitTestVisible="False">
                                                 <Image.Style>
@@ -46,7 +59,15 @@
                                                     </Style>
                                                 </Image.Style>
                                             </Image>
-
+                                            <Border Background="#CCFF0000" 
+                                                    HorizontalAlignment="Right" 
+                                                    VerticalAlignment="Top" 
+                                                    Padding="4,2" 
+                                                    Margin="5"
+                                                    CornerRadius="2"
+                                                    Visibility="{Binding OriginalBookmark.IsDirty, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <TextBlock Text="要更新" Foreground="White" FontSize="10" FontWeight="Bold"/>
+                                            </Border>
                                             <CheckBox IsChecked="{Binding IsSelected}" Margin="5" HorizontalAlignment="Left" VerticalAlignment="Top" />
                                         </Grid>
                                         <TextBlock Text="{Binding OriginalBookmark.Time, StringFormat='{}{0:mm\\:ss}'}" 
@@ -58,10 +79,16 @@
                     </ItemsControl>
                 </ScrollViewer>
 
-                <!--<TextBlock x:Name="EmptyGuideText" Text="右下の「撮影開始」を押すとキャプチャが始まります" 
-                           Foreground="#888" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>-->
+                <TextBlock x:Name="EmptyGuideText" 
+                           Text="右側の「撮影開始」を押すとキャプチャが始まります" 
+                           Foreground="#888" 
+                           FontSize="18" 
+                           HorizontalAlignment="Center" 
+                           VerticalAlignment="Center"
+                           Visibility="Collapsed"
+                           IsHitTestVisible="False"/>
 
-                <Grid x:Name="LoadingOverlay" Visibility="Collapsed" Background="#2D2D2D" Margin="5">
+                <Grid x:Name="LoadingOverlay" Visibility="Collapsed" Background="#2D2D2D" Margin="20">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <ProgressBar x:Name="ExportProgressBar" Width="300" Height="10" Foreground="#4472C4"/>
                         <TextBlock x:Name="StatusText" Text="" Foreground="White" 

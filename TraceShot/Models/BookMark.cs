@@ -11,17 +11,14 @@ namespace TraceShot.Models
         public Guid Id { get; set; } = Guid.NewGuid();
 
         public string Name { get; set; }
-        [JsonIgnore]
-        public bool IsDirty { get; set; } = true;
         public void MarkAsDirty() => IsDirty = true;
 
         [ObservableProperty] private TimeSpan _time;
-
         [ObservableProperty] private string? _icon;
-
         [ObservableProperty] private string? _note;
-
         [ObservableProperty]  private bool _isListening;
+        [JsonIgnore]
+        [ObservableProperty] private bool _isDirty = true;
 
         public string? ImagePath { get; set; }
 

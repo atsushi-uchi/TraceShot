@@ -19,7 +19,6 @@ using TraceShot.Models;
 using TraceShot.Services;
 using Windows.Media.SpeechRecognition;
 using static TraceShot.Properties.Settings;
-using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Canvas = System.Windows.Controls.Canvas;
 using Cursors = System.Windows.Input.Cursors;
@@ -43,6 +42,8 @@ namespace TraceShot.Features
 
         private SpeechRecognizer? _winrtRecognizer;
         private readonly SettingsService _setting = SettingsService.Instance;
+        private readonly ExportCacheManager _exportCache = new();
+
         private bool _isPlaying = false;
         private bool _isRecording = false;
         private bool _isInternalSelectionChange = false;
@@ -52,7 +53,6 @@ namespace TraceShot.Features
         private DispatcherTimer _playerTimer;
         private MouseHook _mouseHook = new();
         private Drawing.Rectangle? _selectedRegion = null; // 選択された範囲を保持
-
         private IntPtr _targetWindowHandle;
         
         private WriteableBitmap? _previewBitmap;
@@ -357,16 +357,10 @@ namespace TraceShot.Features
         ExportCacheManager _cacheManager = new();
         private void OpenExport_Click(object sender, RoutedEventArgs e)
         {
-            // 1. その瞬間のスナップショット情報を生成
-            var info = new VideoSnapshotInfo(VideoPlayer);
-
-            // 2. キャッシュマネージャーからアイテムを取得（差分更新）
-            // this.CurrentCropRect は Main で管理している Rect
-            var items = _cacheManager.GetOrUpdateCache(info);
-
-            // エクスポート画面を表示
-            var exportWin = new ExportWindow(items);
-            exportWin.Owner = this; // 親ウィンドウをセットして中央に表示
+            var exportWin = new ExportWindow(_cacheManager)
+            {
+                Owner = this // 親ウィンドウをセットして中央に表示
+            };
             exportWin.ShowDialog();
         }
 
