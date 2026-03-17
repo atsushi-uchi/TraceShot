@@ -53,19 +53,25 @@ namespace TraceShot.Features
                 .ThenBy(vm => vm.Time);
 
             ExportItems = new ObservableCollection<ExportItemViewModel>(list);
+            for (int i = 0; i < ExportItems.Count; i++)
+            {
+                ExportItems[i].SerialNumber = (i + 1).ToString("D2");
+            }
             ExportItems.CollectionChanged += (s, e) =>
             {
-                if (e.Action == NotifyCollectionChangedAction.Move ||
-                    e.Action == NotifyCollectionChangedAction.Add ||
-                    e.Action == NotifyCollectionChangedAction.Remove)
+                if (e.Action == NotifyCollectionChangedAction.Move)
                 {
-                    // 1. 全アイテムの現在の並び順を Bookmark に反映
+                    // ★ 1. 連番を上から順に振り直す
                     for (int i = 0; i < ExportItems.Count; i++)
                     {
+                        // 1始まりで、2桁のゼロ埋め（01, 02...）にする
+                        ExportItems[i].SerialNumber = (i + 1).ToString("D2");
+
+                        // 2. ついでに Bookmark の Order も更新（前回の永続化ロジック）
                         ExportItems[i].OriginalBookmark.ExportOrder = i;
                     }
 
-                    // 2. JSONを上書き保存
+                    // 3. JSONを上書き保存
                     RecService.Instance.SaveEvidenceJson();
                 }
             };

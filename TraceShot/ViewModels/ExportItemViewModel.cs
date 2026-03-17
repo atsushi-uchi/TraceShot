@@ -60,6 +60,10 @@
         [ObservableProperty]
         private double _scale;
 
+        // ★ 連番表示用 (例: "01", "02")
+        [ObservableProperty]
+        private string _serialNumber = "";
+
         public TimeSpan Time => OriginalBookmark.Time;
 
         public string Note => OriginalBookmark.Note ?? "";
