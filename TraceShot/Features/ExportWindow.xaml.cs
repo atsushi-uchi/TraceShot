@@ -16,6 +16,7 @@ namespace TraceShot.Features
     using System.Windows.Controls;
     using System.Windows.Input;
     using System.Windows.Media;
+    using System.Windows.Media.Animation;
     using TraceShot.Models;
     using TraceShot.Services;
     using TraceShot.ViewModels;
@@ -695,31 +696,31 @@ namespace TraceShot.Features
             switch (e.Key)
             {
                 case Key.Left:
-                    // 前にある「選択されているアイテム」を探す
                     int prevIdx = allItems.Take(_currentIdx).ToList().FindLastIndex(x => x.IsSelected);
                     if (prevIdx != -1)
                     {
                         _currentIdx = prevIdx;
                         UpdatePreviewDisplay();
+                        AnimateSlide(false); // 左から右へ（戻る動き）
                     }
                     e.Handled = true;
                     break;
+
                 case Key.Right:
-                    // 次にある「選択されているアイテム」を探す
                     int nextIdx = allItems.Skip(_currentIdx + 1).ToList().FindIndex(x => x.IsSelected);
                     if (nextIdx != -1)
                     {
-                        // FindIndexはSkip後の相対インデックスなので、現在の位置を足す
                         _currentIdx = _currentIdx + 1 + nextIdx;
                         UpdatePreviewDisplay();
+                        AnimateSlide(true); // 右から左へ（進む動き）
                     }
                     e.Handled = true;
                     break;
+
                 case Key.Escape:
                     _isPreviewMode = false;
                     PreviewArea.Visibility = Visibility.Collapsed;
                     ExportPreviewList.Visibility = Visibility.Visible;
-                    // 一覧に戻る
                     e.Handled = true;
                     break;
             }
@@ -728,6 +729,34 @@ namespace TraceShot.Features
             {
                 base.OnPreviewKeyDown(e);
             }
+        }
+
+        private void AnimateSlide(bool isNext)
+        {
+            // 1. アニメーションの設定
+            // 右へ進む(Next)なら右から飛んでくる、左へ戻るなら左から。
+            double startX = isNext ? 100 : -100;
+
+            // 移動アニメーション (X座標 100 or -100 -> 0)
+            DoubleAnimation slideAnim = new DoubleAnimation
+            {
+                From = startX,
+                To = 0,
+                Duration = TimeSpan.FromSeconds(0.25),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            // 透明度アニメーション (0.5 -> 1.0)
+            DoubleAnimation fadeAnim = new DoubleAnimation
+            {
+                From = 0.5,
+                To = 1.0,
+                Duration = TimeSpan.FromSeconds(0.2)
+            };
+
+            // 2. アニメーション開始
+            SlideTransform.BeginAnimation(TranslateTransform.XProperty, slideAnim);
+            SlideGrid.BeginAnimation(UIElement.OpacityProperty, fadeAnim);
         }
     }
 }

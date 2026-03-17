@@ -97,28 +97,36 @@
                     </StackPanel>
                 </Grid>
 
-                <Grid x:Name="PreviewArea" Visibility="Collapsed" Background="#2D2D2D">
-                    <Image x:Name="LargePreviewImage" 
-                           Source="{Binding SelectedPreviewItem.SnapshotImage}" 
-                           Stretch="Uniform" 
-                           Margin="20,40"
-                           MouseDown="ClosePreview_Click" />
+                <Grid x:Name="PreviewArea" Visibility="Collapsed" Background="#2D2D2D" ClipToBounds="True">
+                    <Grid x:Name="SlideGrid">
+                        <Grid.RenderTransform>
+                            <TranslateTransform x:Name="SlideTransform" X="0" />
+                        </Grid.RenderTransform>
+
+                        <Image x:Name="LargePreviewImage" 
+               Source="{Binding SelectedPreviewItem.SnapshotImage}" 
+               Stretch="Uniform" 
+               Margin="20,40"
+               MouseDown="ClosePreview_Click" />
+                    </Grid>
+
                     <StackPanel Orientation="Horizontal" 
-                            HorizontalAlignment="Center" 
-                            VerticalAlignment="Top" 
-                            Margin="0,15,0,0">
+                HorizontalAlignment="Center" 
+                VerticalAlignment="Top" 
+                Margin="0,15,0,0">
                         <TextBlock x:Name="PreviewPageCounter" 
-                           Text="1 / 10" 
-                           Foreground="White" 
-                           FontSize="16" 
-                           FontWeight="Bold">
+                   Text="{Binding PreviewCounterText}" 
+                   Foreground="White" 
+                   FontSize="16" 
+                   FontWeight="Bold">
                             <TextBlock.Effect>
                                 <DropShadowEffect BlurRadius="5" ShadowDepth="0" Opacity="0.8"/>
                             </TextBlock.Effect>
                         </TextBlock>
                     </StackPanel>
+
                     <TextBlock Text="左右キーで移動 / クリックで一覧に戻る" 
-                       Foreground="#888" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="10"/>
+               Foreground="#888" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="10"/>
                 </Grid>
             </Grid>
         </Border>
