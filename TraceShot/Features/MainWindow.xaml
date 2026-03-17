@@ -839,7 +839,7 @@
                     </StackPanel>
                     <Button x:Name="RecordingButton" Click="RecordingButton_Click" Padding="15,5" Margin="10,0,10,0" Width="100">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock x:Name="RecordingIcon" Text="🔴" Margin="0,0,5,0"/>
+                            <TextBlock x:Name="RecordingIcon" Text="🔴" Margin="0,0,5,0" Foreground="Red"/>
                             <TextBlock x:Name="RecordingText" Text="録画開始"/>
                         </StackPanel>
                     </Button>

@@ -40,7 +40,7 @@ namespace TraceShot.Features
             InitializeComponent();
             _cacheManager = cacheManager;
 
-            double initialScale = _cacheManager.LastScale > 0 ? _cacheManager.LastScale : 0.5;
+            double initialScale = _cacheManager.LastScale > 0 ? _cacheManager.LastScale : 0.75;
             SetScaleComboBoxValue(initialScale);
 
             var list = RecService.Instance.Bookmarks
