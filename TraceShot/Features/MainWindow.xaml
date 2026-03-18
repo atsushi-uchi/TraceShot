@@ -1,4 +1,4 @@
-﻿<Window x:Class="TraceShot.Features.MainWindow"
+﻿ <Window x:Class="TraceShot.Features.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -85,7 +85,7 @@
                              Fill="Transparent"/>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -104,7 +104,7 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -117,18 +117,18 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Thumb">
                         <Rectangle x:Name="bodyVisual" 
-                           Stroke="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}" 
+                           Stroke="{Binding DataContext.Config.MainBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
                            StrokeThickness="2" 
                            Fill="{TemplateBinding Background}" 
                            Cursor="SizeAll"/>
 
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                 <Setter TargetName="bodyVisual" Property="Opacity" Value="0.5"/>
                             </Trigger>
                             <DataTrigger Binding="{Binding IsDrawing}" Value="True">
-                                <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                 <Setter TargetName="bodyVisual" Property="Opacity" Value="0.5"/>
                             </DataTrigger>
                         </ControlTemplate.Triggers>
@@ -143,10 +143,10 @@
                     <ControlTemplate TargetType="Thumb">
                         <Ellipse x:Name="handleVisual" 
                                  Width="6" Height="6" Margin="-3"
-                             Fill="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}"/>
+                             Fill="{Binding DataContext.Config.MainBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                 <Setter TargetName="handleVisual" Property="Width" Value="10" />
                                 <Setter TargetName="handleVisual" Property="Height" Value="10" />
                                 <Setter TargetName="handleVisual" Property="Margin" Value="-5" />
@@ -168,7 +168,7 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding CropBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding DataContext.Config.CropBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -184,7 +184,7 @@
                              Fill="Transparent"/>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding CropBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding DataContext.Config.CropBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -198,7 +198,7 @@
                         <Rectangle x:Name="bodyVisual" 
                    Stroke="#AAFFFFFF" 
                    StrokeThickness="2" 
-                   Fill="{Binding CropFillBrush, Source={x:Static service:SettingsService.Instance}}" 
+                   Fill="{Binding DataContext.Config.CropFillBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
                    Cursor="SizeAll"/>
                     </ControlTemplate>
                 </Setter.Value>
@@ -406,13 +406,12 @@
                        Style="{StaticResource PointResizeHandleStyle}"
                        DragCompleted="OnAnnotation_DragCompleted"
                        DragDelta="OnBottomRightResize_DragDelta" Cursor="SizeNWSE"/>
-
             </Canvas>
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type ctrl:NoteAnnotation}">
             <Canvas>
-                <Line Stroke="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}" 
+                <Line Stroke="{Binding DataContext.Config.MainBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
                       StrokeThickness="2" StrokeDashCap="Round">
                     <Line.X1>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
@@ -495,20 +494,20 @@
 
                                         <Border.Style>
                                             <Style TargetType="Border">
-                                                <Setter Property="Background" Value="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                                <Setter Property="Background" Value="{Binding DataContext.Config.MainBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                                 <Style.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                                        <Setter Property="Background" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                                         <Setter Property="Cursor" Value="Hand" />
                                                     </Trigger>
                                                     <DataTrigger Binding="{Binding IsDragging, RelativeSource={RelativeSource AncestorType=Thumb}}" Value="True">
-                                                        <Setter Property="Background" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                                        <Setter Property="Background" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
                                         <TextBlock Text="{Binding Text}" 
-                                            Padding="3" Foreground="{Binding MainTextBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                            Padding="3" Foreground="{Binding DataContext.Config.MainTextBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                     </Border>
 
                                     <!-- TextBox -->

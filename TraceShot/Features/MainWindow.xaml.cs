@@ -17,6 +17,7 @@ using System.Windows.Threading;
 using TraceShot.Controls;
 using TraceShot.Models;
 using TraceShot.Services;
+using TraceShot.ViewModels;
 using Windows.Media.SpeechRecognition;
 using static TraceShot.Properties.Settings;
 using Brushes = System.Windows.Media.Brushes;
@@ -38,10 +39,12 @@ namespace TraceShot.Features
 
     public partial class MainWindow : Window
     {
+        public MainViewModel Vm { get; } = new();
+
         private AnnotationManager _annotationManager;
 
         private SpeechRecognizer? _winrtRecognizer;
-        private readonly SettingsService _setting = SettingsService.Instance;
+        //private readonly SettingsService _setting = SettingsService.Instance;
         private readonly ExportCacheManager _exportCache = new();
 
         private bool _isPlaying = false;
@@ -66,14 +69,15 @@ namespace TraceShot.Features
             InitializeComponent();
 
             _annotationManager = new AnnotationManager();
+            DataContext = Vm;
             // XAMLのItemsControlのDataContextにマネージャーをセット（またはBindingを設定）
             AnnotationItemsControl.ItemsSource = _annotationManager.Annotations;
 
-            DataContext = _setting;
+            //DataContext = _setting;
 
             ApplyCurrentSettings();
 
-            if (_setting.IsVoiceEnabled)
+            if (Vm.Config.IsVoiceEnabled)
             {
                 InitSpeechRecognition();
             }
@@ -116,15 +120,15 @@ namespace TraceShot.Features
 
             RecService.Instance.OnRecordingStopped = () =>
             {
-                Dispatcher.Invoke(() => _setting.IsPlayerMode = true);
+                Dispatcher.Invoke(() => Vm.IsPlayerMode = true);
             };
 
-            _setting.PropertyChanged += (s, e) =>
+            Vm.Config.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == nameof(SettingsService.IsPlayerMode))
+                if (e.PropertyName == nameof(Vm.IsPlayerMode))
                 {
                     // 録画モード（IsPlayerMode == false）に切り替わった場合
-                    if (_setting.IsPlayerMode)
+                    if (Vm.IsPlayerMode)
                     {
                         Dispatcher.Invoke(() =>
                         {
@@ -195,7 +199,7 @@ namespace TraceShot.Features
             {
                 ApplyCurrentSettings();
 
-                if (_setting.IsVoiceEnabled && !_isSpeechInitalized)
+                if (Vm.Config.IsVoiceEnabled && !_isSpeechInitalized)
                 {
                     InitSpeechRecognition();
                 }
@@ -316,7 +320,7 @@ namespace TraceShot.Features
                                     }
                                 }
                                 RefreshBookmarkCanvas();
-                                _setting.IsPlayerMode = true;
+                                Vm.IsPlayerMode = true;
 
                                 // 選択状態の管理
                                 if (RecService.Instance.Bookmarks.Count > 0)
@@ -801,10 +805,8 @@ namespace TraceShot.Features
         private void CropEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             RecService.Instance.Evidence.CropState = CropState.Confirmed;
-            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
             _annotationManager.RefreshCropOverlay();
         }
-
 
         private void DeleteBookmarkButton_Click(object? sender, RoutedEventArgs? e)
         {
@@ -1603,12 +1605,12 @@ namespace TraceShot.Features
         {
             if (ModeToggleButton.IsChecked == true)
             {
-                _setting.IsPlayerMode = true;
+                Vm.IsPlayerMode = true;
                 //RefreshDrawingCanvas();
             }
             else
             {
-                _setting.IsPlayerMode = false;
+                Vm.IsPlayerMode = false;
             }
         }
 

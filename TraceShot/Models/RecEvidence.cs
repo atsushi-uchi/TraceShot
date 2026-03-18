@@ -25,4 +25,9 @@ public partial class RecEvidence : ObservableObject
 
     [ObservableProperty]
     private ObservableCollection<Bookmark> _bookmarks = [];
+
+    partial void OnIsCropEnabledChanged(bool value)
+    {
+        foreach (var b in Bookmarks) b.MarkAsDirty();
+    }
 }

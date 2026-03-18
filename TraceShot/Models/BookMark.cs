@@ -5,6 +5,8 @@ using TraceShot.Controls;
 
 namespace TraceShot.Models
 {
+    public enum TestResult { None, OK, NG }
+
     public partial class Bookmark : ObservableObject
     {
         // JSONに保存され、一生変わらないID
@@ -35,6 +37,10 @@ namespace TraceShot.Models
 
         [JsonIgnore]
         public IEnumerable<NoteAnnotation> Notes => Annotations.OfType<NoteAnnotation>();
+
+        [ObservableProperty] private string _testCaseNo = "";
+        [ObservableProperty] private TestResult _result = TestResult.None;
+        [ObservableProperty] private bool _isCaseStart = false;
 
         public string AddNewLine(string text)
         {
