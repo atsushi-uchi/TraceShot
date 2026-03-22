@@ -163,6 +163,16 @@ namespace TraceShot.ViewModels
             }
         }
 
+        public void AddTimelineEntry()
+        {
+            ExecuteResult(TestResult.SS.ToString());
+        }
+
+        public void AddVoiceEntry()
+        {
+            ExecuteResult(TestResult.SS.ToString());
+        }
+
         [RelayCommand]
         private void ExecuteResult(string result)
         {

@@ -18,7 +18,6 @@ using TraceShot.Models;
 using TraceShot.Services;
 using TraceShot.ViewModels;
 using Windows.Media.SpeechRecognition;
-using Xceed.Wpf.Toolkit.Primitives;
 using static TraceShot.Properties.Settings;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
@@ -40,7 +39,7 @@ namespace TraceShot.Features
 
     public partial class MainWindow : Window
     {
-        public MainViewModel Vm { get; } = new();
+        public MainViewModel Data { get; } = new();
 
         private AnnotationManager _annotationManager;
 
@@ -69,9 +68,9 @@ namespace TraceShot.Features
             InitializeComponent();
 
             _annotationManager = new AnnotationManager();
-            DataContext = Vm;
+            DataContext = Data;
 
-            Vm.ScrollIntoViewRequested = (entry) =>
+            Data.ScrollIntoViewRequested = (entry) =>
             {
                 App.Current.Dispatcher.Invoke(() =>
                 {
@@ -79,22 +78,22 @@ namespace TraceShot.Features
                     TimelineListBox.SelectedItem = entry;
                 }, DispatcherPriority.Background);
             };
-            Vm.RefreshCanvas = () =>
+            Data.RefreshCanvas = () =>
             {
                 App.Current.Dispatcher.Invoke(() =>
                 {
                     RefreshBookmarkCanvas();
                 }, DispatcherPriority.Background);
             };
-            Vm.GetCurrentPosition = () => VideoPlayer.Position;
-            Vm.GetVideoSnapshotFunc = () => new VideoSnapshotInfo(VideoPlayer);
+            Data.GetCurrentPosition = () => VideoPlayer.Position;
+            Data.GetVideoSnapshotFunc = () => new VideoSnapshotInfo(VideoPlayer);
 
             // XAMLのItemsControlのDataContextにマネージャーをセット（またはBindingを設定）
             AnnotationItemsControl.ItemsSource = _annotationManager.Annotations;
 
             ApplyCurrentSettings();
 
-            if (Vm.Config.IsVoiceEnabled)
+            if (Data.Config.IsVoiceEnabled)
             {
                 InitSpeechRecognition();
             }
@@ -123,15 +122,15 @@ namespace TraceShot.Features
 
             RecService.Instance.OnRecordingStopped = () =>
             {
-                Dispatcher.Invoke(() => Vm.IsEditMode = true);
+                Dispatcher.Invoke(() => Data.IsEditMode = true);
             };
 
-            Vm.Config.PropertyChanged += (s, e) =>
+            Data.Config.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == nameof(Vm.IsEditMode))
+                if (e.PropertyName == nameof(Data.IsEditMode))
                 {
                     // 録画モード（IsEditMode == false）に切り替わった場合
-                    if (Vm.IsEditMode)
+                    if (Data.IsEditMode)
                     {
                         Dispatcher.Invoke(() =>
                         {
@@ -202,11 +201,11 @@ namespace TraceShot.Features
             {
                 ApplyCurrentSettings();
 
-                if (Vm.Config.IsVoiceEnabled && !_isSpeechInitalized)
+                if (Data.Config.IsVoiceEnabled && !_isSpeechInitalized)
                 {
                     InitSpeechRecognition();
                 }
-                Vm.StatusText = "🛠️ 設定を更新しました";
+                Data.StatusText = "🛠️ 設定を更新しました";
             }
         }
 
@@ -254,7 +253,7 @@ namespace TraceShot.Features
             {
                 RecService.Instance.SaveEvidenceJson();
 
-                Vm.StatusText = $"[保存完了] {DateTime.Now:HH:mm:ss} エビデンスを保存しました。";
+                Data.StatusText = $"[保存完了] {DateTime.Now:HH:mm:ss} エビデンスを保存しました。";
                 MessageBox.Show("エビデンスの内容を保存しました。", "保存完了", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -274,10 +273,14 @@ namespace TraceShot.Features
 
             if (openFileDialog.ShowDialog() == true)
             {
-                if (await Vm.LoadEvidenceAsync(openFileDialog.FileName))
+                if (await Data.LoadEvidenceAsync(openFileDialog.FileName))
                 {
-                    Vm.SelectedItem = Vm.TimelineEntries[0];
-                    VideoPlayer.Position = Vm.SelectedItem.Time;
+                    var entry = RecService.Instance.Entries.OrderBy(b => b.Time).FirstOrDefault();
+                    if (entry != null)
+                    {
+                        Data.SelectedItem = entry;
+                        VideoPlayer.Position = Data.SelectedItem.Time;
+                    }
                 }
             }
         }
@@ -314,16 +317,16 @@ namespace TraceShot.Features
                         Verb = "open"
                     });
 
-                    Vm.StatusText = "📂 フォルダを開きました";
+                    Data.StatusText = "📂 フォルダを開きました";
                 }
                 else
                 {
-                    Vm.StatusText = "❌ 保存先フォルダが見つかりません";
+                    Data.StatusText = "❌ 保存先フォルダが見つかりません";
                 }
             }
             catch (Exception ex)
             {
-                Vm.StatusText = "❌ フォルダを開けませんでした";
+                Data.StatusText = "❌ フォルダを開けませんでした";
                 RecService.Instance.TraceLogs.Add($"Explorer Error: {ex.Message}");
             }
         }
@@ -338,7 +341,7 @@ namespace TraceShot.Features
             {
                 int caseId = 0;
                 var currentTime = VideoPlayer.Position;
-                var lastEntry = Vm.TimelineEntries.FirstOrDefault(x => x.Time > currentTime);
+                var lastEntry = Data.TimelineEntries.FirstOrDefault(x => x.Time > currentTime);
                 if (lastEntry != null)
                 {
                     caseId = lastEntry.CaseId;
@@ -351,9 +354,9 @@ namespace TraceShot.Features
                     Icon = "🖋️",
                     Note = "",
                 };
-                Vm.TimelineEntries.Add(entry);
-                Vm.SelectedItem = entry;
-                Vm.UpdateTimelineGroups();
+                Data.TimelineEntries.Add(entry);
+                Data.SelectedItem = entry;
+                Data.UpdateTimelineGroups();
             }
 
             if (Keyboard.Modifiers == ModifierKeys.Control)
@@ -740,7 +743,7 @@ namespace TraceShot.Features
             // 1. 選択されている項目があるかチェック
             if (TimelineListBox.SelectedItems.Count == 0)
             {
-                Vm.StatusText = "ℹ️ 削除する項目を選択してください";
+                Data.StatusText = "ℹ️ 削除する項目を選択してください";
                 return;
             }
 
@@ -777,7 +780,7 @@ namespace TraceShot.Features
 
                 // 4. 保存とステータス更新
                 NoteEditBox.Text = "";
-                Vm.StatusText = $"🗑️ {bookmarks.Count} 件削除しました";
+                Data.StatusText = $"🗑️ {bookmarks.Count} 件削除しました";
             }
             RefreshBookmarkCanvas();
         }
@@ -802,7 +805,7 @@ namespace TraceShot.Features
         private void VideoPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
         {
             // 1. ステータスバーにエラーを表示
-            Vm.StatusText = "❌ 再生エラー";
+            Data.StatusText = "❌ 再生エラー";
 
             // 2. ログに詳細を記録（以前の画像で見られた TraceLogs や TimelineListBox を活用）
             string errorMessage = $"再生に失敗しました: {e.ErrorException.Message}";
@@ -829,7 +832,7 @@ namespace TraceShot.Features
                 if (sm.ShowDialog() == true)
                 {
                     _fullDeviceName = sm.DeviceName;
-                    Vm.StatusText = $"{sm.MoniterName}を選択しました ";
+                    Data.StatusText = $"{sm.MoniterName}を選択しました ";
                 }
             }
             // 矩形選択モード
@@ -848,7 +851,7 @@ namespace TraceShot.Features
                         (int)rect.Height
                     );
                     _rectDeviceName = selectionRect.TargetDeviceName;
-                    Vm.StatusText = $"矩形確定: {selectionRect.TargetDeviceName} x:{rect.X} y:{rect.Y} w:{rect.Width} h:{rect.Height}";
+                    Data.StatusText = $"矩形確定: {selectionRect.TargetDeviceName} x:{rect.X} y:{rect.Y} w:{rect.Width} h:{rect.Height}";
                 }
             }
             // ウインドウ選択モード
@@ -858,7 +861,7 @@ namespace TraceShot.Features
                 sw.ShowDialog();
 
                 _targetWindowHandle = sw.SelectedHWnd;
-                Vm.StatusText = $"録画対象：{sw.SelectedTitle}";
+                Data.StatusText = $"録画対象：{sw.SelectedTitle}";
             }
 
             // MainWindowを再表示してアクティブにする
@@ -916,7 +919,7 @@ namespace TraceShot.Features
             double currentValue = TimelineSlider.Value;
             VideoPlayer.Position = TimeSpan.FromSeconds(currentValue);
 
-            if (Vm.TimelineEntries == null || !Vm.TimelineEntries.Any()) return;
+            if (Data.TimelineEntries == null || !Data.TimelineEntries.Any()) return;
 
             // 1. しきい値（0.5秒）以内のものを抽出し
             // 2. 現在地との差が一番小さい順に並べ替え
@@ -965,10 +968,9 @@ namespace TraceShot.Features
                 var pos = TimeSpan.FromSeconds(slider.Value);
                 VideoPlayer.Position = pos;
                 PlayerPause(false);
-                Vm.StatusText = $"Seek: {pos}";
+                Data.StatusText = $"Seek: {pos}";
             }
         }
-
 
         private void PlayPauseButton_Click(object? sender, RoutedEventArgs? e)
         {
@@ -984,7 +986,7 @@ namespace TraceShot.Features
                 PlayPauseText.Text = "一時停止";
                 _isPlaying = true;
 
-                Vm.StatusText = "▶ 再生中...";
+                Data.StatusText = "▶ 再生中...";
                 //StartPlayerTimer();
             }
         }
@@ -999,7 +1001,7 @@ namespace TraceShot.Features
             PlayPauseText.Text = "再生";
             _isPlaying = false;
 
-            Vm.StatusText = "⏸ 一時停止中";
+            Data.StatusText = "⏸ 一時停止中";
         }
 
         // 録画開始の処理の中に追記
@@ -1026,28 +1028,14 @@ namespace TraceShot.Features
         // ホットキーが押された時の動作
         private void OnBookmark(object? sender, HotkeyEventArgs e)
         {
-            if (RecService.Instance.IsRecording)
-            {
-                AddBookmarkWhileRecording_Click(this, null);
-            }
-            else
-            {
-                AddBookmarkWhilePlaying_Click(this, null);
-            }
+            Data.AddTimelineEntry();
 
             e.Handled = true;
         }
 
         private async void OnVoiceMemo(object? sender, HotkeyEventArgs e)
         {
-            if (RecService.Instance.IsRecording)
-            {
-                AddVoiceMemoRecording_Click(this, null);
-            }
-            else
-            {
-                AddVoiceMemoWhilePlaying_Click(this, null);
-            }
+            Data.AddVoiceEntry();
 
             e.Handled = true;
         }
@@ -1076,13 +1064,13 @@ namespace TraceShot.Features
 
             // イベント解除
             RecService.Instance.OnPreviewFrameReceived -= RecorderManager_OnPreviewFrameReceived;
-            Vm.PreviewBitmap = null;
+            Data.PreviewBitmap = null;
 
             PreviewImage.Source = ImageService.GetReadyStandardImage();
 
             RefreshBookmarkCanvas();
 
-            Vm.StatusText = "保存完了";
+            Data.StatusText = "保存完了";
 
             VideoPlayer.Source = new Uri(_currentVideoPath);
             //PlayerPause(true);
@@ -1111,7 +1099,7 @@ namespace TraceShot.Features
                         case 1: // 矩形選択
                             if (_selectedRegion == null)
                             {
-                                Vm.StatusText = "エラー：範囲を先に選択してください";
+                                Data.StatusText = "エラー：範囲を先に選択してください";
                                 return;
                             }
                             RecService.Instance.StartRectangleRecording(_currentVideoPath, _rectDeviceName, _selectedRegion);
@@ -1120,7 +1108,7 @@ namespace TraceShot.Features
                         case 2: // ウィンドウ選択
                             if (_targetWindowHandle == IntPtr.Zero)
                             {
-                                Vm.StatusText = "エラー：ウィンドウを先に選択してください";
+                                Data.StatusText = "エラー：ウィンドウを先に選択してください";
                                 return;
                             }
                             RecService.Instance.StartWindowRecording(_currentVideoPath, _targetWindowHandle);
@@ -1129,7 +1117,7 @@ namespace TraceShot.Features
 
                     OnRecordingStarted();
 
-                    Vm.StatusText = $"● 録画中: {RecService.Instance.CurrentVideoName}";
+                    Data.StatusText = $"● 録画中: {RecService.Instance.CurrentVideoName}";
 
                     taskbarInfo.ProgressState = TaskbarItemProgressState.Error;
                     taskbarInfo.ProgressValue = 1.0;
@@ -1142,7 +1130,7 @@ namespace TraceShot.Features
             else
             {
                 RecService.Instance.StopRecording();
-                Vm.StatusText = "動画を処理中...";
+                Data.StatusText = "動画を処理中...";
                 await Task.Delay(1000);
 
                 OnRecordingStopped();
@@ -1159,7 +1147,7 @@ namespace TraceShot.Features
         {
             SoundService.Instance.PlayShutter();
 
-            if (Vm.PreviewBitmap is not null)
+            if (Data.PreviewBitmap is not null)
             {
                 TimelineEntry newBookmark = new()
                 {
@@ -1168,9 +1156,9 @@ namespace TraceShot.Features
                     Note = "Click",
                 };
 
-                var path = RecService.Instance.SaveBitmap(newBookmark, Vm.PreviewBitmap);
+                var path = RecService.Instance.SaveBitmap(newBookmark, Data.PreviewBitmap);
                 newBookmark.ImagePath = path;
-                Vm.StatusText = $"記録 {newBookmark.Time} {newBookmark.Note} SS作成 {path}";
+                Data.StatusText = $"記録 {newBookmark.Time} {newBookmark.Note} SS作成 {path}";
 
                 RecService.Instance.Entries.Add(newBookmark);
                 RefreshBookmarkCanvas();
@@ -1191,22 +1179,22 @@ namespace TraceShot.Features
                 int height = data.Height;
 
                 // ビットマップの初期化/再作成
-                if (Vm.PreviewBitmap == null || Vm.PreviewBitmap.PixelWidth != width || Vm.PreviewBitmap.PixelHeight != height)
+                if (Data.PreviewBitmap == null || Data.PreviewBitmap.PixelWidth != width || Data.PreviewBitmap.PixelHeight != height)
                 {
                     // ScreenRecorderLibのBitmapDataは通常 Bgr32 (24bitの場合は Bgr24)
                     // アルファチャネルを含む場合は Pbgra32 など調整が必要な場合があります
-                    Vm.PreviewBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr32, null);
-                    PreviewImage.Source = Vm.PreviewBitmap;
+                    Data.PreviewBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr32, null);
+                    PreviewImage.Source = Data.PreviewBitmap;
                 }
 
-                Vm.PreviewBitmap.Lock();
+                Data.PreviewBitmap.Lock();
                 try
                 {
                     // BitmapData.Scan0 (IntPtr) から WriteableBitmap へコピー
                     // 第3引数の bufferSize は Stride * Height で計算
                     int bufferSize = data.Stride * height;
 
-                    Vm.PreviewBitmap.WritePixels(
+                    Data.PreviewBitmap.WritePixels(
                         new Int32Rect(0, 0, width, height),
                         data.Data,
                         bufferSize,
@@ -1218,7 +1206,7 @@ namespace TraceShot.Features
                 }
                 finally
                 {
-                    Vm.PreviewBitmap.Unlock();
+                    Data.PreviewBitmap.Unlock();
                 }
             }));
         }
@@ -1231,7 +1219,7 @@ namespace TraceShot.Features
                 {
                     VideoPlayer.Position = selected.Time;
                     PlayerPause(true);
-                    Vm.StatusText = $"Seek: {selected.Time}";
+                    Data.StatusText = $"Seek: {selected.Time}";
                 }
                 // マネージャーの表示リストを切り替える
                 _annotationManager.LoadAnnotationsFromBookmark(selected);
@@ -1258,7 +1246,7 @@ namespace TraceShot.Features
             double totalSeconds = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
             if (totalSeconds <= 0) return;
 
-            foreach (var entry in Vm.TimelineEntries)
+            foreach (var entry in Data.TimelineEntries)
             {
                 if (entry.Result == TestResult.None && string.IsNullOrEmpty(entry.ImagePath)) continue;
 
@@ -1304,12 +1292,12 @@ namespace TraceShot.Features
             double canvasWidth = ResultRangeCanvas.ActualWidth;
             if (totalSec <= 0 || canvasWidth <= 0) return;
 
-            if (Vm.TimelineView is null) return;
+            if (Data.TimelineView is null) return;
 
             double start = 0;
             double end = 0;
             TimelineEntry? prevEntry = null;
-            foreach (TimelineEntry entry in Vm.TimelineView)
+            foreach (TimelineEntry entry in Data.TimelineView)
             {
                 // グループ名が変わったら新しい矩形を作成
                 if (prevEntry != null && prevEntry.GroupName.In(entry.GroupName))
@@ -1433,6 +1421,7 @@ namespace TraceShot.Features
             }
         }
 
+        /*
         private void AddBookmarkWhileRecording_Click(object sender, RoutedEventArgs? e)
         {
             SoundService.Instance.PlayShutter();
@@ -1555,6 +1544,7 @@ namespace TraceShot.Features
                 }
             });
         }
+        */
 
         private async Task<string> StartSpeechToText()
         {
@@ -1587,12 +1577,12 @@ namespace TraceShot.Features
         {
             if (ModeToggleButton.IsChecked == true)
             {
-                Vm.IsEditMode = true;
+                Data.IsEditMode = true;
                 //RefreshDrawingCanvas();
             }
             else
             {
-                Vm.IsEditMode = false;
+                Data.IsEditMode = false;
             }
         }
 
@@ -1652,18 +1642,18 @@ namespace TraceShot.Features
             var cropped = new CroppedBitmap(pureVideoBitmap, new Int32Rect(px, py, pw, ph));
 
             // 4. OCR実行
-            Vm.StatusText = "解析中...";
+            Data.StatusText = "解析中...";
             string result = await ImageService.RecognizeTextFromBitmapSource(cropped);
 
             if (!string.IsNullOrWhiteSpace(result))
             {
                 string cleanText = result.Replace("\r", "").Replace("\n", " ").Trim();
                 bm.AddNewLine(cleanText); // Bookmarkにテキストを追加
-                Vm.StatusText = "OCR完了";
+                Data.StatusText = "OCR完了";
             }
             else
             {
-                Vm.StatusText = "文字を検出できませんでした";
+                Data.StatusText = "文字を検出できませんでした";
             }
         }
 
@@ -1707,7 +1697,7 @@ namespace TraceShot.Features
                     }
                 }
             }
-            Vm.UpdateTimelineGroups();
+            Data.UpdateTimelineGroups();
             RefreshBookmarkCanvas();
         }
 
