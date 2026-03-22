@@ -30,4 +30,26 @@ public partial class RecEvidence : ObservableObject
     {
         foreach (var b in Entries) b.EntryAsDirty();
     }
+
+    public List<CaseSummary> GetSummary()
+    {
+        return Entries
+            .GroupBy(e => e.CaseId)
+            .Select(g =>
+            {
+                var sortedInCase = g.OrderBy(e => e.Time).ToList();
+                var lastEntry = sortedInCase.Last();
+
+                return new CaseSummary
+                {
+                    CaseId = g.Key,
+                    StepCount = g.Count(),
+                    FinalResult = lastEntry.Result,
+                    StartTime = sortedInCase.First().Time,
+                    EndTime = lastEntry.Time,
+                };
+            })
+            .OrderBy(s => s.StartTime)
+            .ToList();
+    }
 }
