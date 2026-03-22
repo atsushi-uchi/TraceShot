@@ -589,7 +589,8 @@
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0" Background="Black">
-                <MediaElement x:Name="VideoPlayer" 
+                <MediaElement x:Name="VideoPlayer"
+                              Source="{Binding VideoSource}"
                       Stretch="Uniform"
                       LoadedBehavior="Manual" 
                       UnloadedBehavior="Stop" 
@@ -1113,7 +1114,7 @@
             </StatusBarItem>
             <Separator/>
             <StatusBarItem>
-                <TextBlock x:Name="StatusText" Foreground="Red" FontWeight="Bold"/>
+                <TextBlock x:Name="StatusText" Text="{Binding StatusText}" Foreground="Red" FontWeight="Bold"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

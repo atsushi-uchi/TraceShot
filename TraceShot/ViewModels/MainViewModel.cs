@@ -1,10 +1,15 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DocumentFormat.OpenXml.Wordprocessing;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media.Imaging;
+using TraceShot.Controls;
 using TraceShot.Extensions;
 using TraceShot.Models;
 using TraceShot.Services;
@@ -65,21 +70,111 @@ namespace TraceShot.ViewModels
         public ObservableCollection<TimelineEntry> TimelineEntries => RecService.Instance.Entries;
         [ObservableProperty]  private ICollectionView? _timelineView;
 
-
-        public Action<TimelineEntry>? ScrollIntoViewRequested { get; set; }
-        public Action? RefreshDisplay { get; set; }
-        public Func<TimeSpan>? GetCurrentPosition { get; set; }
-
-
-
         [ObservableProperty] private TimelineEntry? _selectedItem;
-
 
         [ObservableProperty] private bool _isEditMode = false;
 
         [ObservableProperty] private int _nextNo = 1;
 
+        public Action<TimelineEntry>? ScrollIntoViewRequested { get; set; }
+        public Action? RefreshCanvas { get; set; }
+        public Func<TimeSpan>? GetCurrentPosition { get; set; }
+        public Func<VideoSnapshotInfo>? GetVideoSnapshotFunc { get; set; }
+
         public WriteableBitmap? PreviewBitmap;
+
+        [ObservableProperty] private Uri? _videoSource;
+        [ObservableProperty] private string _statusText = "";
+
+        public async Task<bool> LoadEvidenceAsync(string filePath)
+        {
+            Debug.WriteLine("await LoadEvidenceAsync 開始");
+
+            string jsonString = File.ReadAllText(filePath);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var loaded = JsonSerializer.Deserialize<RecEvidence>(jsonString, options);
+
+            if (loaded == null) return false;
+
+            // 1. OCRアクションの復元
+            foreach (var entry in loaded.Entries)
+            {
+                foreach (var rect in entry.Rects.OfType<RectAnnotation>())
+                {
+                    rect.OcrAction = ExecuteOcrOnAnnotation;
+                }
+            }
+
+            // 2. Serviceへのセット (ここで RecService.Instance.Evidence が入れ替わる)
+            RecService.Instance.Evidence = loaded;
+            RecService.Instance.JsonPath = filePath;
+
+            // 3. フォルダと動画パスの特定
+            var folderPath = Path.GetDirectoryName(filePath) ?? "";
+            RecService.Instance.CurrentFolder = folderPath;
+            string videoPath = Path.Combine(folderPath, loaded.VideoFileName ?? "");
+
+            if (File.Exists(videoPath))
+            {
+                // 4. プロパティ経由で View に通知
+                VideoSource = new Uri(videoPath);
+                StatusText = $"読み込み: {loaded.RecMode} {loaded.VideoFileName}";
+                IsEditMode = true;
+
+                // 5. グループ名の更新（以前作成したメソッド）
+                UpdateTimelineGroups();
+
+                // 6. 最初のアイテムを選択状態にする
+                if (TimelineEntries.Count > 0)
+                {
+                    SelectedItem = TimelineEntries[0];
+                }
+
+                // 7. 動画の読み込み完了（Duration取得可能）を待機
+                //await WaitForVideoLoadAsync();
+            }
+
+            Debug.WriteLine("await LoadEvidenceAsync 終了");
+            return true;
+        }
+        private async Task ExecuteOcrOnAnnotation(RectAnnotation rect)
+        {
+            if (SelectedItem == null) return;
+
+            // 1. ビデオ情報を取得
+            //var info = new VideoSnapshotInfo(VideoPlayer);
+            var info = GetVideoSnapshotFunc?.Invoke();
+            if (info == null) return;
+
+            // 2. 正味の画像を生成（既存の ImageService を利用）
+            BitmapSource pureVideoBitmap = ImageService.GeneratePureVideoBitmap(SelectedItem, info);
+
+            // 3. RectAnnotation の相対座標（RelX, RelY...）を使用
+            // 0.0〜1.0 なので、そのまま PixelWidth/Height を掛けるだけ
+            int px = (int)(rect.RelX * pureVideoBitmap.PixelWidth);
+            int py = (int)(rect.RelY * pureVideoBitmap.PixelHeight);
+            int pw = (int)(rect.RelWidth * pureVideoBitmap.PixelWidth);
+            int ph = (int)(rect.RelHeight * pureVideoBitmap.PixelHeight);
+
+            // 範囲チェック（画像の外にはみ出さないように）
+            px = Math.Clamp(px, 0, pureVideoBitmap.PixelWidth - 1);
+            py = Math.Clamp(py, 0, pureVideoBitmap.PixelHeight - 1);
+            pw = Math.Min(pw, pureVideoBitmap.PixelWidth - px);
+            ph = Math.Min(ph, pureVideoBitmap.PixelHeight - py);
+
+            if (pw <= 0 || ph <= 0) return;
+
+            var cropped = new CroppedBitmap(pureVideoBitmap, new Int32Rect(px, py, pw, ph));
+
+            // 4. OCR実行
+            string result = await ImageService.RecognizeTextFromBitmapSource(cropped);
+
+            if (!string.IsNullOrWhiteSpace(result))
+            {
+                string cleanText = result.Replace("\r", "").Replace("\n", " ").Trim();
+                SelectedItem.AddNewLine(cleanText);
+            }
+        }
 
         [RelayCommand]
         private void ExecuteResult(string result)
@@ -102,7 +197,7 @@ namespace TraceShot.ViewModels
             {
                 entry.Result = resultType;
                 UpdateTimelineGroups();
-                RefreshDisplay?.Invoke();
+                RefreshCanvas?.Invoke();
             }
             else
             {
@@ -127,7 +222,7 @@ namespace TraceShot.ViewModels
                     SoundService.Instance.PlayShutter();
                     TimelineEntries.Add(entry);
                     UpdateTimelineGroups();
-                    RefreshDisplay?.Invoke();
+                    RefreshCanvas?.Invoke();
                 }
             }
         }

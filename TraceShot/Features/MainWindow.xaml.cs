@@ -46,8 +46,9 @@ namespace TraceShot.Features
 
         private AnnotationManager _annotationManager;
 
+        private ExportCacheManager _cacheManager = new();
+
         private SpeechRecognizer? _winrtRecognizer;
-        private readonly ExportCacheManager _exportCache = new();
 
         private bool _isPlaying = false;
         private bool _isRecording = false;
@@ -80,7 +81,7 @@ namespace TraceShot.Features
                     TimelineListBox.SelectedItem = entry;
                 }, DispatcherPriority.Background);
             };
-            Vm.RefreshDisplay = () =>
+            Vm.RefreshCanvas = () =>
             {
                 App.Current.Dispatcher.Invoke(() =>
                 {
@@ -88,11 +89,10 @@ namespace TraceShot.Features
                 }, DispatcherPriority.Background);
             };
             Vm.GetCurrentPosition = () => VideoPlayer.Position;
+            Vm.GetVideoSnapshotFunc = () => new VideoSnapshotInfo(VideoPlayer);
 
             // XAMLのItemsControlのDataContextにマネージャーをセット（またはBindingを設定）
             AnnotationItemsControl.ItemsSource = _annotationManager.Annotations;
-
-            //DataContext = _setting;
 
             ApplyCurrentSettings();
 
@@ -116,8 +116,10 @@ namespace TraceShot.Features
                 }
             };
 
-            _playerTimer = new DispatcherTimer();
-            _playerTimer.Interval = TimeSpan.FromMilliseconds(100);
+            _playerTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(100)
+            };
             _playerTimer.Tick += Timer_Tick;
             _playerTimer.Start();
 
@@ -206,7 +208,7 @@ namespace TraceShot.Features
                 {
                     InitSpeechRecognition();
                 }
-                StatusText.Text = "🛠️ 設定を更新しました";
+                Vm.StatusText = "🛠️ 設定を更新しました";
             }
         }
 
@@ -254,7 +256,7 @@ namespace TraceShot.Features
             {
                 RecService.Instance.SaveEvidenceJson();
 
-                StatusText.Text = $"[保存完了] {DateTime.Now:HH:mm:ss} エビデンスを保存しました。";
+                Vm.StatusText = $"[保存完了] {DateTime.Now:HH:mm:ss} エビデンスを保存しました。";
                 MessageBox.Show("エビデンスの内容を保存しました。", "保存完了", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -262,7 +264,23 @@ namespace TraceShot.Features
                 MessageBox.Show($"保存に失敗しました: {ex.Message}", "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+        private async Task WaitForVideoAndRefreshAsync()
+        {
+            Debug.WriteLine("await WaitForVideoAndRefreshAsync() 開始");
+            RefreshBookmarkCanvas();
 
+            int maxRetries = 30;
+            for (int i = 0; i < maxRetries; i++)
+            {
+                if (VideoPlayer.NaturalDuration.HasTimeSpan)
+                {
+                    RefreshBookmarkCanvas();
+                    return;
+                }
+                await Task.Delay(100);
+            }
+            Debug.WriteLine("VideoPlayer 準備完了タイムアウト");
+        }
         private async void OpenEvidence_Click(object sender, RoutedEventArgs e)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
@@ -274,77 +292,15 @@ namespace TraceShot.Features
 
             if (openFileDialog.ShowDialog() == true)
             {
-                try
+                var loaded = await Vm.LoadEvidenceAsync(openFileDialog.FileName);
+                if (loaded)
                 {
-                    string jsonString = File.ReadAllText(openFileDialog.FileName);
-                    var loaded = JsonSerializer.Deserialize<RecEvidence>(jsonString);
-                    if (loaded != null)
-                    {
-                        foreach (var entry in loaded.Entries)
-                        {
-                            foreach (var rect in entry.Rects.OfType<RectAnnotation>())
-                            {
-                                rect.OcrAction = ExecuteOcrOnAnnotation;
-                            }
-                        }
-                        RecService.Instance.Evidence = loaded;
-                        RecService.Instance.JsonPath = openFileDialog.FileName;
-
-                        // 3. JSONと同じフォルダ内にある動画ファイルのフルパスを作成
-                        var folderPath = Path.GetDirectoryName(openFileDialog.FileName) ?? "";
-                        if (!string.IsNullOrEmpty(folderPath))
-                        {
-                            RecService.Instance.CurrentFolder = folderPath;
-                            string videoPath = Path.Combine(folderPath, loaded?.VideoFileName ?? "");
-
-                            if (File.Exists(videoPath))
-                            {
-                                // 4. 再生準備
-                                VideoPlayer.Source = new Uri(videoPath);
-
-                                // 5. UIに情報を反映
-                                StatusText.Text = $"読み込み: {loaded?.RecMode} {loaded?.VideoFileName}";
-
-                                RefreshBookmarkCanvas();
-                                Vm.IsEditMode = true;
-
-                                // 選択状態の管理
-                                if (RecService.Instance.Entries.Count > 0)
-                                {
-                                    TimelineListBox.SelectedIndex = 0;
-                                    TimelineListBox.Focus();
-                                }
-
-                                // 最大リトライ回数（例：100msごとに50回 ＝ 5秒）
-                                int maxRetries = 30;
-                                int retryCount = 0;
-                                while (retryCount < maxRetries)
-                                {
-                                    if (VideoPlayer.NaturalDuration.HasTimeSpan)
-                                    {
-                                        // 準備OK！印を描画してループを抜ける
-                                        RefreshBookmarkCanvas();
-                                        return;
-                                    }
-                                    await Task.Delay(100);
-                                    retryCount++;
-                                }
-                                Debug.WriteLine("マーカーの描画をタイムアウトしました。");
-                            }
-                            else
-                            {
-                                MessageBox.Show("動画ファイルが見つかりません。");
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"読み込みエラー: {ex.Message}");
+                    await WaitForVideoAndRefreshAsync();
+                    TimelineListBox.Focus();
                 }
             }
         }
-        ExportCacheManager _cacheManager = new();
+
         private void OpenExport_Click(object sender, RoutedEventArgs e)
         {
             var exportWin = new ExportWindow(_cacheManager)
@@ -377,16 +333,16 @@ namespace TraceShot.Features
                         Verb = "open"
                     });
 
-                    StatusText.Text = "📂 フォルダを開きました";
+                    Vm.StatusText = "📂 フォルダを開きました";
                 }
                 else
                 {
-                    StatusText.Text = "❌ 保存先フォルダが見つかりません";
+                    Vm.StatusText = "❌ 保存先フォルダが見つかりません";
                 }
             }
             catch (Exception ex)
             {
-                StatusText.Text = "❌ フォルダを開けませんでした";
+                Vm.StatusText = "❌ フォルダを開けませんでした";
                 RecService.Instance.TraceLogs.Add($"Explorer Error: {ex.Message}");
             }
         }
@@ -803,7 +759,7 @@ namespace TraceShot.Features
             // 1. 選択されている項目があるかチェック
             if (TimelineListBox.SelectedItems.Count == 0)
             {
-                StatusText.Text = "ℹ️ 削除する項目を選択してください";
+                Vm.StatusText = "ℹ️ 削除する項目を選択してください";
                 return;
             }
 
@@ -840,7 +796,7 @@ namespace TraceShot.Features
 
                 // 4. 保存とステータス更新
                 NoteEditBox.Text = "";
-                StatusText.Text = $"🗑️ {bookmarks.Count} 件削除しました";
+                Vm.StatusText = $"🗑️ {bookmarks.Count} 件削除しました";
             }
             RefreshBookmarkCanvas();
         }
@@ -865,7 +821,7 @@ namespace TraceShot.Features
         private void VideoPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
         {
             // 1. ステータスバーにエラーを表示
-            StatusText.Text = "❌ 再生エラー";
+            Vm.StatusText = "❌ 再生エラー";
 
             // 2. ログに詳細を記録（以前の画像で見られた TraceLogs や TimelineListBox を活用）
             string errorMessage = $"再生に失敗しました: {e.ErrorException.Message}";
@@ -892,7 +848,7 @@ namespace TraceShot.Features
                 if (sm.ShowDialog() == true)
                 {
                     _fullDeviceName = sm.DeviceName;
-                    StatusText.Text = $"{sm.MoniterName}を選択しました ";
+                    Vm.StatusText = $"{sm.MoniterName}を選択しました ";
                 }
             }
             // 矩形選択モード
@@ -911,7 +867,7 @@ namespace TraceShot.Features
                         (int)rect.Height
                     );
                     _rectDeviceName = selectionRect.TargetDeviceName;
-                    StatusText.Text = $"矩形確定: {selectionRect.TargetDeviceName} x:{rect.X} y:{rect.Y} w:{rect.Width} h:{rect.Height}";
+                    Vm.StatusText = $"矩形確定: {selectionRect.TargetDeviceName} x:{rect.X} y:{rect.Y} w:{rect.Width} h:{rect.Height}";
                 }
             }
             // ウインドウ選択モード
@@ -921,7 +877,7 @@ namespace TraceShot.Features
                 sw.ShowDialog();
 
                 _targetWindowHandle = sw.SelectedHWnd;
-                StatusText.Text = $"録画対象：{sw.SelectedTitle}";
+                Vm.StatusText = $"録画対象：{sw.SelectedTitle}";
             }
 
             // MainWindowを再表示してアクティブにする
@@ -1028,7 +984,7 @@ namespace TraceShot.Features
                 var pos = TimeSpan.FromSeconds(slider.Value);
                 VideoPlayer.Position = pos;
                 PlayerPause(false);
-                StatusText.Text = $"Seek: {pos}";
+                Vm.StatusText = $"Seek: {pos}";
             }
         }
 
@@ -1047,7 +1003,7 @@ namespace TraceShot.Features
                 PlayPauseText.Text = "一時停止";
                 _isPlaying = true;
 
-                StatusText.Text = "▶ 再生中...";
+                Vm.StatusText = "▶ 再生中...";
                 //StartPlayerTimer();
             }
         }
@@ -1062,7 +1018,7 @@ namespace TraceShot.Features
             PlayPauseText.Text = "再生";
             _isPlaying = false;
 
-            StatusText.Text = "⏸ 一時停止中";
+            Vm.StatusText = "⏸ 一時停止中";
         }
 
         // 録画開始の処理の中に追記
@@ -1145,7 +1101,7 @@ namespace TraceShot.Features
 
             RefreshBookmarkCanvas();
 
-            StatusText.Text = "保存完了";
+            Vm.StatusText = "保存完了";
 
             VideoPlayer.Source = new Uri(_currentVideoPath);
             //PlayerPause(true);
@@ -1174,7 +1130,7 @@ namespace TraceShot.Features
                         case 1: // 矩形選択
                             if (_selectedRegion == null)
                             {
-                                StatusText.Text = "エラー：範囲を先に選択してください";
+                                Vm.StatusText = "エラー：範囲を先に選択してください";
                                 return;
                             }
                             RecService.Instance.StartRectangleRecording(_currentVideoPath, _rectDeviceName, _selectedRegion);
@@ -1183,7 +1139,7 @@ namespace TraceShot.Features
                         case 2: // ウィンドウ選択
                             if (_targetWindowHandle == IntPtr.Zero)
                             {
-                                StatusText.Text = "エラー：ウィンドウを先に選択してください";
+                                Vm.StatusText = "エラー：ウィンドウを先に選択してください";
                                 return;
                             }
                             RecService.Instance.StartWindowRecording(_currentVideoPath, _targetWindowHandle);
@@ -1192,7 +1148,7 @@ namespace TraceShot.Features
 
                     OnRecordingStarted();
 
-                    StatusText.Text = $"● 録画中: {RecService.Instance.CurrentVideoName}";
+                    Vm.StatusText = $"● 録画中: {RecService.Instance.CurrentVideoName}";
 
                     taskbarInfo.ProgressState = TaskbarItemProgressState.Error;
                     taskbarInfo.ProgressValue = 1.0;
@@ -1205,7 +1161,7 @@ namespace TraceShot.Features
             else
             {
                 RecService.Instance.StopRecording();
-                StatusText.Text = "動画を処理中...";
+                Vm.StatusText = "動画を処理中...";
                 await Task.Delay(1000);
 
                 OnRecordingStopped();
@@ -1233,7 +1189,7 @@ namespace TraceShot.Features
 
                 var path = RecService.Instance.SaveBitmap(newBookmark, Vm.PreviewBitmap);
                 newBookmark.ImagePath = path;
-                StatusText.Text = $"記録 {newBookmark.Time} {newBookmark.Note} SS作成 {path}";
+                Vm.StatusText = $"記録 {newBookmark.Time} {newBookmark.Note} SS作成 {path}";
 
                 RecService.Instance.Entries.Add(newBookmark);
                 RefreshBookmarkCanvas();
@@ -1294,7 +1250,7 @@ namespace TraceShot.Features
                 {
                     VideoPlayer.Position = selected.Time;
                     PlayerPause(true);
-                    StatusText.Text = $"Seek: {selected.Time}";
+                    Vm.StatusText = $"Seek: {selected.Time}";
                 }
                 // マネージャーの表示リストを切り替える
                 _annotationManager.LoadAnnotationsFromBookmark(selected);
@@ -1511,11 +1467,11 @@ namespace TraceShot.Features
             {
                 var path = RecService.Instance.SaveBitmap(bookmark, Vm.PreviewBitmap);
                 bookmark.ImagePath = path;
-                StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note} SS作成 {path}";
+                Vm.StatusText = $"記録 {bookmark.Time} {bookmark.Note} SS作成 {path}";
             }
             else
             {
-                StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note}";
+                Vm.StatusText = $"記録 {bookmark.Time} {bookmark.Note}";
             }
             RecService.Instance.Entries.Add(bookmark);
             TimelineListBox.SelectedItem = bookmark;
@@ -1554,11 +1510,11 @@ namespace TraceShot.Features
             {
                 var path = RecService.Instance.SaveBitmap(bookmark, Vm.PreviewBitmap);
                 bookmark.ImagePath = path;
-                StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note} SS作成 {path}";
+                Vm.StatusText = $"記録 {bookmark.Time} {bookmark.Note} SS作成 {path}";
             }
             else
             {
-                StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note}";
+                Vm.StatusText = $"記録 {bookmark.Time} {bookmark.Note}";
             }
         }
 
@@ -1715,18 +1671,18 @@ namespace TraceShot.Features
             var cropped = new CroppedBitmap(pureVideoBitmap, new Int32Rect(px, py, pw, ph));
 
             // 4. OCR実行
-            StatusText.Text = "解析中...";
+            Vm.StatusText = "解析中...";
             string result = await ImageService.RecognizeTextFromBitmapSource(cropped);
 
             if (!string.IsNullOrWhiteSpace(result))
             {
                 string cleanText = result.Replace("\r", "").Replace("\n", " ").Trim();
                 bm.AddNewLine(cleanText); // Bookmarkにテキストを追加
-                StatusText.Text = "OCR完了";
+                Vm.StatusText = "OCR完了";
             }
             else
             {
-                StatusText.Text = "文字を検出できませんでした";
+                Vm.StatusText = "文字を検出できませんでした";
             }
         }
 
