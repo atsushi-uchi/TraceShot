@@ -23,6 +23,12 @@ public class MouseHook
     [DllImport("user32.dll")]
     private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr WindowFromPoint(POINT pt);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
     private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
     private LowLevelMouseProc? _proc;
     private IntPtr _hookID = IntPtr.Zero;
@@ -48,9 +54,15 @@ public class MouseHook
             DateTime now = DateTime.Now;
             if (now - _lastClickTime >= _coolDown)
             {
-                _lastClickTime = now; // 実行時間を更新
-
                 MSLLHOOKSTRUCT hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+
+                if (IsOwnWindow(hookStruct.pt))
+                {
+                    Debug.WriteLine("MouseHook: Own window click ignored.");
+                    return CallNextHookEx(_hookID, nCode, wParam, lParam);
+                }
+
+                _lastClickTime = now; // 実行時間を更新
                 OnLeftClick?.Invoke(new System.Drawing.Point(hookStruct.pt.x, hookStruct.pt.y));
             }
             else
@@ -61,6 +73,19 @@ public class MouseHook
             // --------------------------------
         }
         return CallNextHookEx(_hookID, nCode, wParam, lParam);
+    }
+
+    private bool IsOwnWindow(POINT pt)
+    {
+        // クリックされた位置にあるウィンドウハンドルを取得
+        IntPtr hWnd = WindowFromPoint(pt);
+        if (hWnd == IntPtr.Zero) return false;
+
+        // そのウィンドウのプロセスIDを取得
+        GetWindowThreadProcessId(hWnd, out uint processId);
+
+        // 現在実行中のプロセスIDと比較
+        return processId == (uint)Environment.ProcessId;
     }
 
     [StructLayout(LayoutKind.Sequential)]

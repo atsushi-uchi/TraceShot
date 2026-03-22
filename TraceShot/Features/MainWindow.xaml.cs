@@ -883,6 +883,30 @@ namespace TraceShot.Features
                 {
                     TimelineSlider.Value = VideoPlayer.Position.TotalSeconds;
                 }
+
+                if (_isPlaying)
+                {
+                    if (StopAtPointCheckBox.IsChecked ?? false)
+                    {
+                        // 現在のポジション付近にエントリーが存在するか
+                        var entry = RecService.Instance.Evidence.Entries
+                            .Where(bm => Math.Abs(bm.Time.TotalSeconds - VideoPlayer.Position.TotalSeconds) < 0.1)
+                            .OrderBy(bm => bm.Time)
+                            .FirstOrDefault();
+
+                        if (entry != null)
+                        {
+                            if (Data.SelectedItem != entry)
+                            {
+                                Data.SelectedItem = entry;
+                            }
+                        }
+                        else
+                        {
+                            Data.SelectedItem = null;
+                        }
+                    }
+                }
             }
         }
 
@@ -924,18 +948,14 @@ namespace TraceShot.Features
             // 1. しきい値（0.5秒）以内のものを抽出し
             // 2. 現在地との差が一番小さい順に並べ替え
             // 3. その先頭（最も近いもの）を取得する
-            var nearbyBookmark = RecService.Instance.Evidence.Entries
-                .Where(bm => Math.Abs(bm.Time.TotalSeconds - currentValue) < 0.05)
-                .OrderBy(bm => Math.Abs(bm.Time.TotalSeconds - currentValue))
+            var entry = RecService.Instance.Evidence.Entries
+                .Where(e => Math.Abs(e.Time.TotalSeconds - currentValue) < 0.05)
+                .OrderBy(e => Math.Abs(e.Time.TotalSeconds - currentValue))
                 .FirstOrDefault();
 
-            if (nearbyBookmark != null)
+            if (entry != null)
             {
-                if (TimelineListBox.SelectedItem != nearbyBookmark)
-                {
-                    TimelineListBox.SelectedItem = nearbyBookmark;
-                    TimelineListBox.ScrollIntoView(nearbyBookmark);
-                }
+                Data.SelectedItem = entry;
             }
         }
         private void Slider_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
@@ -1151,19 +1171,7 @@ namespace TraceShot.Features
 
             if (Data.PreviewBitmap is not null)
             {
-                TimelineEntry newBookmark = new()
-                {
-                    Time = RecService.Instance.CurrentDuration,
-                    Icon = "🖱️",
-                    Note = "Click",
-                };
-
-                var path = RecService.Instance.SaveBitmap(newBookmark, Data.PreviewBitmap);
-                newBookmark.ImagePath = path;
-                Data.StatusText = $"記録 {newBookmark.Time} {newBookmark.Note} SS作成 {path}";
-
-                RecService.Instance.Entries.Add(newBookmark);
-                RefreshBookmarkCanvas();
+                Data.AddTimelineEntry();
             }
         }
 
