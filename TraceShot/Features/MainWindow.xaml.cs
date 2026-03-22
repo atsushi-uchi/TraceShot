@@ -1,9 +1,7 @@
 ﻿using NHotkey;
 using ScreenRecorderLib;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -20,6 +18,7 @@ using TraceShot.Models;
 using TraceShot.Services;
 using TraceShot.ViewModels;
 using Windows.Media.SpeechRecognition;
+using Xceed.Wpf.Toolkit.Primitives;
 using static TraceShot.Properties.Settings;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
@@ -28,7 +27,6 @@ using Cursors = System.Windows.Input.Cursors;
 using Drawing = System.Drawing;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using MessageBox = System.Windows.MessageBox;
-using Path = System.IO.Path;
 using Point = System.Windows.Point;
 using Rectangle = System.Windows.Shapes.Rectangle;
 using Size = System.Windows.Size;
@@ -276,7 +274,11 @@ namespace TraceShot.Features
 
             if (openFileDialog.ShowDialog() == true)
             {
-                await Vm.LoadEvidenceAsync(openFileDialog.FileName);
+                if (await Vm.LoadEvidenceAsync(openFileDialog.FileName))
+                {
+                    Vm.SelectedItem = Vm.TimelineEntries[0];
+                    VideoPlayer.Position = Vm.SelectedItem.Time;
+                }
             }
         }
 

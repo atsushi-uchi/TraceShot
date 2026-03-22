@@ -84,7 +84,7 @@ namespace TraceShot.ViewModels
         [ObservableProperty] private Uri? _videoSource;
         [ObservableProperty] private string _statusText = "";
 
-        public async Task LoadEvidenceAsync(string filePath)
+        public async Task<bool> LoadEvidenceAsync(string filePath)
         {
             try
             {
@@ -114,17 +114,14 @@ namespace TraceShot.ViewModels
                     IsEditMode = true;
 
                     UpdateTimelineGroups();
-
-                    if (TimelineEntries.Count > 0)
-                    {
-                        SelectedItem = TimelineEntries[0];
-                    }
+                    return true;
                 }
             }
             catch (Exception ex)
             {
                 StatusText = $"ファイル読込失敗 {ex.Message}";
             }
+            return false;
         }
 
         private async Task ExecuteOcrOnAnnotation(RectAnnotation rect)
