@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:dd="clr-namespace:GongSolutions.Wpf.DragDrop;assembly=GongSolutions.Wpf.DragDrop"
         xmlns:vm="clr-namespace:TraceShot.ViewModels"
-        Title="エクスポート設定 - TraceShot" Height="600" Width="1160"
+        Title="エクスポート設定 - TraceShot" Height="600" Width="1200"
         Background="#F3F3F3" WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <SolidColorBrush x:Key="NoImagePlaceholder" Color="#1A1A1A" />
@@ -98,10 +98,9 @@
                             <DataTemplate DataType="{x:Type vm:ExportItemViewModel}">
                                 <Grid Width="240" Margin="8" Background="Transparent">
                                     <StackPanel>
-                                        <Grid x:Name="ThumbnailArea" Height="135">
+                                        <Grid x:Name="ThumbnailArea" Height="135" MouseLeftButtonDown="Thumbnail_MouseLeftButtonDown">
                                             <Border CornerRadius="6" ClipToBounds="True" Background="#333">
-                                                <Image Source="{Binding SnapshotImage, TargetNullValue={StaticResource NoImagePlaceholder}}" 
-                               Stretch="UniformToFill">
+                                                <Image Source="{Binding SnapshotImage, TargetNullValue={StaticResource NoImagePlaceholder}}"  Stretch="UniformToFill">
                                                     <Image.Style>
                                                         <Style TargetType="Image">
                                                             <Style.Triggers>
@@ -166,36 +165,91 @@
                 </Grid>
 
                 <Grid x:Name="PreviewArea" Visibility="Collapsed" Background="#2D2D2D" ClipToBounds="True">
-                    <Grid x:Name="SlideGrid">
-                        <Grid.RenderTransform>
-                            <TranslateTransform x:Name="SlideTransform" X="0" />
-                        </Grid.RenderTransform>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                        <Image x:Name="LargePreviewImage" 
-               Source="{Binding SelectedPreviewItem.SnapshotImage}" 
-               Stretch="Uniform" 
-               Margin="20,40"
-               MouseDown="ClosePreview_Click" />
+                    <Grid Grid.Row="0" Margin="30,20,30,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="#CC000000" CornerRadius="4" Padding="12,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="No." Foreground="#00FFFF" FontSize="16" FontWeight="Bold" Margin="0,0,5,0"/>
+                                    <TextBlock Text="{Binding SelectedPreviewItem.CaseId}" 
+                               Foreground="#00FFFF" FontSize="22" FontWeight="Bold"/>
+                                    <TextBlock Text=" - Step " Foreground="#AAA" FontSize="16" Margin="15,0,0,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding SelectedPreviewItem.StepId}" 
+                               Foreground="White" FontSize="22" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="15,0,0,0" Padding="20,6" CornerRadius="4">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#CC444444"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedPreviewItem.OriginalBookmark.Result}" Value="OK">
+                                                <Setter Property="Background" Value="#CC28A745"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding SelectedPreviewItem.OriginalBookmark.Result}" Value="NG">
+                                                <Setter Property="Background" Value="#CCDC3545"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding SelectedPreviewItem.OriginalBookmark.Result}" Value="PEND">
+                                                <Setter Property="Background" Value="Orange"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding SelectedPreviewItem.OriginalBookmark.Result}" 
+                                    Foreground="White" FontSize="24" FontWeight="Black"/>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,0,0"  VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock Text="左右キーで移動 / 上下でケース選択 / クリックで一覧に戻る" 
+                                   Foreground="#888" HorizontalAlignment="Center" Margin="0,0,0,0" FontSize="14"/>
+                            <TextBlock Text="{Binding PreviewCounterText}" 
+                                   Foreground="White" FontSize="18" FontWeight="Bold"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center" Opacity="0.7"/>
+                        </StackPanel>
                     </Grid>
 
-                    <StackPanel Orientation="Horizontal" 
-                HorizontalAlignment="Center" 
-                VerticalAlignment="Top" 
-                Margin="0,15,0,0">
-                        <TextBlock x:Name="PreviewPageCounter" 
-                   Text="{Binding PreviewCounterText}" 
-                   Foreground="White" 
-                   FontSize="16" 
-                   FontWeight="Bold">
-                            <TextBlock.Effect>
-                                <DropShadowEffect BlurRadius="5" ShadowDepth="0" Opacity="0.8"/>
-                            </TextBlock.Effect>
-                        </TextBlock>
-                    </StackPanel>
+                    <Grid x:Name="SlideGrid" Grid.Row="1">
+                        <Grid.RenderTransform>
+                            <TranslateTransform x:Name="SlideTransform" X="0" Y="0" />
+                        </Grid.RenderTransform>
+                        <Image x:Name="LargePreviewImage" 
+                               Source="{Binding SelectedPreviewItem.SnapshotImage}" 
+                               Stretch="Uniform" 
+                               Margin="20,10"
+                               MouseDown="ClosePreview_Click" />
+                    </Grid>
 
-                    <TextBlock Text="左右キーで移動 / クリックで一覧に戻る" 
-               Foreground="#888" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="10"/>
+                    <Border Grid.Row="2" Background="#1A1A1A" BorderBrush="#333" BorderThickness="0,1,0,0">
+                        <TextBlock Text="{Binding SelectedPreviewItem.Note}" 
+                                   Foreground="#CCC" 
+                                   FontSize="18" 
+                                   VerticalAlignment="Center" 
+                                   HorizontalAlignment="Center"
+                                   Margin="50,5"
+                                   TextWrapping="NoWrap" 
+                                   TextTrimming="CharacterEllipsis">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <Trigger Property="Text" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </Trigger>
+                                        <Trigger Property="Text" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
                 </Grid>
+                <!--ここまで-->
             </Grid>
         </Border>
 

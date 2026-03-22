@@ -1,10 +1,12 @@
-﻿<Window x:Class="TraceShot.Features.MainWindow"
+﻿ <Window x:Class="TraceShot.Features.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:local="clr-namespace:TraceShot"
         xmlns:ctrl="clr-namespace:TraceShot.Controls"
+        xmlns:models="clr-namespace:TraceShot.Models"
         xmlns:service="clr-namespace:TraceShot.Services"
         xmlns:conv="clr-namespace:TraceShot.Converters"
         xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
@@ -28,6 +30,7 @@
         <conv:TypeNameConverter x:Key="TypeNameConverter" />
         <conv:RelativeToAbsoluteConverter x:Key="RelToAbsConverter"/>
         <conv:RectConverter x:Key="RectConverter"/>
+        <conv:GroupNameConverter x:Key="GroupNameConverter"/>
         <Style x:Key="StandardToggleSwitchStyle" TargetType="ToggleButton">
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="20"/>
@@ -85,7 +88,7 @@
                              Fill="Transparent"/>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -104,7 +107,7 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -117,18 +120,18 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Thumb">
                         <Rectangle x:Name="bodyVisual" 
-                           Stroke="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}" 
+                           Stroke="{Binding DataContext.Config.MainBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
                            StrokeThickness="2" 
                            Fill="{TemplateBinding Background}" 
                            Cursor="SizeAll"/>
 
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                 <Setter TargetName="bodyVisual" Property="Opacity" Value="0.5"/>
                             </Trigger>
                             <DataTrigger Binding="{Binding IsDrawing}" Value="True">
-                                <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                 <Setter TargetName="bodyVisual" Property="Opacity" Value="0.5"/>
                             </DataTrigger>
                         </ControlTemplate.Triggers>
@@ -143,10 +146,10 @@
                     <ControlTemplate TargetType="Thumb">
                         <Ellipse x:Name="handleVisual" 
                                  Width="6" Height="6" Margin="-3"
-                             Fill="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}"/>
+                             Fill="{Binding DataContext.Config.MainBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                 <Setter TargetName="handleVisual" Property="Width" Value="10" />
                                 <Setter TargetName="handleVisual" Property="Height" Value="10" />
                                 <Setter TargetName="handleVisual" Property="Margin" Value="-5" />
@@ -168,7 +171,7 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding CropBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding DataContext.Config.CropBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -184,7 +187,7 @@
                              Fill="Transparent"/>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding CropBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                <Setter TargetName="handleVisual" Property="Fill" Value="{Binding DataContext.Config.CropBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -198,7 +201,7 @@
                         <Rectangle x:Name="bodyVisual" 
                    Stroke="#AAFFFFFF" 
                    StrokeThickness="2" 
-                   Fill="{Binding CropFillBrush, Source={x:Static service:SettingsService.Instance}}" 
+                   Fill="{Binding DataContext.Config.CropFillBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
                    Cursor="SizeAll"/>
                     </ControlTemplate>
                 </Setter.Value>
@@ -406,13 +409,12 @@
                        Style="{StaticResource PointResizeHandleStyle}"
                        DragCompleted="OnAnnotation_DragCompleted"
                        DragDelta="OnBottomRightResize_DragDelta" Cursor="SizeNWSE"/>
-
             </Canvas>
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type ctrl:NoteAnnotation}">
             <Canvas>
-                <Line Stroke="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}" 
+                <Line Stroke="{Binding DataContext.Config.MainBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
                       StrokeThickness="2" StrokeDashCap="Round">
                     <Line.X1>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
@@ -495,20 +497,20 @@
 
                                         <Border.Style>
                                             <Style TargetType="Border">
-                                                <Setter Property="Background" Value="{Binding MainBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                                <Setter Property="Background" Value="{Binding DataContext.Config.MainBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                                 <Style.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                                        <Setter Property="Background" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                                         <Setter Property="Cursor" Value="Hand" />
                                                     </Trigger>
                                                     <DataTrigger Binding="{Binding IsDragging, RelativeSource={RelativeSource AncestorType=Thumb}}" Value="True">
-                                                        <Setter Property="Background" Value="{Binding OverBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                                        <Setter Property="Background" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
                                         <TextBlock Text="{Binding Text}" 
-                                            Padding="3" Foreground="{Binding MainTextBrush, Source={x:Static service:SettingsService.Instance}}" />
+                                            Padding="3" Foreground="{Binding DataContext.Config.MainTextBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                     </Border>
 
                                     <!-- TextBox -->
@@ -587,20 +589,20 @@
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0" Background="Black">
-                <MediaElement x:Name="VideoPlayer" 
+                <MediaElement x:Name="VideoPlayer"
+                              Source="{Binding VideoSource}"
                       Stretch="Uniform"
                       LoadedBehavior="Manual" 
                       UnloadedBehavior="Stop" 
                       ScrubbingEnabled="True"
                       MediaOpened="VideoPlayer_MediaOpened"
                       MediaFailed="VideoPlayer_MediaFailed"
-                      MediaEnded="VideoPlayer_MediaEnded"    
-                      SizeChanged="DrawingCanvas_SizeChanged" >
+                      MediaEnded="VideoPlayer_MediaEnded">
                     <MediaElement.Style>
                         <Style TargetType="MediaElement">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="True">
+                                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -666,7 +668,7 @@
                         <Style TargetType="Grid">
                             <Setter Property="Visibility" Value="Visible" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="True">
+                                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -684,28 +686,71 @@
                         <RowDefinition Height="180" />
                     </Grid.RowDefinitions>
 
-                    <ListBox x:Name="BookmarkListBox" Grid.Row="0" Margin="2" SelectionChanged="BookmarkListBox_SelectionChanged"
-                             SelectionMode="Extended">
+                    <ListBox x:Name="TimelineListBox" 
+                             SelectionChanged="TimelineListBox_SelectionChanged"
+                             ItemsSource="{Binding TimelineView}" 
+                             SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                             SelectionMode="Extended"
+                             Margin="2" Background="Transparent" BorderThickness="0">
+
+                        <ListBox.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#EEE" BorderBrush="#DDD" BorderThickness="0,0,0,1" Padding="5,2"
+                                                PreviewMouseLeftButtonDown="GroupHeader_PreviewMouseLeftButtonDown">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="📋 " />
+                                                <TextBlock Text="{Binding Name, Converter={StaticResource GroupNameConverter}}"
+                                                           FontWeight="Bold" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListBox.GroupStyle>
+
                         <ListBox.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate DataType="{x:Type models:TimelineEntry}">
                                 <StackPanel Orientation="Horizontal" Margin="5,2">
-                                    <TextBlock x:Name="IconTxt" Text="{Binding Icon}" Foreground="Black" />
-                                    <TextBlock Text=" " />
-                                    <TextBlock Text="{Binding Time, StringFormat=\{0:mm\\:ss\}}" />
+                                    <TextBlock x:Name="IconTxt" Text="●" Margin="0,0,5,0" Foreground="Gray" />
+
+                                    <TextBlock Text="{Binding Time, StringFormat=\{0:mm\\:ss\}}" Width="45"/>
+
+                                    <TextBlock Text="{Binding Result}" Width="40" Margin="5,0" FontWeight="Bold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Result}" Value="OK">
+                                                        <Setter Property="Foreground" Value="ForestGreen"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Result}" Value="NG">
+                                                        <Setter Property="Foreground" Value="Red"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Result}" Value="PEND">
+                                                        <Setter Property="Foreground" Value="Orange"/>
+                                                        <Setter Property="Text" Value="SS"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
                                     <TextBlock Text=" - " />
-                                    <TextBlock Text="{Binding Note}" TextTrimming="CharacterEllipsis" MaxWidth="150"/>
+                                    <TextBlock Text="{Binding Note}" TextTrimming="CharacterEllipsis" MaxWidth="180"/>
                                 </StackPanel>
+
                                 <DataTemplate.Triggers>
                                     <DataTrigger Binding="{Binding IsListening}" Value="True">
                                         <DataTrigger.EnterActions>
                                             <BeginStoryboard x:Name="RedBlink">
                                                 <Storyboard RepeatBehavior="Forever">
                                                     <ColorAnimation 
-                        Storyboard.TargetName="IconTxt" 
-                        Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
-                        From="Red" To="Transparent" 
-                        Duration="0:0:0.5" 
-                        AutoReverse="True" />
+                                    Storyboard.TargetName="IconTxt" 
+                                    Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
+                                    From="Red" To="Transparent" 
+                                    Duration="0:0:0.5" 
+                                    AutoReverse="True" />
                                                 </Storyboard>
                                             </BeginStoryboard>
                                         </DataTrigger.EnterActions>
@@ -720,10 +765,50 @@
 
                     <GridSplitter Grid.Row="1" Height="2" HorizontalAlignment="Stretch" Background="#CCC"/>
 
-                    <Grid Grid.Row="2" Margin="10">
-                        <TextBlock Text="コメント:" FontWeight="Bold" Margin="0,0,0,5"/>
+                    <Grid Grid.Row="2" Margin="5">
+                        <!--<TextBlock Text="コメント:" FontWeight="Bold" Margin="0,0,0,5"/>
                         <TextBox x:Name="NoteEditBox" Margin="0,22,0,0" TextWrapping="Wrap" AcceptsReturn="True"
-                                 Text="{Binding SelectedItem.Note, ElementName=BookmarkListBox, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                 Text="{Binding SelectedItem.Note, ElementName=TimelineListBox, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />-->
+                        <StackPanel Grid.Row="1" Margin="5">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="No" FontWeight="Bold" Margin="5,5,10,5" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" 
+                                         TextChanged="CaesNoEditBox_TextChanged"
+                                         Name="CaesNoEditBox"
+                                         Text="{Binding SelectedItem.CaseId, UpdateSourceTrigger=PropertyChanged}" 
+                                         VerticalAlignment="Center"
+                                         Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisConverter}}"
+                                         Height="20">
+                                </TextBox>
+                                <TextBox Grid.Column="1" 
+                                         Name="NextNoEditBox" 
+                                         Text="{Binding NextNo, UpdateSourceTrigger=PropertyChanged}" 
+                                         VerticalAlignment="Center"
+                                         Visibility="{Binding IsEditMode, Converter={StaticResource InverseBoolToVisConverter}}"
+                                         Height="20"/>
+                            </Grid>
+                            <UniformGrid Columns="4" Margin="0,0,0,5">
+                                <Button Command="{Binding ExecuteResultCommand}" CommandParameter="OK" 
+                                        Content="OK" Background="ForestGreen" Foreground="White" Height="30" Margin="2"/>
+                                <Button Command="{Binding ExecuteResultCommand}" CommandParameter="NG" 
+                                        Content="NG" Background="Crimson" Foreground="White" Height="30" Margin="2"/>
+                                <Button Command="{Binding ExecuteResultCommand}" CommandParameter="PEND" 
+                                        Content="PEND" Background="Orange" Foreground="White" Height="30" Margin="2"/>
+                                <Button Command="{Binding ExecuteResultCommand}" CommandParameter="SS" 
+                                        Content="SS" Height="30" Margin="2"/>
+                            </UniformGrid>
+
+                            <TextBlock Text="コメント:" Margin="0,5,0,0"/>
+                            <TextBox Name="NoteEditBox" Text="{Binding SelectedItem.Note, UpdateSourceTrigger=PropertyChanged}" 
+             AcceptsReturn="True" 
+             TextWrapping="Wrap" 
+             Height="100" 
+             VerticalScrollBarVisibility="Auto"/>
+                        </StackPanel>
                     </Grid>
                 </Grid>
             </Border>
@@ -737,7 +822,7 @@
                         <Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Visible"/>
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="True">
+                                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                 </DataTrigger>
                             </Style.Triggers>
@@ -787,29 +872,40 @@
                         <Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Visible"/>
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="False">
+                                <DataTrigger Binding="{Binding IsEditMode}" Value="False">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </StackPanel.Style>
-                    <TextBlock x:Name="TimeText" Text="00:00 / 00:00" HorizontalAlignment="Right" FontSize="11" Margin="0,0,20,2"/>
 
-                    <Slider x:Name="TimelineSlider" Margin="20,0"
-                            IsMoveToPointEnabled ="True"
-                            Minimum="0" 
-                            Thumb.DragStarted="Slider_DragStarted" 
-                            Thumb.DragCompleted="Slider_DragCompleted" 
-                            ValueChanged="Slider_ValueChanged" 
-                            PreviewMouseLeftButtonUp="Slider_PreviewMouseLeftButtonUp"
-                            PreviewMouseMove="Slider_PreviewMouseMove">
-                        <Slider.ToolTip>
-                            <ToolTip x:Name="SliderToolTip">
-                                <TextBlock x:Name="ToolTipText" Text="00:00.000" FontWeight="Bold" />
-                            </ToolTip>
-                        </Slider.ToolTip>
-                    </Slider>
-                    <Canvas x:Name="BookmarkCanvas" Height="10" Margin="10,-2,10,0" Background="Transparent" />
+                    <Grid Margin="20,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Canvas x:Name="ResultRangeCanvas" Grid.Row="0" Height="20" VerticalAlignment="Bottom"/>
+                        <Slider x:Name="TimelineSlider" 
+                                Grid.Row="1"
+                                VerticalAlignment="Top"
+                                IsMoveToPointEnabled ="True"
+                                Minimum="0" 
+                                Thumb.DragStarted="Slider_DragStarted" 
+                                Thumb.DragCompleted="Slider_DragCompleted" 
+                                ValueChanged="Slider_ValueChanged" 
+                                PreviewMouseLeftButtonUp="Slider_PreviewMouseLeftButtonUp"
+                                PreviewMouseMove="Slider_PreviewMouseMove"
+                                SizeChanged="TimelineSlider_SizeChanged">
+                            <Slider.ToolTip>
+                                <ToolTip x:Name="SliderToolTip">
+                                    <TextBlock x:Name="ToolTipText" Text="00:00.000" FontWeight="Bold" />
+                                </ToolTip>
+                            </Slider.ToolTip>
+                        </Slider>
+                        <Canvas x:Name="BookmarkCanvas" Grid.Row="2" Height="10" Background="Transparent" />
+                        <TextBlock x:Name="TimeText" Grid.Row="2" Text="00:00 / 00:00" HorizontalAlignment="Left" FontSize="11" Margin="0,2,0,0"/>
+                    </Grid>
                 </StackPanel>
             </Grid>
         </Border>
@@ -821,7 +917,7 @@
                         <Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Visible"/>
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="True">
+                                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                 </DataTrigger>
                             </Style.Triggers>
@@ -843,7 +939,9 @@
                             <TextBlock x:Name="RecordingText" Text="録画開始"/>
                         </StackPanel>
                     </Button>
-                    <Button Click="AddBookmarkWhileRecording_Click" Padding="10,5" Margin="0,0,5,0">
+                    <!--Command="{Binding ExecuteResultCommand}" CommandParameter="OK"-->
+                    <!--<Button Click="AddBookmarkWhileRecording_Click" Padding="10,5" Margin="0,0,5,0">-->
+                    <!--<Button Command="{Binding ExecuteResultCommand}" CommandParameter="OK" Padding="10,5" Margin="0,0,5,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="📌" Margin="0,0,5,0"/>
                             <TextBlock x:Name="RecordingEvidenceText" Text="証跡追加"/>
@@ -854,7 +952,7 @@
                             <TextBlock Text="🎙️" Margin="0,0,5,0"/>
                             <TextBlock x:Name="RecordingVoiceText" Text="音声メモ"/>
                         </StackPanel>
-                    </Button>
+                    </Button>-->
                     <CheckBox x:Name="ClickTriggerCheckBox" Content="クリック自動録画" IsChecked="False" VerticalAlignment="Center" Margin="5,0,10,0"
                               Checked="ClickTriggerCheckBox_Checked" Unchecked="ClickTriggerCheckBox_Unchecked"/>
                 </StackPanel>
@@ -865,7 +963,7 @@
                         <Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Visible"/>
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsPlayerMode}" Value="False">
+                                <DataTrigger Binding="{Binding IsEditMode}" Value="False">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                 </DataTrigger>
                             </Style.Triggers>
@@ -893,7 +991,7 @@
                         </StackPanel>
                     </Button>
                     <CheckBox x:Name="StopAtBookmarkCheckBox" Content="ポイント停止" IsChecked="True" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <Button Click="AddBookmarkWhilePlaying_Click" Padding="10,5" Margin="0,0,5,0">
+                    <!--<Button Click="AddBookmarkWhilePlaying_Click" Padding="10,5" Margin="0,0,5,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="📌" Margin="0,0,5,0"/>
                             <TextBlock x:Name="PlayingEvidenceText" Text="証跡追加"/>
@@ -904,7 +1002,7 @@
                             <TextBlock Text="🎙️" Margin="0,0,5,0"/>
                             <TextBlock x:Name="PlayingVoiceText" Text="音声メモ"/>
                         </StackPanel>
-                    </Button>
+                    </Button>-->
                     <StackPanel Orientation="Horizontal" 
                         DataContext="{Binding Evidence, Source={x:Static service:RecService.Instance}}">
                         <CheckBox x:Name="CropEnabledCheckBox" 
@@ -956,7 +1054,7 @@
 
                     <ToggleButton x:Name="ModeToggleButton" 
                                   Cursor="Hand"
-                                  IsChecked="{Binding IsPlayerMode, Mode=TwoWay}">
+                                  IsChecked="{Binding IsEditMode, Mode=TwoWay}">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton" BasedOn="{StaticResource StandardToggleSwitchStyle}">
                                 <Style.Triggers>
@@ -1016,7 +1114,7 @@
             </StatusBarItem>
             <Separator/>
             <StatusBarItem>
-                <TextBlock x:Name="StatusText" Foreground="Red" FontWeight="Bold"/>
+                <TextBlock x:Name="StatusText" Text="{Binding StatusText}" Foreground="Red" FontWeight="Bold"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

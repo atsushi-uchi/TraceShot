@@ -22,10 +22,10 @@ namespace TraceShot.Services
     {
         public static RecService Instance { get; } = new RecService();
 
-        [ObservableProperty][NotifyPropertyChangedFor(nameof(Bookmarks))]
+        [ObservableProperty][NotifyPropertyChangedFor(nameof(Entries))]
         private RecEvidence _evidence = new();
 
-        public ObservableCollection<Bookmark> Bookmarks => Evidence.Bookmarks;
+        public ObservableCollection<TimelineEntry> Entries => Evidence.Entries;
 
         [ObservableProperty]
         private bool _isRecording = false;
@@ -61,13 +61,13 @@ namespace TraceShot.Services
             };
         }
 
-        public Bookmark? GetBookmark(TimeSpan time)
+        public TimelineEntry? GetBookmark(TimeSpan time)
         {
 
-            return Bookmarks.FirstOrDefault(b => Math.Abs(b.Time.TotalSeconds - time.TotalSeconds) < 0.1);
+            return Entries.FirstOrDefault(b => Math.Abs(b.Time.TotalSeconds - time.TotalSeconds) < 0.1);
         }
 
-        public string? SaveBackupFromWriteableBitmap(Bookmark bm, WriteableBitmap source)
+        public string? SaveBitmap(TimelineEntry bm, WriteableBitmap source)
         {
             if (string.IsNullOrEmpty(CurrentFolder) || source == null) return null;
 
@@ -91,8 +91,6 @@ namespace TraceShot.Services
                     encoder.Save(stream);
                     stream.Flush();
                 }
-
-                Debug.WriteLine($"Backup success: {filePath}");
                 return filePath;
             }
             catch (Exception ex)
@@ -103,7 +101,7 @@ namespace TraceShot.Services
         }
 
 
-        public (string? Path, BitmapSource? Bitmap)? SaveImage(Bookmark bm, VideoSnapshotInfo? info, double scale = 0.5, bool saveToFile = true)
+        public (string? Path, BitmapSource? Bitmap)? SaveImage(TimelineEntry bm, VideoSnapshotInfo? info, double scale = 0.5, bool saveToFile = true)
         {
             if (string.IsNullOrEmpty(CurrentFolder) || info is null) return null;
 
@@ -254,26 +252,26 @@ namespace TraceShot.Services
             return (filePath, bmp);
         }
 
-        public void AddBookmark(Bookmark bookmark)
+        public void AddBookmark(TimelineEntry bookmark)
         {
             if (Evidence == null) return;
 
-            Bookmarks.Add(bookmark);
+            Entries.Add(bookmark);
         }
 
-        public Bookmark? AddBookmark(string note = " - Screenshot")
+        public TimelineEntry? AddBookmark(string note = " - Screenshot")
         {
             if (Evidence == null) return null;
 
             if (_stopwatch.IsRunning)
             {
-                var bm = new Bookmark
+                var bm = new TimelineEntry
                 {
                     Time = _stopwatch.Elapsed,
                     Icon = "📌",
                     Note = note,
                 };
-                Bookmarks.Add(bm);
+                Entries.Add(bm);
                 return bm;
             }
             return null;
@@ -478,7 +476,7 @@ namespace TraceShot.Services
             if (_recorder is null) return;
             IsRecording = true;
 
-            Bookmarks.Clear();
+            Entries.Clear();
             TraceLogs.Clear();
 
             _recorder.OnRecordingComplete += (s, e) => TraceLogs.Add("Window Recording Complete");

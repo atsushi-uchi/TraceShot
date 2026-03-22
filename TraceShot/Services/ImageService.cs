@@ -94,7 +94,7 @@ namespace TraceShot.Services
             return _standbyImageCache;
         }
 
-        public static BitmapSource GeneratePureVideoBitmap(Bookmark bm, VideoSnapshotInfo info)
+        public static BitmapSource GeneratePureVideoBitmap(TimelineEntry bm, VideoSnapshotInfo info)
         {
             // ビデオ本来の解像度
             int w = info.NaturalWidth;

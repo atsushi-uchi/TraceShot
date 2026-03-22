@@ -51,7 +51,7 @@ namespace TraceShot.Controls
                 Annotations.Add(crop);
             }
         }
-        public void LoadAnnotationsFromBookmark(Bookmark bookmark)
+        public void LoadAnnotationsFromBookmark(TimelineEntry bookmark)
         {
             // 現在画面に表示されている注釈をすべてクリア
             Annotations.Clear();
@@ -67,7 +67,7 @@ namespace TraceShot.Controls
             RefreshCropOverlay();
         }
 
-        public void Remove(Bookmark? bookmark, AnnotationBase target)
+        public void Remove(TimelineEntry? bookmark, AnnotationBase target)
         {
             if (target is null) return;
 
@@ -103,7 +103,7 @@ namespace TraceShot.Controls
         /// <summary>
         /// 注釈の描画を開始する（MouseDownで呼ぶ）
         /// </summary>
-        public AnnotationBase StartDrawing<T>(Bookmark bookmark, Point pos, Size size) where T : AnnotationBase, new()
+        public AnnotationBase StartDrawing<T>(TimelineEntry bookmark, Point pos, Size size) where T : AnnotationBase, new()
         {
             SelectedAnnotation = new T
             {
@@ -135,7 +135,7 @@ namespace TraceShot.Controls
         /// <summary>
         /// 描画を確定させる（MouseUpで呼ぶ）
         /// </summary>
-        public void CompleteDrawing(Bookmark? bookmark)
+        public void CompleteDrawing(TimelineEntry? bookmark)
         {
             if (SelectedAnnotation == null) return;
 

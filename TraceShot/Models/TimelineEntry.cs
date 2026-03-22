@@ -5,13 +5,19 @@ using TraceShot.Controls;
 
 namespace TraceShot.Models
 {
-    public partial class Bookmark : ObservableObject
+    public enum TestResult { None, OK, NG, PEND, SS }
+
+    public partial class TimelineEntry : ObservableObject
     {
         // JSONに保存され、一生変わらないID
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        public string Name { get; set; }
-        public void MarkAsDirty() => IsDirty = true;
+        [ObservableProperty] private int _caseId = 0;
+
+        [JsonIgnore]
+        [ObservableProperty] private string _groupName = "";
+
+        public void EntryAsDirty() => IsDirty = true;
 
         // エクスポート対象かどうか
         public bool IsExportEnabled { get; set; } = true;
@@ -25,6 +31,7 @@ namespace TraceShot.Models
         [ObservableProperty]  private bool _isListening;
         [JsonIgnore]
         [ObservableProperty] private bool _isDirty = true;
+        //[ObservableProperty] private bool _isCaseStart = false;
 
         public string? ImagePath { get; set; }
 
@@ -35,6 +42,9 @@ namespace TraceShot.Models
 
         [JsonIgnore]
         public IEnumerable<NoteAnnotation> Notes => Annotations.OfType<NoteAnnotation>();
+
+        //[ObservableProperty] private string _testCaseNo = "";
+        [ObservableProperty] private TestResult _result = TestResult.None;
 
         public string AddNewLine(string text)
         {

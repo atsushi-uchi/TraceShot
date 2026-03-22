@@ -8,7 +8,7 @@
     public partial class ExportItemViewModel : ObservableObject
     {
         private readonly ExportCacheManager _cacheManager;
-        public ExportItemViewModel(Bookmark bookmark, BitmapSource? image, ExportCacheManager cacheManager)
+        public ExportItemViewModel(TimelineEntry bookmark, BitmapSource? image, ExportCacheManager cacheManager)
         {
             OriginalBookmark = bookmark;
             SnapshotImage = image;
@@ -24,49 +24,29 @@
             RecService.Instance.SaveEvidenceJson();
         }
 
-        public string EditableNote
-        {
-            get => OriginalBookmark.Note;
-            set
-            {
-                if (OriginalBookmark.Note != value)
-                {
-                    OriginalBookmark.Note = value;
-                    OriginalBookmark.IsDirty = true;
-                    OnPropertyChanged();
-                    OnPropertyChanged(nameof(Note));
-                }
-            }
-        }
-
         // 参照用
-        public Bookmark OriginalBookmark { get; set; }
+        public TimelineEntry OriginalBookmark { get; set; }
 
-        // プレビュー用画像（撮影直後にメモリ上のBitmapをセット）
-        [ObservableProperty]
-        private BitmapSource _snapshotImage;
-
-        // ファイルパス
         public string ImagePath { get; set; }
 
-        // 出力対象にするかどうか（UIのチェックボックスと連動）
-        [ObservableProperty]
-        private bool _isSelected = true;
+        [ObservableProperty] private BitmapSource _snapshotImage;
 
-        // 並び順（後でドラッグ＆ドロップ実装時に使用）
-        [ObservableProperty]
-        private int _order;
+        [ObservableProperty] private bool _isSelected = true;
 
-        [ObservableProperty]
-        private double _scale;
+        [ObservableProperty] private int _order;
 
-        // ★ 連番表示用 (例: "01", "02")
-        [ObservableProperty]
-        private string _serialNumber = "";
+        [ObservableProperty] private double _scale;
+
+        [ObservableProperty] private string _serialNumber = "";
+
+        [ObservableProperty] private int _caseId;
+        [ObservableProperty] private int _stepId;
+
+        [ObservableProperty] private string _note;
 
         public TimeSpan Time => OriginalBookmark.Time;
 
-        public string Note => OriginalBookmark.Note ?? "";
+        //public string Note => OriginalBookmark.Note ?? "";
         public ExportItemViewModel() { }
     }
 }

@@ -1,0 +1,286 @@
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.IO;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Data;
+using System.Windows.Media.Imaging;
+using TraceShot.Controls;
+using TraceShot.Extensions;
+using TraceShot.Models;
+using TraceShot.Services;
+
+namespace TraceShot.ViewModels
+{
+    public partial class MainViewModel : ObservableObject
+    {
+        public MainViewModel()
+        {
+            SetupTimelineView();
+
+            RecService.Instance.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(RecService.Evidence))
+                {
+                    App.Current.Dispatcher.Invoke(() =>
+                    {
+                        SetupTimelineView();
+                        UpdateTimelineGroups();
+                    });
+                }
+            };
+        }
+
+        public void SetupTimelineView()
+        {
+            TimelineView = CollectionViewSource.GetDefaultView(TimelineEntries);
+            if (TimelineView == null) return;
+
+            // グループ化の設定
+            TimelineView.GroupDescriptions.Clear();
+            TimelineView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(TimelineEntry.GroupName)));
+
+            // ソートの設定
+            TimelineView.SortDescriptions.Clear();
+            TimelineView.SortDescriptions.Add(new SortDescription(nameof(TimelineEntry.Time), ListSortDirection.Ascending));
+
+            // ライブシェイピングの設定（編集時に即座に並び替える）
+            if (TimelineView is ICollectionViewLiveShaping liveView)
+            {
+                liveView.IsLiveSorting = true;
+                liveView.LiveSortingProperties.Clear();
+                liveView.LiveSortingProperties.Add(nameof(TimelineEntry.Time));
+
+                // ケースを跨ぐ移動（IsCaseStartの変更）も即座に反映したい場合
+                liveView.IsLiveGrouping = true;
+                liveView.LiveGroupingProperties.Clear();
+                liveView.LiveGroupingProperties.Add(nameof(TimelineEntry.CaseId));
+            }
+        }
+
+
+        public SettingsService Config => SettingsService.Instance;
+
+        public RecService Recorder => RecService.Instance;
+
+        public ObservableCollection<TimelineEntry> TimelineEntries => RecService.Instance.Entries;
+        [ObservableProperty]  private ICollectionView? _timelineView;
+
+        [ObservableProperty] private TimelineEntry? _selectedItem;
+
+        [ObservableProperty] private bool _isEditMode = false;
+
+        [ObservableProperty] private int _nextNo = 1;
+
+        public Action<TimelineEntry>? ScrollIntoViewRequested { get; set; }
+        public Action? RefreshCanvas { get; set; }
+        public Func<TimeSpan>? GetCurrentPosition { get; set; }
+        public Func<VideoSnapshotInfo>? GetVideoSnapshotFunc { get; set; }
+
+        public WriteableBitmap? PreviewBitmap;
+
+        [ObservableProperty] private Uri? _videoSource;
+        [ObservableProperty] private string _statusText = "";
+
+        public async Task LoadEvidenceAsync(string filePath)
+        {
+            try
+            {
+                string jsonString = File.ReadAllText(filePath);
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var loaded = JsonSerializer.Deserialize<RecEvidence>(jsonString, options);
+                if (loaded == null) throw new Exception("JSONファイルのデシリアライズに失敗");
+
+                foreach (var entry in loaded.Entries)
+                {
+                    foreach (var rect in entry.Rects.OfType<RectAnnotation>())
+                    {
+                        rect.OcrAction = ExecuteOcrOnAnnotation;
+                    }
+                }
+                RecService.Instance.Evidence = loaded;
+                RecService.Instance.JsonPath = filePath;
+
+                var folderPath = Path.GetDirectoryName(filePath) ?? "";
+                RecService.Instance.CurrentFolder = folderPath;
+                string videoPath = Path.Combine(folderPath, loaded.VideoFileName ?? "");
+
+                if (File.Exists(videoPath))
+                {
+                    VideoSource = new Uri(videoPath);
+                    StatusText = $"読み込み: {loaded.RecMode} {loaded.VideoFileName}";
+                    IsEditMode = true;
+
+                    UpdateTimelineGroups();
+
+                    if (TimelineEntries.Count > 0)
+                    {
+                        SelectedItem = TimelineEntries[0];
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"ファイル読込失敗 {ex.Message}";
+            }
+        }
+
+        private async Task ExecuteOcrOnAnnotation(RectAnnotation rect)
+        {
+            if (SelectedItem == null) return;
+
+            // 1. ビデオ情報を取得
+            //var info = new VideoSnapshotInfo(VideoPlayer);
+            var info = GetVideoSnapshotFunc?.Invoke();
+            if (info == null) return;
+
+            // 2. 正味の画像を生成（既存の ImageService を利用）
+            BitmapSource pureVideoBitmap = ImageService.GeneratePureVideoBitmap(SelectedItem, info);
+
+            // 3. RectAnnotation の相対座標（RelX, RelY...）を使用
+            // 0.0〜1.0 なので、そのまま PixelWidth/Height を掛けるだけ
+            int px = (int)(rect.RelX * pureVideoBitmap.PixelWidth);
+            int py = (int)(rect.RelY * pureVideoBitmap.PixelHeight);
+            int pw = (int)(rect.RelWidth * pureVideoBitmap.PixelWidth);
+            int ph = (int)(rect.RelHeight * pureVideoBitmap.PixelHeight);
+
+            // 範囲チェック（画像の外にはみ出さないように）
+            px = Math.Clamp(px, 0, pureVideoBitmap.PixelWidth - 1);
+            py = Math.Clamp(py, 0, pureVideoBitmap.PixelHeight - 1);
+            pw = Math.Min(pw, pureVideoBitmap.PixelWidth - px);
+            ph = Math.Min(ph, pureVideoBitmap.PixelHeight - py);
+
+            if (pw <= 0 || ph <= 0) return;
+
+            var cropped = new CroppedBitmap(pureVideoBitmap, new Int32Rect(px, py, pw, ph));
+
+            // 4. OCR実行
+            string result = await ImageService.RecognizeTextFromBitmapSource(cropped);
+
+            if (!string.IsNullOrWhiteSpace(result))
+            {
+                string cleanText = result.Replace("\r", "").Replace("\n", " ").Trim();
+                SelectedItem.AddNewLine(cleanText);
+            }
+        }
+
+        [RelayCommand]
+        private void ExecuteResult(string result)
+        {
+            if (!Enum.TryParse<TestResult>(result, out var resultType)) return;
+
+            if (IsEditMode)
+            {
+                EditExecuteResult(resultType);
+            }
+            else
+            {
+                RecExecuteResult(resultType);
+            }
+        }
+
+        private void EditExecuteResult(TestResult resultType)
+        {
+            if (SelectedItem is TimelineEntry entry)
+            {
+                entry.Result = resultType;
+                UpdateTimelineGroups();
+                RefreshCanvas?.Invoke();
+            }
+            else
+            {
+                var currentTime = GetCurrentPosition?.Invoke();
+                if (currentTime.HasValue)
+                {
+                    int caseId = 0;
+                    var lastEntry = TimelineEntries.FirstOrDefault(x => x.Time > currentTime);
+                    if (lastEntry != null)
+                    {
+                        caseId = lastEntry.CaseId;
+                    }
+
+                    entry = new()
+                    {
+                        Time = currentTime.Value,
+                        CaseId = caseId,
+                        Result = resultType,
+                        Note = "",
+                        Icon = "📸"
+                    };
+                    SoundService.Instance.PlayShutter();
+                    TimelineEntries.Add(entry);
+                    UpdateTimelineGroups();
+                    RefreshCanvas?.Invoke();
+                }
+            }
+        }
+
+
+        private void RecExecuteResult(TestResult resultType)
+        {
+            var lastEntry = TimelineEntries.LastOrDefault();
+            var noteText = resultType.In(TestResult.SS) ? "" : $"No.{NextNo} {resultType}";
+            var isCaseStart = lastEntry?.Result.In(TestResult.OK, TestResult.NG, TestResult.PEND) ?? true;
+
+            TimelineEntry entry = new()
+            {
+                Time = Recorder.CurrentDuration,
+                CaseId = NextNo,
+                Result = resultType,
+                Note = noteText,
+                Icon = "📸"
+            };
+
+            if (resultType.In(TestResult.OK, TestResult.NG, TestResult.PEND))
+            {
+                NextNo++;
+            }
+
+            SoundService.Instance.PlayShutter();
+
+            if (PreviewBitmap != null)
+            {
+                var path = Recorder.SaveBitmap(entry, PreviewBitmap);
+                entry.ImagePath = path;
+            }
+
+            TimelineEntries.Add(entry);
+            UpdateTimelineGroups();
+            SelectedItem = entry;
+            ScrollIntoViewRequested?.Invoke(entry);
+        }
+
+        public void UpdateTimelineGroups()
+        {
+            var sortedList = TimelineEntries.OrderBy(x => x.Time).ToList();
+            Dictionary<int, int> caseIds = [];
+            string groupName = "";
+            int prevId = int.MinValue;
+
+            foreach (var entry in sortedList)
+            {
+                if (prevId != entry.CaseId)
+                {
+                    if (caseIds.ContainsKey(entry.CaseId))
+                    {
+                        int count = ++caseIds[entry.CaseId];
+                        groupName = (entry.CaseId == 0) ? $"Screen Shot_{count}" : $"No.{entry.CaseId}_{count}";
+                    }
+                    else
+                    {
+                        caseIds[entry.CaseId] = 0;
+                        groupName = (entry.CaseId == 0) ? "Screen Shot" : $"No.{entry.CaseId}";
+                    }
+                    prevId = entry.CaseId;
+                }
+                entry.GroupName = groupName;
+            }
+            App.Current.Dispatcher.Invoke(() =>
+            {
+                TimelineView?.Refresh();
+            });
+        }
+    }
+}
