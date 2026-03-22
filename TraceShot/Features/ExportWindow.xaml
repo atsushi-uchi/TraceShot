@@ -98,7 +98,8 @@
                             <DataTemplate DataType="{x:Type vm:ExportItemViewModel}">
                                 <Grid Width="240" Margin="8" Background="Transparent">
                                     <StackPanel>
-                                        <Grid x:Name="ThumbnailArea" Height="135">
+                                        <Grid x:Name="ThumbnailArea" Height="135"
+                                              MouseLeftButtonDown="Thumbnail_MouseLeftButtonDown">
                                             <Border CornerRadius="6" ClipToBounds="True" Background="#333">
                                                 <Image Source="{Binding SnapshotImage, TargetNullValue={StaticResource NoImagePlaceholder}}" 
                                Stretch="UniformToFill">
