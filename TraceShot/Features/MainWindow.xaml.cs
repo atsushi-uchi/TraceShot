@@ -264,23 +264,7 @@ namespace TraceShot.Features
                 MessageBox.Show($"保存に失敗しました: {ex.Message}", "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-        private async Task WaitForVideoAndRefreshAsync()
-        {
-            Debug.WriteLine("await WaitForVideoAndRefreshAsync() 開始");
-            RefreshBookmarkCanvas();
 
-            int maxRetries = 30;
-            for (int i = 0; i < maxRetries; i++)
-            {
-                if (VideoPlayer.NaturalDuration.HasTimeSpan)
-                {
-                    RefreshBookmarkCanvas();
-                    return;
-                }
-                await Task.Delay(100);
-            }
-            Debug.WriteLine("VideoPlayer 準備完了タイムアウト");
-        }
         private async void OpenEvidence_Click(object sender, RoutedEventArgs e)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
@@ -292,12 +276,7 @@ namespace TraceShot.Features
 
             if (openFileDialog.ShowDialog() == true)
             {
-                var loaded = await Vm.LoadEvidenceAsync(openFileDialog.FileName);
-                if (loaded)
-                {
-                    await WaitForVideoAndRefreshAsync();
-                    TimelineListBox.Focus();
-                }
+                await Vm.LoadEvidenceAsync(openFileDialog.FileName);
             }
         }
 

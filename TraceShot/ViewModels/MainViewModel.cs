@@ -86,57 +86,49 @@ namespace TraceShot.ViewModels
         [ObservableProperty] private Uri? _videoSource;
         [ObservableProperty] private string _statusText = "";
 
-        public async Task<bool> LoadEvidenceAsync(string filePath)
+        public async Task LoadEvidenceAsync(string filePath)
         {
-            Debug.WriteLine("await LoadEvidenceAsync 開始");
-
-            string jsonString = File.ReadAllText(filePath);
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var loaded = JsonSerializer.Deserialize<RecEvidence>(jsonString, options);
-
-            if (loaded == null) return false;
-
-            // 1. OCRアクションの復元
-            foreach (var entry in loaded.Entries)
+            try
             {
-                foreach (var rect in entry.Rects.OfType<RectAnnotation>())
+                string jsonString = File.ReadAllText(filePath);
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var loaded = JsonSerializer.Deserialize<RecEvidence>(jsonString, options);
+                if (loaded == null) throw new Exception("JSONファイルのデシリアライズに失敗");
+
+                foreach (var entry in loaded.Entries)
                 {
-                    rect.OcrAction = ExecuteOcrOnAnnotation;
+                    foreach (var rect in entry.Rects.OfType<RectAnnotation>())
+                    {
+                        rect.OcrAction = ExecuteOcrOnAnnotation;
+                    }
+                }
+                RecService.Instance.Evidence = loaded;
+                RecService.Instance.JsonPath = filePath;
+
+                var folderPath = Path.GetDirectoryName(filePath) ?? "";
+                RecService.Instance.CurrentFolder = folderPath;
+                string videoPath = Path.Combine(folderPath, loaded.VideoFileName ?? "");
+
+                if (File.Exists(videoPath))
+                {
+                    VideoSource = new Uri(videoPath);
+                    StatusText = $"読み込み: {loaded.RecMode} {loaded.VideoFileName}";
+                    IsEditMode = true;
+
+                    UpdateTimelineGroups();
+
+                    if (TimelineEntries.Count > 0)
+                    {
+                        SelectedItem = TimelineEntries[0];
+                    }
                 }
             }
-
-            // 2. Serviceへのセット (ここで RecService.Instance.Evidence が入れ替わる)
-            RecService.Instance.Evidence = loaded;
-            RecService.Instance.JsonPath = filePath;
-
-            // 3. フォルダと動画パスの特定
-            var folderPath = Path.GetDirectoryName(filePath) ?? "";
-            RecService.Instance.CurrentFolder = folderPath;
-            string videoPath = Path.Combine(folderPath, loaded.VideoFileName ?? "");
-
-            if (File.Exists(videoPath))
+            catch (Exception ex)
             {
-                // 4. プロパティ経由で View に通知
-                VideoSource = new Uri(videoPath);
-                StatusText = $"読み込み: {loaded.RecMode} {loaded.VideoFileName}";
-                IsEditMode = true;
-
-                // 5. グループ名の更新（以前作成したメソッド）
-                UpdateTimelineGroups();
-
-                // 6. 最初のアイテムを選択状態にする
-                if (TimelineEntries.Count > 0)
-                {
-                    SelectedItem = TimelineEntries[0];
-                }
-
-                // 7. 動画の読み込み完了（Duration取得可能）を待機
-                //await WaitForVideoLoadAsync();
+                StatusText = $"ファイル読込失敗 {ex.Message}";
             }
-
-            Debug.WriteLine("await LoadEvidenceAsync 終了");
-            return true;
         }
+
         private async Task ExecuteOcrOnAnnotation(RectAnnotation rect)
         {
             if (SelectedItem == null) return;
