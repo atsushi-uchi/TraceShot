@@ -1,66 +1,185 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TraceShot.Services;
-using System.Text.RegularExpressions;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Windows.Data;
+using System.Windows.Media.Imaging;
+using TraceShot.Extensions;
 using TraceShot.Models;
+using TraceShot.Services;
 
 namespace TraceShot.ViewModels
 {
     public partial class MainViewModel : ObservableObject
     {
+        public MainViewModel()
+        {
+            SetupTimelineView();
+        }
+
+        private void SetupTimelineView()
+        {
+            TimelineView = CollectionViewSource.GetDefaultView(TimelineEntries);
+            if (TimelineView == null) return;
+
+            // グループ化の設定
+            TimelineView.GroupDescriptions.Clear();
+            TimelineView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(TimelineEntry.GrpupName)));
+
+            // ソートの設定
+            TimelineView.SortDescriptions.Clear();
+            TimelineView.SortDescriptions.Add(new SortDescription(nameof(TimelineEntry.Time), ListSortDirection.Ascending));
+
+            // ライブシェイピングの設定（編集時に即座に並び替える）
+            if (TimelineView is ICollectionViewLiveShaping liveView)
+            {
+                liveView.IsLiveSorting = true;
+                liveView.LiveSortingProperties.Clear();
+                liveView.LiveSortingProperties.Add(nameof(TimelineEntry.Time));
+
+                // ケースを跨ぐ移動（IsCaseStartの変更）も即座に反映したい場合
+                liveView.IsLiveGrouping = true;
+                liveView.LiveGroupingProperties.Clear();
+                liveView.LiveGroupingProperties.Add(nameof(TimelineEntry.CaseId));
+            }
+        }
+        public Action<TimelineEntry>? ScrollIntoViewRequested { get; set; }
+        public Action? RefreshDisplay { get; set; }
+        public Func<TimeSpan>? GetCurrentPosition { get; set; }
+
+        // 全てのエントリを一つのリストで管理
+        public ObservableCollection<TimelineEntry> TimelineEntries { get; } = [];
+
+        public ICollectionView TimelineView { get; private set; }
+
+        [ObservableProperty] private TimelineEntry? _selectedItem;
+
         // 設定サービスをプロパティとして持つ（UIから色をバインドするため）
         public SettingsService Config => SettingsService.Instance;
 
-        // 録画・再生の状態管理（前述のロジックをここに集約）
-        [ObservableProperty] private string _currentTestCaseNo = "No.1";
-
-        // 録画サービスやエビデンスデータへの参照
         public RecService Recorder => RecService.Instance;
 
-        [ObservableProperty] private bool _isPlayerMode = false;
+        [ObservableProperty] private bool _isEditMode = false;
+
+        [ObservableProperty] private int _nextNo = 1;
+
+        public WriteableBitmap? PreviewBitmap;
 
         [RelayCommand]
-        private void RecordTestResult(string result)
+        private void ExecuteResult(string result)
         {
-            // 1. 現在の時間を取得 (録画中なら録画時間、再生中ならシークバー位置)
-            // RecServiceに現在のタイムスタンプを返すプロパティがあると仮定
-            var currentTime = Recorder.CurrentDuration;
+            if (!Enum.TryParse<TestResult>(result, out var resultType)) return;
 
-            // 2. ブックマーク（テスト結果）を作成
-            var newBookmark = new Bookmark
+            if (IsEditMode)
             {
-                Id = Guid.NewGuid(),
-                Time = currentTime,
-                TestCaseNo = CurrentTestCaseNo,
-                Result = result == "OK" ? TestResult.OK : TestResult.NG,
-                Note = $"{CurrentTestCaseNo}: {result}"
-            };
-
-            // 3. エビデンスデータに追加
-            Recorder.Evidence.Bookmarks.Add(newBookmark);
-
-            // 4. JSONに即時保存（データの安全性を確保）
-            Recorder.SaveEvidenceJson();
-
-            // 5. 次のテストのためにケース番号をカウントアップ
-            IncrementTestCaseNo();
+                EditExecuteResult(resultType);
+            }
+            else
+            {
+                RecExecuteResult(resultType);
+            }
         }
 
-        private void IncrementTestCaseNo()
+        private void EditExecuteResult(TestResult resultType)
         {
-            if (string.IsNullOrWhiteSpace(CurrentTestCaseNo)) return;
-
-            // 文字列の末尾にある数字を抽出して +1 するロジック
-            var match = Regex.Match(CurrentTestCaseNo, @"(\d+)$");
-            if (match.Success)
+            if (SelectedItem is TimelineEntry entry)
             {
-                var numberText = match.Groups[1].Value;
-                var number = int.Parse(numberText);
-                var prefix = CurrentTestCaseNo.Substring(0, match.Index);
-
-                // 桁数を維持（例: "No.001" -> "No.002"）
-                CurrentTestCaseNo = $"{prefix}{(number + 1).ToString(new string('0', numberText.Length))}";
+                entry.Result = resultType;
+                UpdateTimelineGroups();
+                RefreshDisplay?.Invoke();
             }
+            else
+            {
+                var currentTime = GetCurrentPosition?.Invoke();
+                if (currentTime.HasValue)
+                {
+                    int caseId = 0;
+                    var lastEntry = TimelineEntries.FirstOrDefault(x => x.Time > currentTime);
+                    if (lastEntry != null)
+                    {
+                        caseId = lastEntry.CaseId;
+                    }
+
+                    entry = new()
+                    {
+                        Time = currentTime.Value,
+                        CaseId = caseId,
+                        Result = resultType,
+                        Note = "",
+                        Icon = "📸"
+                    };
+                    SoundService.Instance.PlayShutter();
+                    TimelineEntries.Add(entry);
+                    UpdateTimelineGroups();
+                    RefreshDisplay?.Invoke();
+                }
+            }
+        }
+
+
+        private void RecExecuteResult(TestResult resultType)
+        {
+            var lastEntry = TimelineEntries.LastOrDefault();
+            var noteText = resultType.In(TestResult.SS) ? "" : $"No.{NextNo} {resultType}";
+            var isCaseStart = lastEntry?.Result.In(TestResult.OK, TestResult.NG, TestResult.PEND) ?? true;
+
+            TimelineEntry entry = new()
+            {
+                Time = Recorder.CurrentDuration,
+                CaseId = NextNo,
+                Result = resultType,
+                Note = noteText,
+                Icon = "📸"
+            };
+
+            if (resultType.In(TestResult.OK, TestResult.NG, TestResult.PEND))
+            {
+                NextNo++;
+            }
+
+            SoundService.Instance.PlayShutter();
+
+            if (PreviewBitmap != null)
+            {
+                var path = Recorder.SaveBitmap(entry, PreviewBitmap);
+                entry.ImagePath = path;
+            }
+
+            TimelineEntries.Add(entry);
+            UpdateTimelineGroups();
+            SelectedItem = entry;
+            ScrollIntoViewRequested?.Invoke(entry);
+        }
+
+        public void UpdateTimelineGroups()
+        {
+            var sortedList = TimelineEntries.OrderBy(x => x.Time).ToList();
+            Dictionary<int, int> caseIds = [];
+            string groupName = "";
+            int prevId = int.MinValue;
+
+            foreach (var entry in sortedList)
+            {
+                if (prevId != entry.CaseId)
+                {
+                    if (caseIds.ContainsKey(entry.CaseId))
+                    {
+                        int count = ++caseIds[entry.CaseId];
+                        groupName = (entry.CaseId == 0) ? $"Screen Shot_{count}" : $"No.{entry.CaseId}_{count}";
+                    }
+                    else
+                    {
+                        caseIds[entry.CaseId] = 0;
+                        groupName = (entry.CaseId == 0) ? "Screen Shot" : $"No.{entry.CaseId}";
+                    }
+                    prevId = entry.CaseId;
+                }
+                entry.GrpupName = groupName;
+            }
+            App.Current.Dispatcher.Invoke(() =>
+            {
+                TimelineView.Refresh();
+            });
         }
     }
 }
