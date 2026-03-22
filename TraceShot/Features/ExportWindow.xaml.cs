@@ -952,43 +952,32 @@ namespace TraceShot.Features
             {
                 case Key.Left:
                     int prevIdx = allItems.Take(_currentIdx).ToList().FindLastIndex(x => x.IsSelected);
-                    if (prevIdx != -1)
-                    {
-                        MoveTo(prevIdx, false, false);
-                    }
+                    if (prevIdx != -1) MoveTo(prevIdx, false, false);
                     e.Handled = true;
                     break;
 
                 case Key.Right:
-                    int nextIdx = allItems.Skip(_currentIdx + 1).ToList().FindIndex(x => x.IsSelected);
-                    if (nextIdx != -1)
-                    {
-                        MoveTo(_currentIdx + 1 + nextIdx, true, false);
-                    }
+                    int nextIdxRel = allItems.Skip(_currentIdx + 1).ToList().FindIndex(x => x.IsSelected);
+                    if (nextIdxRel != -1) MoveTo(_currentIdx + 1 + nextIdxRel, true, false);
                     e.Handled = true;
                     break;
 
                 case Key.Up:
-                    int upIdx = allItems.Take(_currentIdx)
-                                        .ToList()
+                    int upIdx = allItems.Take(_currentIdx).ToList()
                                         .FindLastIndex(x => x.IsSelected && x.OriginalBookmark.CaseId != currentItem.OriginalBookmark.CaseId);
                     if (upIdx != -1)
                     {
                         var targetCaseId = allItems[upIdx].OriginalBookmark.CaseId;
                         int firstInCase = allItems.FindIndex(x => x.IsSelected && x.OriginalBookmark.CaseId == targetCaseId);
-                        MoveTo(firstInCase, false, true);
+                        if (firstInCase != -1) MoveTo(firstInCase, false, true);
                     }
                     e.Handled = true;
                     break;
 
                 case Key.Down:
-                    int downIdx = allItems.Skip(_currentIdx + 1)
-                                          .ToList()
-                                          .FindIndex(x => x.IsSelected && x.OriginalBookmark.CaseId != currentItem.OriginalBookmark.CaseId);
-                    if (downIdx != -1)
-                    {
-                        MoveTo(_currentIdx + 1 + downIdx, true, true);
-                    }
+                    int downIdxRel = allItems.Skip(_currentIdx + 1).ToList()
+                                             .FindIndex(x => x.IsSelected && x.OriginalBookmark.CaseId != currentItem.OriginalBookmark.CaseId);
+                    if (downIdxRel != -1) MoveTo(_currentIdx + 1 + downIdxRel, true, true);
                     e.Handled = true;
                     break;
 

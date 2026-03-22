@@ -206,7 +206,7 @@
                             </Border>
                         </StackPanel>
                         <StackPanel Margin="0,0,0,0"  VerticalAlignment="Center" HorizontalAlignment="Right">
-                            <TextBlock Text="左右キーで移動 / クリックで一覧に戻る" 
+                            <TextBlock Text="左右キーで移動 / 上下でケース選択 / クリックで一覧に戻る" 
                                    Foreground="#888" HorizontalAlignment="Center" Margin="0,0,0,0" FontSize="14"/>
                             <TextBlock Text="{Binding PreviewCounterText}" 
                                    Foreground="White" FontSize="18" FontWeight="Bold"
