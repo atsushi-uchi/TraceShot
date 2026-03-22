@@ -30,6 +30,10 @@ namespace TraceShot.ViewModels
                         UpdateTimelineGroups();
                     });
                 }
+                if (e.PropertyName == nameof(RecService.IsRecording))
+                {
+                    OnPropertyChanged(nameof(CanAddEntry));
+                }
             };
         }
 
@@ -84,6 +88,8 @@ namespace TraceShot.ViewModels
         [ObservableProperty] private Uri? _videoSource;
         [ObservableProperty] private string _statusText = "";
 
+        [ObservableProperty] private bool _canAddEntry = false;
+
         public async Task<bool> LoadEvidenceAsync(string filePath)
         {
             try
@@ -114,6 +120,7 @@ namespace TraceShot.ViewModels
                     IsEditMode = true;
 
                     UpdateTimelineGroups();
+                    CanAddEntry = true;
                     return true;
                 }
             }

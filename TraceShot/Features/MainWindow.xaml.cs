@@ -1054,6 +1054,7 @@ namespace TraceShot.Features
             RecordingIcon.Foreground = Brushes.Black;
             RecordingIcon.Text = "⏹️";
             RecordingText.Text = "録画停止";
+            Data.CanAddEntry = true;
         }
 
         // 録画停止時の処理
@@ -1071,13 +1072,12 @@ namespace TraceShot.Features
             RefreshBookmarkCanvas();
 
             Data.StatusText = "保存完了";
-
-            VideoPlayer.Source = new Uri(_currentVideoPath);
-            //PlayerPause(true);
+            Data.VideoSource = new Uri(_currentVideoPath);
 
             RecordingIcon.Foreground = Brushes.Red;
             RecordingIcon.Text = "🔴";
             RecordingText.Text = "録画開始";
+            Data.CanAddEntry = true;
         }
 
         private async void RecordingButton_Click(object sender, RoutedEventArgs e)
@@ -1129,6 +1129,8 @@ namespace TraceShot.Features
             }
             else
             {
+                Data.CanAddEntry = false;
+
                 RecService.Instance.StopRecording();
                 Data.StatusText = "動画を処理中...";
                 await Task.Delay(1000);
