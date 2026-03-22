@@ -1,9 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using DocumentFormat.OpenXml.Wordprocessing;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -281,7 +279,7 @@ namespace TraceShot.ViewModels
             }
             App.Current.Dispatcher.Invoke(() =>
             {
-                TimelineView.Refresh();
+                TimelineView?.Refresh();
             });
         }
     }

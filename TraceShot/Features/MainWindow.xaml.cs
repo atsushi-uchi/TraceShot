@@ -1302,11 +1302,12 @@ namespace TraceShot.Features
             double canvasWidth = ResultRangeCanvas.ActualWidth;
             if (totalSec <= 0 || canvasWidth <= 0) return;
 
+            if (Vm.TimelineView is null) return;
+
             double start = 0;
             double end = 0;
             TimelineEntry? prevEntry = null;
-
-            foreach (var entry in Vm.TimelineEntries)
+            foreach (TimelineEntry entry in Vm.TimelineView)
             {
                 // グループ名が変わったら新しい矩形を作成
                 if (prevEntry != null && prevEntry.GrpupName.In(entry.GrpupName))
@@ -1327,7 +1328,6 @@ namespace TraceShot.Features
                 prevEntry = entry;
             }
 
-            // 最後を閉じる
             if (prevEntry != null)
             {
                 CreateTimelineRect(prevEntry, start, end, totalSec, canvasWidth);
