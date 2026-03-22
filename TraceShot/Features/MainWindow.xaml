@@ -679,7 +679,7 @@
             </Grid>
 
             <Border Grid.Column="1" Background="#F5F5F5" BorderBrush="#DDD" BorderThickness="1,0,0,0">
-                <Grid>
+                <Grid IsEnabled="{Binding CanAddEntry}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
@@ -766,9 +766,6 @@
                     <GridSplitter Grid.Row="1" Height="2" HorizontalAlignment="Stretch" Background="#CCC"/>
 
                     <Grid Grid.Row="2" Margin="5">
-                        <!--<TextBlock Text="コメント:" FontWeight="Bold" Margin="0,0,0,5"/>
-                        <TextBox x:Name="NoteEditBox" Margin="0,22,0,0" TextWrapping="Wrap" AcceptsReturn="True"
-                                 Text="{Binding SelectedItem.Note, ElementName=TimelineListBox, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />-->
                         <StackPanel Grid.Row="1" Margin="5">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -939,20 +936,6 @@
                             <TextBlock x:Name="RecordingText" Text="録画開始"/>
                         </StackPanel>
                     </Button>
-                    <!--Command="{Binding ExecuteResultCommand}" CommandParameter="OK"-->
-                    <!--<Button Click="AddBookmarkWhileRecording_Click" Padding="10,5" Margin="0,0,5,0">-->
-                    <!--<Button Command="{Binding ExecuteResultCommand}" CommandParameter="OK" Padding="10,5" Margin="0,0,5,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📌" Margin="0,0,5,0"/>
-                            <TextBlock x:Name="RecordingEvidenceText" Text="証跡追加"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Click="AddVoiceMemoRecording_Click" Padding="10,5" Margin="0,0,5,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🎙️" Margin="0,0,5,0"/>
-                            <TextBlock x:Name="RecordingVoiceText" Text="音声メモ"/>
-                        </StackPanel>
-                    </Button>-->
                     <CheckBox x:Name="ClickTriggerCheckBox" Content="クリック自動録画" IsChecked="False" VerticalAlignment="Center" Margin="5,0,10,0"
                               Checked="ClickTriggerCheckBox_Checked" Unchecked="ClickTriggerCheckBox_Unchecked"/>
                 </StackPanel>

@@ -30,6 +30,10 @@ namespace TraceShot.ViewModels
                         UpdateTimelineGroups();
                     });
                 }
+                if (e.PropertyName == nameof(RecService.IsRecording))
+                {
+                    OnPropertyChanged(nameof(CanAddEntry));
+                }
             };
         }
 
@@ -84,7 +88,9 @@ namespace TraceShot.ViewModels
         [ObservableProperty] private Uri? _videoSource;
         [ObservableProperty] private string _statusText = "";
 
-        public async Task LoadEvidenceAsync(string filePath)
+        [ObservableProperty] private bool _canAddEntry = false;
+
+        public async Task<bool> LoadEvidenceAsync(string filePath)
         {
             try
             {
@@ -114,17 +120,15 @@ namespace TraceShot.ViewModels
                     IsEditMode = true;
 
                     UpdateTimelineGroups();
-
-                    if (TimelineEntries.Count > 0)
-                    {
-                        SelectedItem = TimelineEntries[0];
-                    }
+                    CanAddEntry = true;
+                    return true;
                 }
             }
             catch (Exception ex)
             {
                 StatusText = $"ファイル読込失敗 {ex.Message}";
             }
+            return false;
         }
 
         private async Task ExecuteOcrOnAnnotation(RectAnnotation rect)
@@ -164,6 +168,16 @@ namespace TraceShot.ViewModels
                 string cleanText = result.Replace("\r", "").Replace("\n", " ").Trim();
                 SelectedItem.AddNewLine(cleanText);
             }
+        }
+
+        public void AddTimelineEntry()
+        {
+            ExecuteResult(TestResult.SS.ToString());
+        }
+
+        public void AddVoiceEntry()
+        {
+            ExecuteResult(TestResult.SS.ToString());
         }
 
         [RelayCommand]
