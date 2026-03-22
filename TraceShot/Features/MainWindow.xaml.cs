@@ -121,9 +121,6 @@ namespace TraceShot.Features
             _playerTimer.Tick += Timer_Tick;
             _playerTimer.Start();
 
-            // 1. 最初の一回だけ紐付けを行う
-            TimelineListBox.ItemsSource = Vm.TimelineEntries;
-
             RecService.Instance.OnRecordingStopped = () =>
             {
                 Dispatcher.Invoke(() => Vm.IsEditMode = true);
@@ -279,22 +276,18 @@ namespace TraceShot.Features
             {
                 try
                 {
-                    // 1. JSONファイルを読み込む
                     string jsonString = File.ReadAllText(openFileDialog.FileName);
-
-                    // 2. デシリアライズ（復元）
-                    var evidence = JsonSerializer.Deserialize<RecEvidence>(jsonString);
-
-                    if (evidence != null)
+                    var loaded = JsonSerializer.Deserialize<RecEvidence>(jsonString);
+                    if (loaded != null)
                     {
-                        foreach (var bm in evidence.Bookmarks)
+                        foreach (var entry in loaded.Entries)
                         {
-                            foreach (var rect in bm.Rects.OfType<RectAnnotation>())
+                            foreach (var rect in entry.Rects.OfType<RectAnnotation>())
                             {
                                 rect.OcrAction = ExecuteOcrOnAnnotation;
                             }
                         }
-                        RecService.Instance.Evidence = evidence;
+                        RecService.Instance.Evidence = loaded;
                         RecService.Instance.JsonPath = openFileDialog.FileName;
 
                         // 3. JSONと同じフォルダ内にある動画ファイルのフルパスを作成
@@ -302,7 +295,7 @@ namespace TraceShot.Features
                         if (!string.IsNullOrEmpty(folderPath))
                         {
                             RecService.Instance.CurrentFolder = folderPath;
-                            string videoPath = Path.Combine(folderPath, evidence?.VideoFileName ?? "");
+                            string videoPath = Path.Combine(folderPath, loaded?.VideoFileName ?? "");
 
                             if (File.Exists(videoPath))
                             {
@@ -310,26 +303,13 @@ namespace TraceShot.Features
                                 VideoPlayer.Source = new Uri(videoPath);
 
                                 // 5. UIに情報を反映
-                                StatusText.Text = $"読み込み: {evidence?.RecMode} {evidence?.VideoFileName}";
+                                StatusText.Text = $"読み込み: {loaded?.RecMode} {loaded?.VideoFileName}";
 
-                                // ビュー（ソート用）の再設定
-                                TimelineListBox.ItemsSource = Vm.TimelineEntries;
-                                var view = CollectionViewSource.GetDefaultView(Vm.TimelineEntries);
-                                if (view != null)
-                                {
-                                    view.SortDescriptions.Clear();
-                                    view.SortDescriptions.Add(new SortDescription("Time", ListSortDirection.Ascending));
-                                    if (view is ICollectionViewLiveShaping liveView)
-                                    {
-                                        liveView.IsLiveSorting = true;
-                                        liveView.LiveSortingProperties.Add("Time");
-                                    }
-                                }
                                 RefreshBookmarkCanvas();
                                 Vm.IsEditMode = true;
 
                                 // 選択状態の管理
-                                if (RecService.Instance.Bookmarks.Count > 0)
+                                if (RecService.Instance.Entries.Count > 0)
                                 {
                                     TimelineListBox.SelectedIndex = 0;
                                     TimelineListBox.Focus();
@@ -844,7 +824,7 @@ namespace TraceShot.Features
                 foreach (var cp in bookmarks)
                 {
                     // 3. データソースから削除
-                    RecService.Instance.Bookmarks.Remove(cp);
+                    RecService.Instance.Entries.Remove(cp);
                 }
 
                 Debug.WriteLine($"index:{index} count:{TimelineListBox.Items.Count}");
@@ -1004,7 +984,7 @@ namespace TraceShot.Features
             // 1. しきい値（0.5秒）以内のものを抽出し
             // 2. 現在地との差が一番小さい順に並べ替え
             // 3. その先頭（最も近いもの）を取得する
-            var nearbyBookmark = RecService.Instance.Evidence.Bookmarks
+            var nearbyBookmark = RecService.Instance.Evidence.Entries
                 .Where(bm => Math.Abs(bm.Time.TotalSeconds - currentValue) < 0.05)
                 .OrderBy(bm => Math.Abs(bm.Time.TotalSeconds - currentValue))
                 .FirstOrDefault();
@@ -1255,7 +1235,7 @@ namespace TraceShot.Features
                 newBookmark.ImagePath = path;
                 StatusText.Text = $"記録 {newBookmark.Time} {newBookmark.Note} SS作成 {path}";
 
-                RecService.Instance.Bookmarks.Add(newBookmark);
+                RecService.Instance.Entries.Add(newBookmark);
                 RefreshBookmarkCanvas();
             }
         }
@@ -1537,7 +1517,7 @@ namespace TraceShot.Features
             {
                 StatusText.Text = $"記録 {bookmark.Time} {bookmark.Note}";
             }
-            RecService.Instance.Bookmarks.Add(bookmark);
+            RecService.Instance.Entries.Add(bookmark);
             TimelineListBox.SelectedItem = bookmark;
             TimelineListBox.ScrollIntoView(bookmark);
             RefreshBookmarkCanvas();
@@ -1552,7 +1532,7 @@ namespace TraceShot.Features
                 Note = "音声入力中",
             };
 
-            RecService.Instance.Bookmarks.Add(bookmark);
+            RecService.Instance.Entries.Add(bookmark);
             TimelineListBox.SelectedItem = bookmark;
             TimelineListBox.ScrollIntoView(bookmark);
             RefreshBookmarkCanvas();
@@ -1594,7 +1574,7 @@ namespace TraceShot.Features
                 Icon = "📋"
             };
 
-            RecService.Instance.Bookmarks.Add(bookmark);
+            RecService.Instance.Entries.Add(bookmark);
             TimelineListBox.SelectedItem = bookmark;
             TimelineListBox.ScrollIntoView(bookmark);
             RefreshBookmarkCanvas();
@@ -1611,7 +1591,7 @@ namespace TraceShot.Features
                     Note = "音声入力中",
                     Icon = "🎤"
                 };
-                RecService.Instance.Bookmarks.Add(bookmark);
+                RecService.Instance.Entries.Add(bookmark);
                 TimelineListBox.SelectedItem = bookmark;
                 TimelineListBox.ScrollIntoView(bookmark);
             }

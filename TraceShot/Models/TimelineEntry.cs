@@ -14,9 +14,10 @@ namespace TraceShot.Models
 
         [ObservableProperty] private int _caseId = 0;
 
+        [JsonIgnore]
         [ObservableProperty] private string _grpupName = "";
 
-        public void MarkAsDirty() => IsDirty = true;
+        public void EntryAsDirty() => IsDirty = true;
 
         // エクスポート対象かどうか
         public bool IsExportEnabled { get; set; } = true;

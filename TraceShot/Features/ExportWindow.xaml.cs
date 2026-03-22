@@ -40,7 +40,7 @@ namespace TraceShot.Features
             double initialScale = _cacheManager.LastScale > 0 ? _cacheManager.LastScale : 0.75;
             SetScaleComboBoxValue(initialScale);
 
-            var list = RecService.Instance.Bookmarks
+            var list = RecService.Instance.Entries
                 .Select(b => {
                     var cachedImage = _cacheManager.GetCachedImage(b.Id, initialScale);
                     return new ExportItemViewModel(b, cachedImage, _cacheManager)

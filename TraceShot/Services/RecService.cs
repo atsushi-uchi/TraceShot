@@ -22,10 +22,10 @@ namespace TraceShot.Services
     {
         public static RecService Instance { get; } = new RecService();
 
-        [ObservableProperty][NotifyPropertyChangedFor(nameof(Bookmarks))]
+        [ObservableProperty][NotifyPropertyChangedFor(nameof(Entries))]
         private RecEvidence _evidence = new();
 
-        public ObservableCollection<TimelineEntry> Bookmarks => Evidence.Bookmarks;
+        public ObservableCollection<TimelineEntry> Entries => Evidence.Entries;
 
         [ObservableProperty]
         private bool _isRecording = false;
@@ -64,7 +64,7 @@ namespace TraceShot.Services
         public TimelineEntry? GetBookmark(TimeSpan time)
         {
 
-            return Bookmarks.FirstOrDefault(b => Math.Abs(b.Time.TotalSeconds - time.TotalSeconds) < 0.1);
+            return Entries.FirstOrDefault(b => Math.Abs(b.Time.TotalSeconds - time.TotalSeconds) < 0.1);
         }
 
         public string? SaveBitmap(TimelineEntry bm, WriteableBitmap source)
@@ -256,7 +256,7 @@ namespace TraceShot.Services
         {
             if (Evidence == null) return;
 
-            Bookmarks.Add(bookmark);
+            Entries.Add(bookmark);
         }
 
         public TimelineEntry? AddBookmark(string note = " - Screenshot")
@@ -271,7 +271,7 @@ namespace TraceShot.Services
                     Icon = "📌",
                     Note = note,
                 };
-                Bookmarks.Add(bm);
+                Entries.Add(bm);
                 return bm;
             }
             return null;
@@ -476,7 +476,7 @@ namespace TraceShot.Services
             if (_recorder is null) return;
             IsRecording = true;
 
-            Bookmarks.Clear();
+            Entries.Clear();
             TraceLogs.Clear();
 
             _recorder.OnRecordingComplete += (s, e) => TraceLogs.Add("Window Recording Complete");

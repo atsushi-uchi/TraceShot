@@ -687,7 +687,7 @@
 
                     <ListBox x:Name="TimelineListBox" 
                              SelectionChanged="TimelineListBox_SelectionChanged"
-                             ItemsSource="{Binding TimelineEntries}" 
+                             ItemsSource="{Binding TimelineView}" 
                              SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                              SelectionMode="Extended"
                              Margin="2" Background="Transparent" BorderThickness="0">

@@ -24,10 +24,10 @@ public partial class RecEvidence : ObservableObject
     private Rect _commonCropRect = new Rect(0.1, 0.1, 0.8, 0.8);
 
     [ObservableProperty]
-    private ObservableCollection<TimelineEntry> _bookmarks = [];
+    private ObservableCollection<TimelineEntry> _entries = [];
 
     partial void OnIsCropEnabledChanged(bool value)
     {
-        foreach (var b in Bookmarks) b.MarkAsDirty();
+        foreach (var b in Entries) b.EntryAsDirty();
     }
 }

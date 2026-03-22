@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows.Data;
 using System.Windows.Media.Imaging;
 using TraceShot.Extensions;
@@ -15,9 +16,21 @@ namespace TraceShot.ViewModels
         public MainViewModel()
         {
             SetupTimelineView();
+
+            RecService.Instance.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(RecService.Evidence))
+                {
+                    App.Current.Dispatcher.Invoke(() =>
+                    {
+                        SetupTimelineView();
+                        UpdateTimelineGroups();
+                    });
+                }
+            };
         }
 
-        private void SetupTimelineView()
+        public void SetupTimelineView()
         {
             TimelineView = CollectionViewSource.GetDefaultView(TimelineEntries);
             if (TimelineView == null) return;
@@ -43,21 +56,24 @@ namespace TraceShot.ViewModels
                 liveView.LiveGroupingProperties.Add(nameof(TimelineEntry.CaseId));
             }
         }
+
+
+        public SettingsService Config => SettingsService.Instance;
+
+        public RecService Recorder => RecService.Instance;
+
+        public ObservableCollection<TimelineEntry> TimelineEntries => RecService.Instance.Entries;
+        [ObservableProperty]  private ICollectionView? _timelineView;
+
+
         public Action<TimelineEntry>? ScrollIntoViewRequested { get; set; }
         public Action? RefreshDisplay { get; set; }
         public Func<TimeSpan>? GetCurrentPosition { get; set; }
 
-        // 全てのエントリを一つのリストで管理
-        public ObservableCollection<TimelineEntry> TimelineEntries { get; } = [];
 
-        public ICollectionView TimelineView { get; private set; }
 
         [ObservableProperty] private TimelineEntry? _selectedItem;
 
-        // 設定サービスをプロパティとして持つ（UIから色をバインドするため）
-        public SettingsService Config => SettingsService.Instance;
-
-        public RecService Recorder => RecService.Instance;
 
         [ObservableProperty] private bool _isEditMode = false;
 
