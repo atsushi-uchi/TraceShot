@@ -7,7 +7,10 @@ public class MouseHook
     private const int WH_MOUSE_LL = 14;
     private const int WM_LBUTTONDOWN = 0x0201;
     private const int WM_LBUTTONUP = 0x0202;
-
+    private const int WM_RBUTTONDOWN = 0x0204;
+    private const int WM_RBUTTONUP = 0x0205;
+    private const int WM_MBUTTONDOWN = 0x0207;
+    private const int WM_MBUTTONUP = 0x0208;
 
     // --- 追加: チャタリング防止用フィールド ---
     private DateTime _lastClickTime = DateTime.MinValue;
@@ -33,7 +36,9 @@ public class MouseHook
     private LowLevelMouseProc? _proc;
     private IntPtr _hookID = IntPtr.Zero;
 
-    public event Action<System.Drawing.Point>? OnLeftClick;
+    public event Action<Point>? OnLeftClick;
+    public event Action<Point>? OnRightClick;
+    public event Action<Point>? OnMiddleClick;
 
     // クールタイムを外部から調整したい場合
     public void SetCoolDown(int milliseconds) => _coolDown = TimeSpan.FromMilliseconds(milliseconds);
@@ -48,29 +53,51 @@ public class MouseHook
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        if (nCode >= 0 && wParam == (IntPtr)WM_LBUTTONUP)
+        if (nCode >= 0)
         {
-            // --- チャタリング防止ロジック ---
-            DateTime now = DateTime.Now;
-            if (now - _lastClickTime >= _coolDown)
-            {
-                MSLLHOOKSTRUCT hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+            bool isLeftUp = (wParam == (IntPtr)WM_LBUTTONUP);
+            bool isRightUp = (wParam == (IntPtr)WM_RBUTTONUP);
+            bool isMiddleUp = (wParam == (IntPtr)WM_MBUTTONUP);
+            bool isMiddleDown = (wParam == (IntPtr)WM_MBUTTONDOWN);
 
-                if (IsOwnWindow(hookStruct.pt))
+            if (isMiddleDown || isMiddleUp)
+            {
+                if (isMiddleUp)
                 {
-                    Debug.WriteLine("MouseHook: Own window click ignored.");
-                    return CallNextHookEx(_hookID, nCode, wParam, lParam);
+                    // 離した瞬間にエビデンス撮影などの処理を実行
+                    MSLLHOOKSTRUCT hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+                    if (!IsOwnWindow(hookStruct.pt))
+                    {
+                        var point = new System.Drawing.Point(hookStruct.pt.x, hookStruct.pt.y);
+                        OnMiddleClick?.Invoke(point);
+                    }
                 }
 
-                _lastClickTime = now; // 実行時間を更新
-                OnLeftClick?.Invoke(new System.Drawing.Point(hookStruct.pt.x, hookStruct.pt.y));
+                // ★重要：CallNextHookEx を呼ばずに 1 を返すことで、
+                // 他のアプリ（ブラウザやエクスプローラ等）に中央クリックが伝わらなくなります。
+                return (IntPtr)1;
             }
-            else
+            else if (isLeftUp || isRightUp)
             {
-                // クールタイム中のためスキップ
-                Debug.WriteLine("MouseHook: Chattering blocked.");
+                DateTime now = DateTime.Now;
+                if (now - _lastClickTime >= _coolDown)
+                {
+                    MSLLHOOKSTRUCT hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+
+                    if (IsOwnWindow(hookStruct.pt))
+                    {
+                        return CallNextHookEx(_hookID, nCode, wParam, lParam);
+                    }
+
+                    _lastClickTime = now;
+                    var point = new Point(hookStruct.pt.x, hookStruct.pt.y);
+
+                    if (isLeftUp) OnLeftClick?.Invoke(point);
+                    else if (isRightUp) OnRightClick?.Invoke(point);
+                }
             }
-            // --------------------------------
+
+
         }
         return CallNextHookEx(_hookID, nCode, wParam, lParam);
     }

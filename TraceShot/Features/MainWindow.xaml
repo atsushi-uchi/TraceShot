@@ -936,7 +936,7 @@
                             <TextBlock x:Name="RecordingText" Text="録画開始"/>
                         </StackPanel>
                     </Button>
-                    <CheckBox x:Name="ClickTriggerCheckBox" Content="クリック自動録画" IsChecked="False" VerticalAlignment="Center" Margin="5,0,10,0"
+                    <CheckBox x:Name="ClickTriggerCheckBox" Content="マウス中央で撮影" IsChecked="True" VerticalAlignment="Center" Margin="5,0,10,0"
                               Checked="ClickTriggerCheckBox_Checked" Unchecked="ClickTriggerCheckBox_Unchecked"/>
                 </StackPanel>
 
@@ -974,18 +974,6 @@
                         </StackPanel>
                     </Button>
                     <CheckBox x:Name="StopAtPointCheckBox" Content="ポイント停止" IsChecked="True" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <!--<Button Click="AddBookmarkWhilePlaying_Click" Padding="10,5" Margin="0,0,5,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📌" Margin="0,0,5,0"/>
-                            <TextBlock x:Name="PlayingEvidenceText" Text="証跡追加"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Click="AddVoiceMemoWhilePlaying_Click" Padding="10,5" Margin="0,0,5,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🎙️" Margin="0,0,5,0"/>
-                            <TextBlock x:Name="PlayingVoiceText" Text="音声メモ"/>
-                        </StackPanel>
-                    </Button>-->
                     <StackPanel Orientation="Horizontal" 
                         DataContext="{Binding Evidence, Source={x:Static service:RecService.Instance}}">
                         <CheckBox x:Name="CropEnabledCheckBox" 

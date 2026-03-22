@@ -225,10 +225,10 @@ namespace TraceShot.Features
         private string GenerateHtmlFile()
         {
             var targetItems = GetTargetItems();
-            if (targetItems.Count == 0)
-            {
-                throw new Exception("出力対象が選択されていません。");
-            }
+            if (targetItems.Count == 0) throw new Exception("出力対象が選択されていません。");
+
+            var startAt = RecService.Instance.Evidence.RecordingDate;
+            var showRelative = RadioRelativeTime.IsChecked ?? false;
 
             var sb = new StringBuilder();
             // --- HTML ヘッダー ---
@@ -270,53 +270,52 @@ namespace TraceShot.Features
             sb.AppendLine(".col-ss { background-color: #f8f9fa; text-align: center; }");
             sb.AppendLine("</style></head><body><div class='container'>");
 
-            // --- 1. テストケースサマリの差し込み ---
-            sb.AppendLine("<div class='summary-section'>");
-            sb.AppendLine("<div class='summary-header'>テスト実施サマリ</div>");
-            sb.AppendLine("<table class='summary-table'>");
-            sb.AppendLine("<thead><tr><th>ケースNo</th><th>実施日時</th><th>開始時間</th><th>終了時間</th><th>ステップ数</th><th>結果</th></tr></thead><tbody>");
-
-            // RecServiceからサマリを取得（StartTimeでソート済み）
-            var summaries = RecService.Instance.Evidence.GetSummary();
-            var recordStartAt = RecService.Instance.Evidence.RecordingDate;
-
-            foreach (var s in summaries)
+            if (CheckIncludeSummary.IsChecked ?? false)
             {
-                if (s.FinalResult == TestResult.SS) continue;
+                // --- 1. テストケースサマリの差し込み ---
+                sb.AppendLine("<div class='summary-section'>");
+                sb.AppendLine("<div class='summary-header'>テスト実施サマリ</div>");
+                sb.AppendLine("<table class='summary-table'>");
+                sb.AppendLine("<thead><tr><th>ケースNo</th><th>実施日時</th><th>開始時間</th><th>終了時間</th><th>ステップ数</th><th>結果</th></tr></thead><tbody>");
 
-                string resultText = s.FinalResult.ToString(); // OK, NG, PEND が入る
-                string resultClass = s.FinalResult switch
+                // RecServiceからサマリを取得（StartTimeでソート済み）
+                var summaries = RecService.Instance.Evidence.GetSummary();
+
+                foreach (var s in summaries)
                 {
-                    TestResult.OK => "res-ok",
-                    TestResult.NG => "res-ng",
-                    TestResult.PEND => "res-pend",
-                    _ => ""
-                };
-                // 日付、開始、終了をそれぞれ計算
-                string dateStr = recordStartAt.Add(s.StartTime).ToString("yyyy/MM/dd");
-                string startStr = recordStartAt.Add(s.StartTime).ToString("HH:mm:ss");
-                string endStr = recordStartAt.Add(s.EndTime).ToString("HH:mm:ss");
+                    if (s.FinalResult == TestResult.SS) continue;
 
-                sb.AppendLine("<tr>");
-                sb.AppendLine($"<td style='text-align:center;'>No. {s.CaseId}</td>");
-                sb.AppendLine($"<td style='text-align:center;'>{dateStr}</td>");
-                sb.AppendLine($"<td style='text-align:center;'>{startStr}</td>");
-                sb.AppendLine($"<td style='text-align:center;'>{endStr}</td>");
-                sb.AppendLine($"<td style='text-align:center;'>{s.StepCount} step(s)</td>");
-                sb.AppendLine($"<td style='text-align:center;' class='{resultClass}'>{resultText}</td>");
-                sb.AppendLine("</tr>");
+                    string resultText = s.FinalResult.ToString(); // OK, NG, PEND が入る
+                    string resultClass = s.FinalResult switch
+                    {
+                        TestResult.OK => "res-ok",
+                        TestResult.NG => "res-ng",
+                        TestResult.PEND => "res-pend",
+                        _ => ""
+                    };
+                    // 日付、開始、終了をそれぞれ計算
+                    string dateStr = startAt.Add(s.StartTime).ToString("yyyy/MM/dd");
+                    string startStr = startAt.Add(s.StartTime).ToString("HH:mm:ss");
+                    string endStr = startAt.Add(s.EndTime).ToString("HH:mm:ss");
+
+                    sb.AppendLine("<tr>");
+                    sb.AppendLine($"<td style='text-align:center;'>No. {s.CaseId}</td>");
+                    sb.AppendLine($"<td style='text-align:center;'>{dateStr}</td>");
+                    sb.AppendLine($"<td style='text-align:center;'>{startStr}</td>");
+                    sb.AppendLine($"<td style='text-align:center;'>{endStr}</td>");
+                    sb.AppendLine($"<td style='text-align:center;'>{s.StepCount} step(s)</td>");
+                    sb.AppendLine($"<td style='text-align:center;' class='{resultClass}'>{resultText}</td>");
+                    sb.AppendLine("</tr>");
+                }
+                sb.AppendLine("</tbody></table></div>");
+                sb.AppendLine("<h3>詳細ログ</h3>");
             }
-            sb.AppendLine("</tbody></table></div>");
 
             // --- 2. メインコンテンツ（詳細テーブル） ---
-            var showRelative = RadioRelativeTime.IsChecked == true;
-
-            sb.AppendLine("<h3>詳細ログ</h3>");
             sb.AppendLine("<div class='table-wrapper'>");
             sb.AppendLine("<table>");
             sb.AppendLine($"<thead><tr><th class='col-time'>ケース/Step</th><th class='col-note'>コメント</th><th>スクリーンショット</th></tr></thead><tbody>");
 
-            var startAt = RecService.Instance.Evidence.RecordingDate;
             var stepCounter = 0;
             var lastCaseId = -1;
             foreach (var item in targetItems)
@@ -438,6 +437,9 @@ namespace TraceShot.Features
             var targetItems = GetTargetItems();
             if (targetItems.Count == 0) throw new Exception("出力対象が選択されていません。");
 
+            var startAt = RecService.Instance.Evidence.RecordingDate;
+            var showRelative = RadioRelativeTime.IsChecked ?? false;
+
             var sb = new StringBuilder();
             sb.AppendLine("<!DOCTYPE html><html lang='ja'><head><meta charset='UTF-8'>");
             sb.AppendLine("<style>");
@@ -473,7 +475,6 @@ namespace TraceShot.Features
             sb.AppendLine(".col-case { width: 10%; text-align: center; background-color: #f8f9fa; }");
             sb.AppendLine(".col-note { width: 15%; font-size: 0.9em; }");
             sb.AppendLine(".col-ss { width: 75%; text-align: center; background-color: #ffffff; }");
-
             sb.AppendLine("td { border: 1px solid #dee2e6; padding: 10px; vertical-align: top; }");
 
             // ケース/Step/時刻の縦並び
@@ -490,38 +491,40 @@ namespace TraceShot.Features
             sb.AppendLine("tr { page-break-inside: avoid; page-break-after: auto; }");
             sb.AppendLine("</style></head><body><div class='container'>");
 
-            // --- データ生成：1. サマリセクション ---
-            var summaries = RecService.Instance.Evidence.GetSummary();
-            var recordStartAt = RecService.Instance.Evidence.RecordingDate;
-
-            sb.AppendLine("<div class='summary-section'>");
-            sb.AppendLine("<div class='summary-header'>テスト実施サマリ</div>");
-            sb.AppendLine("<table class='summary-table'>");
-            sb.AppendLine("<thead><tr><th>ケースNo</th><th>実施日時</th><th>開始時間</th><th>終了時間</th><th>ステップ数</th><th>結果</th></tr></thead><tbody>");
-
-            foreach (var s in summaries)
+            if (CheckIncludeSummary.IsChecked ?? false)
             {
-                if (s.FinalResult == TestResult.SS) continue;
-                string resClass = s.FinalResult switch { TestResult.OK => "res-ok", TestResult.NG => "res-ng", TestResult.PEND => "res-pend", _ => "" };
-                sb.AppendLine("<tr>");
-                sb.AppendLine($"<td>No. {s.CaseId}</td>");
-                sb.AppendLine($"<td>{recordStartAt.Add(s.StartTime):yyyy/MM/dd}</td>");
-                sb.AppendLine($"<td>{recordStartAt.Add(s.StartTime):HH:mm:ss}</td>");
-                sb.AppendLine($"<td>{recordStartAt.Add(s.EndTime):HH:mm:ss}</td>");
-                sb.AppendLine($"<td>{s.StepCount} step(s)</td>");
-                sb.AppendLine($"<td class='{resClass}'>{s.FinalResult}</td>");
-                sb.AppendLine("</tr>");
-            }
-            sb.AppendLine("</tbody></table></div>");
+                // --- データ生成：1. サマリセクション ---
+                var summaries = RecService.Instance.Evidence.GetSummary();
 
-            // --- データ生成：2. 詳細ログセクション ---
-            sb.AppendLine("<h3 style='margin-left: 5px;'>詳細ログ</h3>");
+                sb.AppendLine("<div class='summary-section'>");
+                sb.AppendLine("<div class='summary-header'>テスト実施サマリ</div>");
+                sb.AppendLine("<table class='summary-table'>");
+                sb.AppendLine("<thead><tr><th>ケースNo</th><th>実施日時</th><th>開始時間</th><th>終了時間</th><th>ステップ数</th><th>結果</th></tr></thead><tbody>");
+
+                foreach (var s in summaries)
+                {
+                    if (s.FinalResult == TestResult.SS) continue;
+                    string resClass = s.FinalResult switch { TestResult.OK => "res-ok", TestResult.NG => "res-ng", TestResult.PEND => "res-pend", _ => "" };
+                    sb.AppendLine("<tr>");
+                    sb.AppendLine($"<td>No. {s.CaseId}</td>");
+                    sb.AppendLine($"<td>{startAt.Add(s.StartTime):yyyy/MM/dd}</td>");
+                    sb.AppendLine($"<td>{startAt.Add(s.StartTime):HH:mm:ss}</td>");
+                    sb.AppendLine($"<td>{startAt.Add(s.EndTime):HH:mm:ss}</td>");
+                    sb.AppendLine($"<td>{s.StepCount} step(s)</td>");
+                    sb.AppendLine($"<td class='{resClass}'>{s.FinalResult}</td>");
+                    sb.AppendLine("</tr>");
+                }
+                sb.AppendLine("</tbody></table></div>");
+
+                // --- データ生成：2. 詳細ログセクション ---
+                sb.AppendLine("<h3 style='margin-left: 5px;'>詳細ログ</h3>");
+            }
+
             sb.AppendLine("<div class='table-wrapper'><table>");
             sb.AppendLine("<thead><tr><th class='col-case'>ケース/Step</th><th class='col-note'>コメント</th><th class='col-ss'>スクリーンショット</th></tr></thead><tbody>");
 
             int lastCaseId = -1;
             int stepCounter = 0;
-            var showRelative = RadioRelativeTime.IsChecked == true;
 
             foreach (var item in targetItems)
             {
@@ -537,7 +540,7 @@ namespace TraceShot.Features
 
                 string timeStr = showRelative
                     ? $"+{(int)item.Time.TotalHours:D2}:{item.Time.Minutes:D2}:{item.Time.Seconds:D2}"
-                    : recordStartAt.Add(item.Time).ToString("HH:mm:ss");
+                    : startAt.Add(item.Time).ToString("HH:mm:ss");
 
                 sb.AppendLine("<tr>");
                 // ケース/Step情報列
@@ -632,9 +635,11 @@ namespace TraceShot.Features
         private void SaveAsExcel(string fullPath)
         {
             bool showRelative = false;
+            bool checkIncludeSummary = false;
             this.Dispatcher.Invoke(() =>
             {
-                showRelative = RadioRelativeTime.IsChecked == true;
+                showRelative = RadioRelativeTime.IsChecked ?? true;
+                checkIncludeSummary = CheckIncludeSummary.IsChecked ?? true;
             });
 
             var targetItems = GetTargetItems();
@@ -651,51 +656,54 @@ namespace TraceShot.Features
             var recordDate = RecService.Instance.Evidence.RecordingDate;
             int currentRow = 1;
 
-            // --- 1. サマリセクションの出力 ---
-            var summaries = RecService.Instance.Evidence.GetSummary();
-            var titleRange = ws.Range(currentRow, 1, currentRow, 6);
-            titleRange.Merge().Value = "テスト実施サマリ";
-            titleRange.Style.Font.Bold = true;
-            titleRange.Style.Font.FontSize = 14;
-            titleRange.Style.Font.FontColor = XLColor.White;
-            titleRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#4472C4"); // 濃い青
-            currentRow++;
-
-            string[] headers = { "ケースNo", "実施日時", "開始時間", "終了時間", "ステップ数", "結果" };
-            for (int i = 0; i < headers.Length; i++)
+            if (checkIncludeSummary)
             {
-                var cell = ws.Cell(currentRow, i + 1);
-                cell.Value = headers[i];
-                cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2"); // 薄いグレー
-                cell.Style.Font.Bold = true;
-                cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-            }
-            currentRow++;
+                // --- 1. サマリセクションの出力 ---
+                var summaries = RecService.Instance.Evidence.GetSummary();
+                var titleRange = ws.Range(currentRow, 1, currentRow, 6);
+                titleRange.Merge().Value = "テスト実施サマリ";
+                titleRange.Style.Font.Bold = true;
+                titleRange.Style.Font.FontSize = 14;
+                titleRange.Style.Font.FontColor = XLColor.White;
+                titleRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#4472C4"); // 濃い青
+                currentRow++;
 
-            foreach (var s in summaries)
-            {
-                if (s.FinalResult == TestResult.SS) continue;
-                ws.Cell(currentRow, 1).Value = $"No. {s.CaseId}";
-                ws.Cell(currentRow, 2).Value = recordDate.Add(s.StartTime).ToString("yyyy/MM/dd");
-                ws.Cell(currentRow, 3).Value = recordDate.Add(s.StartTime).ToString("HH:mm:ss");
-                ws.Cell(currentRow, 4).Value = recordDate.Add(s.EndTime).ToString("HH:mm:ss");
-                ws.Cell(currentRow, 5).Value = $"{s.StepCount} step(s)";
-                var resCell = ws.Cell(currentRow, 6);
-                resCell.Value = s.FinalResult.ToString();
-                resCell.Style.Font.Bold = true;
-                if (s.FinalResult == TestResult.OK) resCell.Style.Font.FontColor = XLColor.FromHtml("#28A745");
-                else if (s.FinalResult == TestResult.NG) resCell.Style.Font.FontColor = XLColor.FromHtml("#DC3545");
-                ws.Range(currentRow, 1, currentRow, 6).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                string[] headers = { "ケースNo", "実施日時", "開始時間", "終了時間", "ステップ数", "結果" };
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    var cell = ws.Cell(currentRow, i + 1);
+                    cell.Value = headers[i];
+                    cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2"); // 薄いグレー
+                    cell.Style.Font.Bold = true;
+                    cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                }
+                currentRow++;
+
+                foreach (var s in summaries)
+                {
+                    if (s.FinalResult == TestResult.SS) continue;
+                    ws.Cell(currentRow, 1).Value = $"No. {s.CaseId}";
+                    ws.Cell(currentRow, 2).Value = recordDate.Add(s.StartTime).ToString("yyyy/MM/dd");
+                    ws.Cell(currentRow, 3).Value = recordDate.Add(s.StartTime).ToString("HH:mm:ss");
+                    ws.Cell(currentRow, 4).Value = recordDate.Add(s.EndTime).ToString("HH:mm:ss");
+                    ws.Cell(currentRow, 5).Value = $"{s.StepCount} step(s)";
+                    var resCell = ws.Cell(currentRow, 6);
+                    resCell.Value = s.FinalResult.ToString();
+                    resCell.Style.Font.Bold = true;
+                    if (s.FinalResult == TestResult.OK) resCell.Style.Font.FontColor = XLColor.FromHtml("#28A745");
+                    else if (s.FinalResult == TestResult.NG) resCell.Style.Font.FontColor = XLColor.FromHtml("#DC3545");
+                    ws.Range(currentRow, 1, currentRow, 6).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                    currentRow++;
+                }
+
+                currentRow += 2; // 余白
+
+                // --- 2. 詳細ログセクションの出力 ---
+                ws.Cell(currentRow, 1).Value = "詳細ログ";
+                ws.Cell(currentRow, 1).Style.Font.Bold = true;
+                ws.Cell(currentRow, 1).Style.Font.FontSize = 12;
                 currentRow++;
             }
-
-            currentRow += 2; // 余白
-
-            // --- 2. 詳細ログセクションの出力 ---
-            ws.Cell(currentRow, 1).Value = "詳細ログ";
-            ws.Cell(currentRow, 1).Style.Font.Bold = true;
-            ws.Cell(currentRow, 1).Style.Font.FontSize = 12;
-            currentRow++;
 
             int lastCaseId = -1;
             int stepCounter = 0;

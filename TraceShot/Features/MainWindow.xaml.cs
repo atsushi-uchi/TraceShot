@@ -152,7 +152,7 @@ namespace TraceShot.Features
             PreviewImage.Source = ImageService.GetReadyStandardImage(dpi);
 
             // マウスクリックをフックして録画
-            _mouseHook.OnLeftClick += (pos) =>
+            _mouseHook.OnMiddleClick += (pos) =>
             {
                 // 録画中のみ、証跡追加を実行
                 if (_isRecording)
