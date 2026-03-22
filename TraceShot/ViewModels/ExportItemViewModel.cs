@@ -24,21 +24,6 @@
             RecService.Instance.SaveEvidenceJson();
         }
 
-        //public string EditableNote
-        //{
-        //    get => OriginalBookmark.Note;
-        //    set
-        //    {
-        //        if (OriginalBookmark.Note != value)
-        //        {
-        //            OriginalBookmark.Note = value;
-        //            OriginalBookmark.IsDirty = true;
-        //            OnPropertyChanged();
-        //            OnPropertyChanged(nameof(Note));
-        //        }
-        //    }
-        //}
-
         // 参照用
         public TimelineEntry OriginalBookmark { get; set; }
 

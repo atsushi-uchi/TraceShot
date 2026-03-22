@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:dd="clr-namespace:GongSolutions.Wpf.DragDrop;assembly=GongSolutions.Wpf.DragDrop"
         xmlns:vm="clr-namespace:TraceShot.ViewModels"
-        Title="エクスポート設定 - TraceShot" Height="600" Width="1160"
+        Title="エクスポート設定 - TraceShot" Height="600" Width="1200"
         Background="#F3F3F3" WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <SolidColorBrush x:Key="NoImagePlaceholder" Color="#1A1A1A" />
@@ -164,37 +164,6 @@
                     </StackPanel>
                 </Grid>
 
-                <!--<Grid x:Name="PreviewArea" Visibility="Collapsed" Background="#2D2D2D" ClipToBounds="True">
-                    <Grid x:Name="SlideGrid">
-                        <Grid.RenderTransform>
-                            <TranslateTransform x:Name="SlideTransform" X="0" />
-                        </Grid.RenderTransform>
-
-                        <Image x:Name="LargePreviewImage" 
-               Source="{Binding SelectedPreviewItem.SnapshotImage}" 
-               Stretch="Uniform" 
-               Margin="20,40"
-               MouseDown="ClosePreview_Click" />
-                    </Grid>
-
-                    <StackPanel Orientation="Horizontal" 
-                HorizontalAlignment="Center" 
-                VerticalAlignment="Top" 
-                Margin="0,15,0,0">
-                        <TextBlock x:Name="PreviewPageCounter" 
-                   Text="{Binding PreviewCounterText}" 
-                   Foreground="White" 
-                   FontSize="16" 
-                   FontWeight="Bold">
-                            <TextBlock.Effect>
-                                <DropShadowEffect BlurRadius="5" ShadowDepth="0" Opacity="0.8"/>
-                            </TextBlock.Effect>
-                        </TextBlock>
-                    </StackPanel>
-
-                    <TextBlock Text="左右キーで移動 / クリックで一覧に戻る" 
-               Foreground="#888" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="10"/>
-                </Grid>-->
                 <Grid x:Name="PreviewArea" Visibility="Collapsed" Background="#2D2D2D" ClipToBounds="True">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -235,17 +204,19 @@
                                 <TextBlock Text="{Binding SelectedPreviewItem.OriginalBookmark.Result}" 
                                     Foreground="White" FontSize="24" FontWeight="Black"/>
                             </Border>
-
                         </StackPanel>
-
-                        <TextBlock Text="{Binding PreviewCounterText}" 
+                        <StackPanel Margin="0,0,0,0"  VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock Text="左右キーで移動 / クリックで一覧に戻る" 
+                                   Foreground="#888" HorizontalAlignment="Center" Margin="0,0,0,0" FontSize="14"/>
+                            <TextBlock Text="{Binding PreviewCounterText}" 
                                    Foreground="White" FontSize="18" FontWeight="Bold"
                                    HorizontalAlignment="Right" VerticalAlignment="Center" Opacity="0.7"/>
+                        </StackPanel>
                     </Grid>
 
                     <Grid x:Name="SlideGrid" Grid.Row="1">
                         <Grid.RenderTransform>
-                            <TranslateTransform x:Name="SlideTransform" X="0" />
+                            <TranslateTransform x:Name="SlideTransform" X="0" Y="0" />
                         </Grid.RenderTransform>
                         <Image x:Name="LargePreviewImage" 
                                Source="{Binding SelectedPreviewItem.SnapshotImage}" 
@@ -256,14 +227,13 @@
 
                     <Border Grid.Row="2" Background="#1A1A1A" BorderBrush="#333" BorderThickness="0,1,0,0">
                         <TextBlock Text="{Binding SelectedPreviewItem.Note}" 
-                   Foreground="#CCC" 
-                   FontSize="16" 
-                   VerticalAlignment="Center" 
-                   HorizontalAlignment="Center"
-                   Margin="50,0"
-                   TextWrapping="NoWrap" 
-                   TextTrimming="CharacterEllipsis"
-                   ToolTip="{Binding SelectedPreviewItem.Note}">
+                                   Foreground="#CCC" 
+                                   FontSize="18" 
+                                   VerticalAlignment="Center" 
+                                   HorizontalAlignment="Center"
+                                   Margin="50,5"
+                                   TextWrapping="NoWrap" 
+                                   TextTrimming="CharacterEllipsis">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Style.Triggers>
@@ -278,14 +248,6 @@
                             </TextBlock.Style>
                         </TextBlock>
                     </Border>
-                    <!--<StackPanel Grid.Row="2" Margin="30,0,30,5">
-                        <Border Background="#44000000" Padding="20,10" CornerRadius="6" HorizontalAlignment="Center" MaxWidth="1000">
-                            <TextBlock Text="{Binding SelectedPreviewItem.Note}" 
-                                Foreground="White" FontSize="18" TextWrapping="Wrap" TextAlignment="Center"/>
-                        </Border>
-                        <TextBlock Text="左右キーで移動 / クリックで一覧に戻る" 
-                                   Foreground="#888" HorizontalAlignment="Center" Margin="0,0,0,0" FontSize="12"/>
-                    </StackPanel>-->
                 </Grid>
                 <!--ここまで-->
             </Grid>

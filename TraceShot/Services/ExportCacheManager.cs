@@ -1,4 +1,5 @@
-﻿using System.Windows.Media.Imaging;
+﻿using System.Diagnostics;
+using System.Windows.Media.Imaging;
 
 namespace TraceShot.Services
 {
@@ -32,7 +33,44 @@ namespace TraceShot.Services
             {
                 return null;
             }
-            return _imageStore.TryGetValue(id, out var bitmap) ? bitmap : null;
+
+            if (_imageStore.TryGetValue(id, out var bitmap))
+            {
+                return bitmap;
+            }
+
+            var entry = RecService.Instance.Entries.FirstOrDefault(e => e.Id == id);
+            if (entry != null && !string.IsNullOrEmpty(entry.ImagePath))
+            {
+                // ファイルの実体が存在するか確認
+                if (System.IO.File.Exists(entry.ImagePath))
+                {
+                    try
+                    {
+                        // 画像ファイルを読み込んで BitmapSource を生成
+                        var uri = new Uri(entry.ImagePath, UriKind.Absolute);
+                        var loadedBitmap = new BitmapImage();
+                        loadedBitmap.BeginInit();
+                        loadedBitmap.CacheOption = BitmapCacheOption.OnLoad; // ファイルロックを避けるためOnLoadを指定
+                        loadedBitmap.UriSource = uri;
+                        loadedBitmap.EndInit();
+                        loadedBitmap.Freeze(); // スレッド間共有を可能にする
+
+                        // 4. メモリキャッシュに登録して返す
+                        _imageStore[id] = loadedBitmap;
+
+                        Debug.WriteLine($"画像ファイル読込成功 {entry.ImagePath}");
+
+                        return loadedBitmap;
+                    }
+                    catch
+                    {
+                        // 読み込み失敗時は null を返す（再撮影対象にする）
+                        return null;
+                    }
+                }
+            }
+            return null;
         }
 
         public void UpdateSelection(Guid id, bool isSelected)

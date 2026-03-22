@@ -1,9 +1,9 @@
 ﻿
 namespace TraceShot.Features
 {
-    using CommunityToolkit.Mvvm.ComponentModel;
     using ClosedXML.Excel;
     using ClosedXML.Excel.Drawings;
+    using CommunityToolkit.Mvvm.ComponentModel;
     using Microsoft.Win32;
     using PuppeteerSharp;
     using PuppeteerSharp.Media;
@@ -34,9 +34,9 @@ namespace TraceShot.Features
 
         private readonly ExportCacheManager _cacheManager;
 
-        [ObservableProperty] private ExportItemViewModel _selectedPreviewItem;
+        [ObservableProperty] private ExportItemViewModel? _selectedPreviewItem;
 
-        [ObservableProperty] private string _previewCounterText;
+        [ObservableProperty] private string? _previewCounterText;
 
         public ExportWindow(ExportCacheManager cacheManager)
         {
@@ -46,10 +46,6 @@ namespace TraceShot.Features
             double initialScale = _cacheManager.LastScale > 0 ? _cacheManager.LastScale : 0.75;
             SetScaleComboBoxValue(initialScale);
 
-            // ID計算用の変数
-            int currentCaseId = -1;
-            int currentStepId = 0;
-
             var viewModels = new List<ExportItemViewModel>();
             var sortedEntries = RecService.Instance.Entries
                 .OrderBy(b => b.ExportOrder)
@@ -57,29 +53,12 @@ namespace TraceShot.Features
 
             foreach (var b in sortedEntries)
             {
-                // CaseId / StepId の計算
-                if (b.IsExportEnabled)
-                {
-                    currentStepId = (currentCaseId == b.CaseId) ? currentStepId + 1 : 1;
-                }
-                currentCaseId = b.CaseId;
-
                 var cachedImage = _cacheManager.GetCachedImage(b.Id, initialScale);
                 var vm = new ExportItemViewModel(b, cachedImage, _cacheManager)
                 {
                     IsSelected = b.IsExportEnabled,
                     Order = b.ExportOrder,
-                    CaseId = currentCaseId,
-                    StepId = b.IsExportEnabled ? currentStepId : 0,
-                    Note = string.IsNullOrWhiteSpace(b.Note) ? ""
-                            : b.Note.Replace("\r\n", " ").Replace("\n", " "),
-
                 };
-                viewModels.Add(vm);
-            }
-
-            foreach (var vm in viewModels)
-            {
                 vm.PropertyChanged += (s, e) =>
                 {
                     if (e.PropertyName == nameof(ExportItemViewModel.IsSelected))
@@ -87,9 +66,12 @@ namespace TraceShot.Features
                         RefreshExportIds();
                     }
                 };
+                viewModels.Add(vm);
             }
 
             ExportItems = new ObservableCollection<ExportItemViewModel>(viewModels);
+            RefreshExportIds();
+
             for (int i = 0; i < ExportItems.Count; i++)
             {
                 ExportItems[i].SerialNumber = (i + 1).ToString("D2");
@@ -864,6 +846,8 @@ namespace TraceShot.Features
 
                 item.CaseId = currentCaseId;
                 item.StepId = currentStepId;
+                item.Note = string.IsNullOrEmpty(item.OriginalBookmark.Note) ? " " 
+                    : item.OriginalBookmark.Note.Replace("\r\n", " ").Replace("\n", " ");
             }
         }
 
@@ -960,6 +944,9 @@ namespace TraceShot.Features
             }
 
             var allItems = ExportPreviewList.Items.Cast<ExportItemViewModel>().ToList();
+            if (allItems.Count == 0) return;
+
+            var currentItem = allItems[_currentIdx];
 
             switch (e.Key)
             {
@@ -967,9 +954,7 @@ namespace TraceShot.Features
                     int prevIdx = allItems.Take(_currentIdx).ToList().FindLastIndex(x => x.IsSelected);
                     if (prevIdx != -1)
                     {
-                        _currentIdx = prevIdx;
-                        UpdatePreviewDisplay();
-                        AnimateSlide(false); // 左から右へ（戻る動き）
+                        MoveTo(prevIdx, false, false);
                     }
                     e.Handled = true;
                     break;
@@ -978,9 +963,31 @@ namespace TraceShot.Features
                     int nextIdx = allItems.Skip(_currentIdx + 1).ToList().FindIndex(x => x.IsSelected);
                     if (nextIdx != -1)
                     {
-                        _currentIdx = _currentIdx + 1 + nextIdx;
-                        UpdatePreviewDisplay();
-                        AnimateSlide(true); // 右から左へ（進む動き）
+                        MoveTo(_currentIdx + 1 + nextIdx, true, false);
+                    }
+                    e.Handled = true;
+                    break;
+
+                case Key.Up:
+                    int upIdx = allItems.Take(_currentIdx)
+                                        .ToList()
+                                        .FindLastIndex(x => x.IsSelected && x.OriginalBookmark.CaseId != currentItem.OriginalBookmark.CaseId);
+                    if (upIdx != -1)
+                    {
+                        var targetCaseId = allItems[upIdx].OriginalBookmark.CaseId;
+                        int firstInCase = allItems.FindIndex(x => x.IsSelected && x.OriginalBookmark.CaseId == targetCaseId);
+                        MoveTo(firstInCase, false, true);
+                    }
+                    e.Handled = true;
+                    break;
+
+                case Key.Down:
+                    int downIdx = allItems.Skip(_currentIdx + 1)
+                                          .ToList()
+                                          .FindIndex(x => x.IsSelected && x.OriginalBookmark.CaseId != currentItem.OriginalBookmark.CaseId);
+                    if (downIdx != -1)
+                    {
+                        MoveTo(_currentIdx + 1 + downIdx, true, true);
                     }
                     e.Handled = true;
                     break;
@@ -999,32 +1006,39 @@ namespace TraceShot.Features
             }
         }
 
-        private void AnimateSlide(bool isNext)
+        private void MoveTo(int newIdx, bool isForward, bool isVertical)
         {
-            // 1. アニメーションの設定
-            // 右へ進む(Next)なら右から飛んでくる、左へ戻るなら左から。
-            double startX = isNext ? 100 : -100;
+            _currentIdx = newIdx;
+            UpdatePreviewDisplay();
+            AnimateSlide(isForward, isVertical);
+        }
 
-            // 移動アニメーション (X座標 100 or -100 -> 0)
-            DoubleAnimation slideAnim = new DoubleAnimation
+        private void AnimateSlide(bool isForward, bool isVertical)
+        {
+            // 方向に応じた移動距離を設定 (左右ならX, 上下ならY)
+            double distance = 100; // スライド量
+            double startValue = isForward ? distance : -distance;
+
+            var animation = new DoubleAnimation
             {
-                From = startX,
+                From = startValue,
                 To = 0,
-                Duration = TimeSpan.FromSeconds(0.25),
+                Duration = TimeSpan.FromMilliseconds(250),
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             };
 
-            // 透明度アニメーション (0.5 -> 1.0)
-            DoubleAnimation fadeAnim = new DoubleAnimation
+            if (isVertical)
             {
-                From = 0.5,
-                To = 1.0,
-                Duration = TimeSpan.FromSeconds(0.2)
-            };
-
-            // 2. アニメーション開始
-            SlideTransform.BeginAnimation(TranslateTransform.XProperty, slideAnim);
-            SlideGrid.BeginAnimation(UIElement.OpacityProperty, fadeAnim);
+                // 上下アニメーション (Y軸)
+                SlideTransform.X = 0; // Xをリセット
+                SlideTransform.BeginAnimation(TranslateTransform.YProperty, animation);
+            }
+            else
+            {
+                // 左右アニメーション (X軸)
+                SlideTransform.Y = 0; // Yをリセット
+                SlideTransform.BeginAnimation(TranslateTransform.XProperty, animation);
+            }
         }
     }
 }
