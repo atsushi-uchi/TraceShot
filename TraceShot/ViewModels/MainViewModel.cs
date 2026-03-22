@@ -40,7 +40,7 @@ namespace TraceShot.ViewModels
 
             // グループ化の設定
             TimelineView.GroupDescriptions.Clear();
-            TimelineView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(TimelineEntry.GrpupName)));
+            TimelineView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(TimelineEntry.GroupName)));
 
             // ソートの設定
             TimelineView.SortDescriptions.Clear();
@@ -275,7 +275,7 @@ namespace TraceShot.ViewModels
                     }
                     prevId = entry.CaseId;
                 }
-                entry.GrpupName = groupName;
+                entry.GroupName = groupName;
             }
             App.Current.Dispatcher.Invoke(() =>
             {

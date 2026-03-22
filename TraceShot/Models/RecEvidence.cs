@@ -37,18 +37,28 @@ public partial class RecEvidence : ObservableObject
             .GroupBy(e => e.CaseId)
             .Select(g =>
             {
-                var sortedInCase = g.OrderBy(e => e.Time).ToList();
+                var sortedInCase = g
+                    .Where(e => e.IsExportEnabled)
+                    .OrderBy(e => e.Time).ToList();
+
+                // 要素がない場合は空のリストとして扱う（nullを返さない）
+                if (sortedInCase.Count == 0) return Enumerable.Empty<CaseSummary>();
+
+                var firstEntry = sortedInCase.First();
                 var lastEntry = sortedInCase.Last();
 
-                return new CaseSummary
+                var summary = new CaseSummary
                 {
                     CaseId = g.Key,
-                    StepCount = g.Count(),
+                    StepCount = sortedInCase.Count,
                     FinalResult = lastEntry.Result,
-                    StartTime = sortedInCase.First().Time,
+                    StartTime = firstEntry.Time,
                     EndTime = lastEntry.Time,
                 };
+
+                return new[] { summary }; // 1要素の配列として返す
             })
+            .SelectMany(s => s) // ここでフラットに展開（空なら自動で除外される）
             .OrderBy(s => s.StartTime)
             .ToList();
     }

@@ -15,7 +15,7 @@ namespace TraceShot.Models
         [ObservableProperty] private int _caseId = 0;
 
         [JsonIgnore]
-        [ObservableProperty] private string _grpupName = "";
+        [ObservableProperty] private string _groupName = "";
 
         public void EntryAsDirty() => IsDirty = true;
 

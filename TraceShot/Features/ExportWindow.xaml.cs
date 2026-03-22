@@ -1,6 +1,7 @@
 ﻿
 namespace TraceShot.Features
 {
+    using CommunityToolkit.Mvvm.ComponentModel;
     using ClosedXML.Excel;
     using ClosedXML.Excel.Drawings;
     using Microsoft.Win32;
@@ -24,6 +25,7 @@ namespace TraceShot.Features
     using MessageBox = System.Windows.MessageBox;
     using Path = System.IO.Path;
 
+    [INotifyPropertyChanged]
     public partial class ExportWindow : Window
     {
         public ObservableCollection<ExportItemViewModel> ExportItems { get; set; } = [];
@@ -31,6 +33,10 @@ namespace TraceShot.Features
         private int _currentIdx = 0;
 
         private readonly ExportCacheManager _cacheManager;
+
+        [ObservableProperty] private ExportItemViewModel _selectedPreviewItem;
+
+        [ObservableProperty] private string _previewCounterText;
 
         public ExportWindow(ExportCacheManager cacheManager)
         {
@@ -40,19 +46,50 @@ namespace TraceShot.Features
             double initialScale = _cacheManager.LastScale > 0 ? _cacheManager.LastScale : 0.75;
             SetScaleComboBoxValue(initialScale);
 
-            var list = RecService.Instance.Entries
-                .Select(b => {
-                    var cachedImage = _cacheManager.GetCachedImage(b.Id, initialScale);
-                    return new ExportItemViewModel(b, cachedImage, _cacheManager)
-                    {
-                        IsSelected = b.IsExportEnabled,
-                        Order = b.ExportOrder,
-                    };
-                })
-                .OrderBy(vm => vm.Order)
-                .ThenBy(vm => vm.Time);
+            // ID計算用の変数
+            int currentCaseId = -1;
+            int currentStepId = 0;
 
-            ExportItems = new ObservableCollection<ExportItemViewModel>(list);
+            var viewModels = new List<ExportItemViewModel>();
+            var sortedEntries = RecService.Instance.Entries
+                .OrderBy(b => b.ExportOrder)
+                .ThenBy(b => b.Time);
+
+            foreach (var b in sortedEntries)
+            {
+                // CaseId / StepId の計算
+                if (b.IsExportEnabled)
+                {
+                    currentStepId = (currentCaseId == b.CaseId) ? currentStepId + 1 : 1;
+                }
+                currentCaseId = b.CaseId;
+
+                var cachedImage = _cacheManager.GetCachedImage(b.Id, initialScale);
+                var vm = new ExportItemViewModel(b, cachedImage, _cacheManager)
+                {
+                    IsSelected = b.IsExportEnabled,
+                    Order = b.ExportOrder,
+                    CaseId = currentCaseId,
+                    StepId = b.IsExportEnabled ? currentStepId : 0,
+                    Note = string.IsNullOrWhiteSpace(b.Note) ? ""
+                            : b.Note.Replace("\r\n", " ").Replace("\n", " "),
+
+                };
+                viewModels.Add(vm);
+            }
+
+            foreach (var vm in viewModels)
+            {
+                vm.PropertyChanged += (s, e) =>
+                {
+                    if (e.PropertyName == nameof(ExportItemViewModel.IsSelected))
+                    {
+                        RefreshExportIds();
+                    }
+                };
+            }
+
+            ExportItems = new ObservableCollection<ExportItemViewModel>(viewModels);
             for (int i = 0; i < ExportItems.Count; i++)
             {
                 ExportItems[i].SerialNumber = (i + 1).ToString("D2");
@@ -783,12 +820,7 @@ namespace TraceShot.Features
                     foreach (var item in items)
                     {
                         var cached = _cacheManager.GetCachedImage(item.OriginalBookmark.Id, scale);
-
-                        if (cached != null && !item.OriginalBookmark.IsDirty)
-                        {
-                            item.SnapshotImage = cached;
-                        }
-                        else
+                        if (cached is null || item.OriginalBookmark.IsDirty)
                         {
                             main.VideoPlayer.Position = item.OriginalBookmark.Time;
                             await Task.Delay(500);
@@ -801,11 +833,37 @@ namespace TraceShot.Features
                                 item.OriginalBookmark.IsDirty = false;
                             }
                         }
+                        else
+                        {
+                            item.SnapshotImage = cached;
+                        }
                         progress.Report((++index) * 100 / items.Count());
                     }
                 });
                 StatusText.Text = "撮影完了。出力する画像を選択・確認してください。";
                 OutputGroupBox.IsEnabled = true;
+            }
+        }
+
+        private void RefreshExportIds()
+        {
+            int currentCaseId = -1;
+            int currentStepId = 0;
+
+            // 現在の並び順（Order -> Time）で、チェックが入っているものだけを対象にする
+            var activeItems = ExportItems
+                .Where(x => x.IsSelected)
+                .OrderBy(x => x.Order)
+                .ThenBy(x => x.Time);
+
+            foreach (var item in activeItems)
+            {
+                // CaseIdが変わったらStepIdを1リセット、同じならインクリメント
+                currentStepId = (currentCaseId == item.OriginalBookmark.CaseId) ? currentStepId + 1 : 1;
+                currentCaseId = item.OriginalBookmark.CaseId;
+
+                item.CaseId = currentCaseId;
+                item.StepId = currentStepId;
             }
         }
 
@@ -828,17 +886,6 @@ namespace TraceShot.Features
                 // 【重要】ここでドラッグ開始。このメソッドが終わるまで処理は止まります。
                 DragDrop.DoDragDrop(border, dataObject, DragDropEffects.Move);
             }
-        }
-
-        private void SaveCurrentOrder()
-        {
-            if (ExportItems == null) return;
-
-            // 現在画面に並んでいる順番で ID のリストを作成
-            var ids = ExportItems.Select(vm => vm.OriginalBookmark.Id);
-
-            // マネージャーに保存
-            _cacheManager.UpdateOrders(ids);
         }
 
         private void Thumbnail_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -879,13 +926,21 @@ namespace TraceShot.Features
             if (_currentIdx >= 0 && _currentIdx < allItems.Count)
             {
                 var item = allItems[_currentIdx];
-                LargePreviewImage.Source = item?.SnapshotImage;
+                // 1. 重要：XAMLのバインド先であるプロパティにアイテムをセットする
+                // これにより、追加したTextBlock等の値が自動的に更新されます
+                SelectedPreviewItem = item;
 
-                // 「選択されているアイテムの中での順番 / 選択総数」を表示
+                // 2. カウンターのテキスト更新（ViewModelのプロパティを更新するか、直接書き換える）
                 int displayIdx = selectedItems.IndexOf(item) + 1;
-                PreviewPageCounter.Text = $"{displayIdx} / {selectedItems.Count}";
+                string counterText = $"{displayIdx} / {selectedItems.Count}";
 
-                //ExportPreviewList.ScrollIntoView(item);
+                // ViewModel側にプロパティがあるならそちらを更新
+                PreviewCounterText = counterText;
+                // もし直書きなら
+                //PreviewPageCounter.Text = counterText;
+
+                // 3. 画像の更新（バインドが正しく動いていれば不要ですが、念のため）
+                LargePreviewImage.Source = item?.SnapshotImage;
             }
         }
 

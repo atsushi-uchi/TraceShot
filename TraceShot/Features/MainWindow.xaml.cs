@@ -1310,7 +1310,7 @@ namespace TraceShot.Features
             foreach (TimelineEntry entry in Vm.TimelineView)
             {
                 // グループ名が変わったら新しい矩形を作成
-                if (prevEntry != null && prevEntry.GrpupName.In(entry.GrpupName))
+                if (prevEntry != null && prevEntry.GroupName.In(entry.GroupName))
                 {
                     end = entry.Time.TotalSeconds;
                 }
