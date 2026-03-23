@@ -1363,7 +1363,7 @@ namespace TraceShot.Features
                 {
                     TextBlock noText = new()
                     {
-                        Text = (entry.CaseId == 0) ? "SS" : $"No.{entry.CaseId}",
+                        Text = (entry.CaseId == 0) ? "--" : $"No.{entry.CaseId}",
                         Foreground = Brushes.White,
                         FontSize = 14,
                         FontWeight = FontWeights.Bold,
@@ -1620,37 +1620,37 @@ namespace TraceShot.Features
         {
             if (TimelineListBox.SelectedItem is TimelineEntry selected)
             {
-                // 1. リスト全体を時間順（または表示順）に確定させる
-                var allEntries = Data.TimelineEntries.OrderBy(b => b.Time).ToList();
+                // No.0 自体を選択して「ここから振り直し」をした場合は、No.1から開始させる
+                int currentNewId = (selected.CaseId == 0) ? 1 : selected.CaseId;
 
-                // 2. 選択されたアイテムがリストのどこにあるか探す
+                var allEntries = Data.TimelineEntries.OrderBy(b => b.Time).ToList();
                 int startIndex = allEntries.IndexOf(selected);
                 if (startIndex == -1) return;
 
-                // 3. 開始番号を選択されたアイテムのCaseIdに設定
-                int currentNewId = selected.CaseId;
                 int lastOriginalId = selected.CaseId;
 
-                // 4. 選択されたアイテム「そのもの」から後ろをスキャン
                 for (int i = startIndex; i < allEntries.Count; i++)
                 {
                     var entry = allEntries[i];
 
-                    // 元々のCaseIdが前の項目と違うなら、新しい連番をインクリメント
-                    // (ただし、最初のループでは currentNewId をそのまま使う)
-                    if (i > startIndex && entry.CaseId != lastOriginalId)
+                    // ★ポイント：元のIDが0の項目は「未分類」なので、リ番の計算から完全に無視する
+                    if (entry.CaseId == 0)
+                    {
+                        continue;
+                    }
+
+                    // 元々のCaseIdが前の項目（0以外）と違うなら、新しい連番をカウントアップ
+                    if (lastOriginalId != 0 && entry.CaseId != lastOriginalId)
                     {
                         currentNewId++;
                     }
 
-                    lastOriginalId = entry.CaseId; // 次の判定のために「加工前」のIDを保存
-                    entry.CaseId = currentNewId;   // 新しい連番を上書き
+                    lastOriginalId = entry.CaseId;
+                    entry.CaseId = currentNewId;
                 }
 
-                // 5. 後処理（UI更新など）
                 Data.UpdateTimelineGroups();
                 RefreshBookmarkCanvas();
-                TimelineListBox.Items.Refresh();
             }
         }
 
