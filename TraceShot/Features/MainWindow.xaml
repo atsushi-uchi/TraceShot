@@ -693,6 +693,14 @@
                              SelectionMode="Extended"
                              Margin="2" Background="Transparent" BorderThickness="0">
 
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="これ以降のケース番号を振り直す" 
+                                          Click="RenumberCases_Click" />
+                                <Separator />
+                                <MenuItem Header="この項目を削除" Click="DeleteEntry_Click" />
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
                         <ListBox.GroupStyle>
                             <GroupStyle>
                                 <GroupStyle.HeaderTemplate>
