@@ -25,7 +25,7 @@ namespace TraceShot.Services
         [ObservableProperty][NotifyPropertyChangedFor(nameof(Entries))]
         private RecEvidence _evidence = new();
 
-        public ObservableCollection<TimelineEntry> Entries => Evidence.Entries;
+        public ObservableCollection<Bookmark> Entries => Evidence.Entries;
 
         [ObservableProperty]
         private bool _isRecording = false;
@@ -61,13 +61,18 @@ namespace TraceShot.Services
             };
         }
 
-        public TimelineEntry? GetBookmark(TimeSpan time)
+        public Bookmark? GetBookmark(TimeSpan time)
         {
 
             return Entries.FirstOrDefault(b => Math.Abs(b.Time.TotalSeconds - time.TotalSeconds) < 0.1);
         }
 
-        public string? SaveBitmap(TimelineEntry bm, WriteableBitmap source)
+        public Bookmark? GetBookmark(AnnotationBase annotation)
+        {
+            return Entries.Where(e => e.Annotations.Contains(annotation)).FirstOrDefault();
+        }
+
+        public string? SaveBitmap(Bookmark bm, WriteableBitmap source)
         {
             if (string.IsNullOrEmpty(CurrentFolder) || source == null) return null;
 
@@ -101,7 +106,7 @@ namespace TraceShot.Services
         }
 
 
-        public (string? Path, BitmapSource? Bitmap)? SaveImage(TimelineEntry bm, VideoSnapshotInfo? info, double scale = 0.5, bool saveToFile = true)
+        public (string? Path, BitmapSource? Bitmap)? SaveImage(Bookmark bm, VideoSnapshotInfo? info, double scale = 0.5, bool saveToFile = true)
         {
             if (string.IsNullOrEmpty(CurrentFolder) || info is null) return null;
 
@@ -113,10 +118,21 @@ namespace TraceShot.Services
             int originalHeight = info.NaturalHeight;
             if (originalWidth == 0 || originalHeight == 0) return (null, null);
 
-            // 2. クロップ設定の反映
-            bool isCrop = Evidence?.IsCropEnabled ?? false;
-            // クロップ有効なら設定値を使用、無効なら全範囲(0,0,1,1)
-            Rect cropRel = isCrop ? Evidence.CommonCropRect : new Rect(0, 0, 1, 1);
+            // 個別フォーカスがあれば使用、クロップ有効なら設定値を使用、無効なら全範囲(0,0,1,1)
+            Rect cropRel;
+            var focus = bm.Annotations.Where(x => x is RectAnnotation rect && rect.IsFocused).FirstOrDefault();
+            if (focus != null)
+            {
+                cropRel = new Rect(focus.RelX, focus.RelY, focus.RelWidth, focus.RelHeight);
+            }
+            else if (Evidence.IsCropEnabled)
+            {
+                cropRel = Evidence.CommonCropRect;
+            }
+            else
+            {
+                cropRel = new Rect(0, 0, 1, 1);
+            }
 
             // 3. 最終的な出力ピクセルサイズを計算 (クロップ範囲 × スケール)
             int renderWidth = (int)(originalWidth * cropRel.Width * scale);
@@ -252,20 +268,20 @@ namespace TraceShot.Services
             return (filePath, bmp);
         }
 
-        public void AddBookmark(TimelineEntry bookmark)
+        public void AddBookmark(Bookmark bookmark)
         {
             if (Evidence == null) return;
 
             Entries.Add(bookmark);
         }
 
-        public TimelineEntry? AddBookmark(string note = " - Screenshot")
+        public Bookmark? AddBookmark(string note = " - Screenshot")
         {
             if (Evidence == null) return null;
 
             if (_stopwatch.IsRunning)
             {
-                var bm = new TimelineEntry
+                var bm = new Bookmark
                 {
                     Time = _stopwatch.Elapsed,
                     Icon = "📌",

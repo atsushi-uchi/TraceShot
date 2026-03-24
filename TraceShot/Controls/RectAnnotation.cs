@@ -1,8 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System.Diagnostics;
 using System.Text.Json.Serialization;
 using System.Windows.Input;
+using TraceShot.Services;
 using Point = System.Windows.Point;
 using Size = System.Windows.Size;
 
@@ -12,8 +12,38 @@ namespace TraceShot.Controls
     {
         [ObservableProperty] private bool _isDrawing = true;
         [ObservableProperty] private bool _isMasking = false;
+        [ObservableProperty] private bool _isFocused = false;
+
+        partial void OnIsFocusedChanged(bool value)
+        {
+            if (value)
+            {
+                var bookmark = RecService.Instance.GetBookmark(this);
+                if (bookmark != null)
+                {
+                    foreach (var rect in bookmark.Rects) 
+                    {
+                        if (rect != this && rect.IsFocused)
+                        {
+                            rect.IsFocused = false;
+                        }
+                    }
+                    bookmark.Modified();
+                }
+                IsMasking = false;
+            }
+        }
+
+        partial void OnIsMaskingChanged(bool value)
+        {
+            if (value)
+            {
+                IsFocused = false;
+            }
+        }
+
         // 外部から代入してもらうためのアクション（非同期対応）
-        [JsonIgnore] public Func<RectAnnotation, Task> OcrAction { get; set; }
+        [JsonIgnore] public Func<RectAnnotation, Task>? OcrAction { get; set; }
 
         public ICommand RunOcrCommand { get; }
         private Point _startPoint;
@@ -28,7 +58,6 @@ namespace TraceShot.Controls
                 }
             });
         }
-
 
         public override void OnStart(Point pos, Size size)
         {

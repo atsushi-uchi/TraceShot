@@ -1,6 +1,4 @@
-﻿using DocumentFormat.OpenXml.Office2010.PowerPoint;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using TraceShot.Models;
 using TraceShot.Services;
@@ -18,19 +16,50 @@ namespace TraceShot.Controls
 
         public void RefreshCropOverlay()
         {
-            // 既存の CropAnnotation を一旦クリア
-            var existing = Annotations.Where(a => a is GuardAnnotation || a is CropAnnotation).ToList();
-            foreach (var a in existing) Annotations.Remove(a);
+            // 1. 既存のオーバーレイ（ガード、クロップ、個別フォーカス用）をクリア
+            var overlays = Annotations.Where(a => a is GuardAnnotation || a is CropAnnotation).ToList();
+            foreach (var a in overlays) Annotations.Remove(a);
 
+            var localFocus = Annotations.Where(a => a is RectAnnotation rect && rect.IsFocused).FirstOrDefault();
+            if (localFocus != null)
+            {
+                // 個別フォーカス時はガード(GuardAnnotation)を入れない仕様
+                var crop = new CropAnnotation
+                {
+                    // Bookmarkの相対座標をセット
+                    RelX = localFocus.RelX,
+                    RelY = localFocus.RelY,
+                    RelWidth = localFocus.RelWidth,
+                    RelHeight = localFocus.RelHeight,
+                };
+
+                localFocus.PropertyChanged += (s, e) =>
+                {
+                    if (s is RectAnnotation ra)
+                    {
+                        // プロパティ名に応じて同期（RelX, RelY, RelWidth, RelHeight）
+                        switch (e.PropertyName)
+                        {
+                            case nameof(RectAnnotation.RelX): crop.RelX = ra.RelX; break;
+                            case nameof(RectAnnotation.RelY): crop.RelY = ra.RelY; break;
+                            case nameof(RectAnnotation.RelWidth): crop.RelWidth = ra.RelWidth; break;
+                            case nameof(RectAnnotation.RelHeight): crop.RelHeight = ra.RelHeight; break;
+                        }
+                    }
+                };
+
+                Annotations.Add(crop);
+                return; // 個別表示時はグローバルを表示しない
+            }
+
+            // 3. グローバルフォーカスの表示（従来通り）
             if (RecService.Instance.Evidence.IsCropEnabled)
             {
                 if (RecService.Instance.Evidence.CropState == CropState.Editing)
                 {
-                    // 1. まずガードを入れる（ZIndex 5000）
                     Annotations.Add(new GuardAnnotation());
                 }
 
-                // 共通座標から新しい Annotation を生成
                 var crop = new CropAnnotation
                 {
                     RelX = RecService.Instance.Evidence.CommonCropRect.X,
@@ -38,9 +67,7 @@ namespace TraceShot.Controls
                     RelWidth = RecService.Instance.Evidence.CommonCropRect.Width,
                     RelHeight = RecService.Instance.Evidence.CommonCropRect.Height,
                 };
-                //RecService.Instance.Evidence.CropState = CropState.Confirmed;
 
-                // 枠が動かされた時に、共通データに書き戻すイベントを購読
                 crop.PropertyChanged += (s, e) => {
                     if (s is CropAnnotation ca)
                     {
@@ -51,7 +78,8 @@ namespace TraceShot.Controls
                 Annotations.Add(crop);
             }
         }
-        public void LoadAnnotationsFromBookmark(TimelineEntry bookmark)
+
+        public void LoadAnnotationsFromBookmark(Bookmark bookmark)
         {
             // 現在画面に表示されている注釈をすべてクリア
             Annotations.Clear();
@@ -67,7 +95,7 @@ namespace TraceShot.Controls
             RefreshCropOverlay();
         }
 
-        public void Remove(TimelineEntry? bookmark, AnnotationBase target)
+        public void Remove(Bookmark? bookmark, AnnotationBase target)
         {
             if (target is null) return;
 
@@ -103,7 +131,7 @@ namespace TraceShot.Controls
         /// <summary>
         /// 注釈の描画を開始する（MouseDownで呼ぶ）
         /// </summary>
-        public AnnotationBase StartDrawing<T>(TimelineEntry bookmark, Point pos, Size size) where T : AnnotationBase, new()
+        public AnnotationBase StartDrawing<T>(Bookmark bookmark, Point pos, Size size) where T : AnnotationBase, new()
         {
             SelectedAnnotation = new T
             {
@@ -118,6 +146,17 @@ namespace TraceShot.Controls
             bookmark.Annotations.Add(SelectedAnnotation);
 
             Annotations.Add(SelectedAnnotation);
+
+            if (SelectedAnnotation is RectAnnotation rect)
+            {
+                rect.PropertyChanged += (s, e) =>
+                {
+                    if (e.PropertyName == nameof(RectAnnotation.IsFocused))
+                    {
+                        RefreshCropOverlay();
+                    }
+                };
+            }
 
             return SelectedAnnotation;
         }
@@ -135,7 +174,7 @@ namespace TraceShot.Controls
         /// <summary>
         /// 描画を確定させる（MouseUpで呼ぶ）
         /// </summary>
-        public void CompleteDrawing(TimelineEntry? bookmark)
+        public void CompleteDrawing(Bookmark? bookmark)
         {
             if (SelectedAnnotation == null) return;
 

@@ -1,6 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-
-public enum CropState
+﻿public enum CropState
 {
     Editing,   // 再編集モード（初期値）
     Confirmed  // 確定モード

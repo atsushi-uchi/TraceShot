@@ -352,6 +352,9 @@
                         <ContextMenu>
                             <MenuItem Header="矩形マーク削除" Click="OnDeleteMenu_Click"/>
                             <Separator />
+                            <MenuItem Header="フォーカス設定"
+                              IsCheckable="True" 
+                              IsChecked="{Binding IsFocused}"/>
                             <MenuItem Header="機密情報黒塗" 
                               IsCheckable="True" 
                               IsChecked="{Binding IsMasking}" />
@@ -721,7 +724,7 @@
                         </ListBox.GroupStyle>
 
                         <ListBox.ItemTemplate>
-                            <DataTemplate DataType="{x:Type models:TimelineEntry}">
+                            <DataTemplate DataType="{x:Type models:Bookmark}">
                                 <StackPanel Orientation="Horizontal" Margin="5,2">
                                     <TextBlock x:Name="IconTxt" Text="●" Margin="0,0,5,0" Foreground="Gray" />
                                     <TextBlock Text="{Binding Time, StringFormat=\{0:mm\\:ss\}}" Width="45"/>
@@ -985,7 +988,7 @@
                         <CheckBox x:Name="CropEnabledCheckBox" 
                               Checked="CropEnabledCheckBox_Changed"
                               Unchecked="CropEnabledCheckBox_Changed"
-                              Content="フォーカス" 
+                              Content="グローバルフォーカス" 
                               IsChecked="{Binding IsCropEnabled}"
                               VerticalAlignment="Center" 
                               Margin="10,0,5,0"/>

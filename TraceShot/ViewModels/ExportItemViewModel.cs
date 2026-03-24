@@ -8,7 +8,7 @@
     public partial class ExportItemViewModel : ObservableObject
     {
         private readonly ExportCacheManager _cacheManager;
-        public ExportItemViewModel(TimelineEntry bookmark, BitmapSource? image, ExportCacheManager cacheManager)
+        public ExportItemViewModel(Bookmark bookmark, BitmapSource? image, ExportCacheManager cacheManager)
         {
             OriginalBookmark = bookmark;
             SnapshotImage = image;
@@ -25,7 +25,7 @@
         }
 
         // 参照用
-        public TimelineEntry OriginalBookmark { get; set; }
+        public Bookmark OriginalBookmark { get; set; }
 
         public string ImagePath { get; set; }
 

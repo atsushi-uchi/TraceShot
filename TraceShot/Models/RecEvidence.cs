@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
+using System.Text.Json.Serialization;
 using System.Windows;
 using TraceShot.Models;
 
@@ -14,8 +15,8 @@ public partial class RecEvidence : ObservableObject
     [ObservableProperty]
     private string _recMode = "";
 
-    [ObservableProperty]
-    private CropState _cropState = CropState.Editing;
+    [JsonIgnore][ObservableProperty]
+    private CropState _cropState = CropState.Confirmed;
 
     [ObservableProperty]
     private bool _isCropEnabled = false;
@@ -24,11 +25,11 @@ public partial class RecEvidence : ObservableObject
     private Rect _commonCropRect = new Rect(0.1, 0.1, 0.8, 0.8);
 
     [ObservableProperty]
-    private ObservableCollection<TimelineEntry> _entries = [];
+    private ObservableCollection<Bookmark> _entries = [];
 
     partial void OnIsCropEnabledChanged(bool value)
     {
-        foreach (var b in Entries) b.EntryAsDirty();
+        foreach (var b in Entries) b.Modified();
     }
 
     public List<CaseSummary> GetSummary()

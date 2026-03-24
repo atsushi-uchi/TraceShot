@@ -16,9 +16,13 @@ namespace TraceShot.ViewModels
 {
     public partial class MainViewModel : ObservableObject
     {
+        [ObservableProperty] private AnnotationManager _annotationManager;
+
         public MainViewModel()
         {
             SetupTimelineView();
+            
+            _annotationManager = new AnnotationManager();
 
             RecService.Instance.PropertyChanged += (s, e) =>
             {
@@ -44,23 +48,23 @@ namespace TraceShot.ViewModels
 
             // グループ化の設定
             TimelineView.GroupDescriptions.Clear();
-            TimelineView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(TimelineEntry.GroupName)));
+            TimelineView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Bookmark.GroupName)));
 
             // ソートの設定
             TimelineView.SortDescriptions.Clear();
-            TimelineView.SortDescriptions.Add(new SortDescription(nameof(TimelineEntry.Time), ListSortDirection.Ascending));
+            TimelineView.SortDescriptions.Add(new SortDescription(nameof(Bookmark.Time), ListSortDirection.Ascending));
 
             // ライブシェイピングの設定（編集時に即座に並び替える）
             if (TimelineView is ICollectionViewLiveShaping liveView)
             {
                 liveView.IsLiveSorting = true;
                 liveView.LiveSortingProperties.Clear();
-                liveView.LiveSortingProperties.Add(nameof(TimelineEntry.Time));
+                liveView.LiveSortingProperties.Add(nameof(Bookmark.Time));
 
                 // ケースを跨ぐ移動（IsCaseStartの変更）も即座に反映したい場合
                 liveView.IsLiveGrouping = true;
                 liveView.LiveGroupingProperties.Clear();
-                liveView.LiveGroupingProperties.Add(nameof(TimelineEntry.CaseId));
+                liveView.LiveGroupingProperties.Add(nameof(Bookmark.CaseId));
             }
         }
 
@@ -69,16 +73,16 @@ namespace TraceShot.ViewModels
 
         public RecService Recorder => RecService.Instance;
 
-        public ObservableCollection<TimelineEntry> TimelineEntries => RecService.Instance.Entries;
+        public ObservableCollection<Bookmark> TimelineEntries => RecService.Instance.Entries;
         [ObservableProperty]  private ICollectionView? _timelineView;
 
-        [ObservableProperty] private TimelineEntry? _selectedItem;
+        [ObservableProperty] private Bookmark? _selectedItem;
 
         [ObservableProperty] private bool _isEditMode = false;
 
         [ObservableProperty] private int _nextNo = 1;
 
-        public Action<TimelineEntry>? ScrollIntoViewRequested { get; set; }
+        public Action<Bookmark>? ScrollIntoViewRequested { get; set; }
         public Action? RefreshCanvas { get; set; }
         public Func<TimeSpan>? GetCurrentPosition { get; set; }
         public Func<VideoSnapshotInfo>? GetVideoSnapshotFunc { get; set; }
@@ -103,7 +107,16 @@ namespace TraceShot.ViewModels
                 {
                     foreach (var rect in entry.Rects.OfType<RectAnnotation>())
                     {
-                        rect.OcrAction = ExecuteOcrOnAnnotation;
+                        rect.OcrAction = ExecuteOcrAction;
+                        rect.PropertyChanged += (s, e) =>
+                        {
+                            if (e.PropertyName == nameof(RectAnnotation.IsFocused))
+                            {
+                                _annotationManager.RefreshCropOverlay();
+                            }
+                        };
+
+
                     }
                 }
                 RecService.Instance.Evidence = loaded;
@@ -131,7 +144,12 @@ namespace TraceShot.ViewModels
             return false;
         }
 
-        private async Task ExecuteOcrOnAnnotation(RectAnnotation rect)
+        public async Task ExecuteFocusAction(RectAnnotation rect)
+        {
+            _annotationManager.RefreshCropOverlay();
+        }
+
+        public async Task ExecuteOcrAction(RectAnnotation rect)
         {
             if (SelectedItem == null) return;
 
@@ -197,7 +215,7 @@ namespace TraceShot.ViewModels
 
         private void EditExecuteResult(TestResult resultType)
         {
-            if (SelectedItem is TimelineEntry entry)
+            if (SelectedItem is Bookmark entry)
             {
                 entry.Result = resultType;
                 UpdateTimelineGroups();
@@ -238,7 +256,7 @@ namespace TraceShot.ViewModels
             var noteText = resultType.In(TestResult.SS) ? "" : $"No.{NextNo} {resultType}";
             var isCaseStart = lastEntry?.Result.In(TestResult.OK, TestResult.NG, TestResult.PEND) ?? true;
 
-            TimelineEntry entry = new()
+            Bookmark entry = new()
             {
                 Time = Recorder.CurrentDuration,
                 CaseId = NextNo,

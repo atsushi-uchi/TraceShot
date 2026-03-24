@@ -1,5 +1,4 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using System.Diagnostics;
 using System.Text.Json.Serialization;
 using Point = System.Windows.Point;
 using Size = System.Windows.Size;
