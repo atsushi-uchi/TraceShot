@@ -159,7 +159,7 @@ namespace TraceShot.Services
                 var rects = bm.Rects.OfType<RectAnnotation>();
                 foreach (var rectAnno in rects)
                 {
-                    Debug.WriteLine($"type is {rectAnno.GetType().FullName} IsMask={rectAnno.IsMasking} ZIndex{rectAnno.ZIndex}");
+                    if (rectAnno.IsFocused) continue;
 
                     Rect scaledRect = new Rect(
                         rectAnno.RelX * originalWidth,
