@@ -280,12 +280,12 @@ namespace TraceShot.ViewModels
                     if (caseIds.ContainsKey(entry.CaseId))
                     {
                         int count = ++caseIds[entry.CaseId];
-                        groupName = (entry.CaseId == 0) ? $"Screen Shot_{count}" : $"No.{entry.CaseId}_{count}";
+                        groupName = (entry.CaseId == 0) ? $"--_{count}" : $"No.{entry.CaseId}_{count}";
                     }
                     else
                     {
                         caseIds[entry.CaseId] = 0;
-                        groupName = (entry.CaseId == 0) ? "Screen Shot" : $"No.{entry.CaseId}";
+                        groupName = (entry.CaseId == 0) ? "--" : $"No.{entry.CaseId}";
                     }
                     prevId = entry.CaseId;
                 }

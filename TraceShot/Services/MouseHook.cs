@@ -1,22 +1,17 @@
-﻿using System;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
+﻿using System.Runtime.InteropServices;
+using TraceShot;
 
 public class MouseHook
 {
     private const int WH_MOUSE_LL = 14;
-    private const int WM_LBUTTONDOWN = 0x0201;
-    private const int WM_LBUTTONUP = 0x0202;
-    private const int WM_RBUTTONDOWN = 0x0204;
-    private const int WM_RBUTTONUP = 0x0205;
-    private const int WM_MBUTTONDOWN = 0x0207;
-    private const int WM_MBUTTONUP = 0x0208;
+    private const int WM_MBUTTONDOWN = 0x0207; // 中央ボタン押し
+    private const int WM_MBUTTONUP = 0x0208; // 中央ボタン離し
+    private const int WM_XBUTTONDOWN = 0x020B; // サイドボタン押し
+    private const int WM_XBUTTONUP = 0x020C; // サイドボタン離し
+    private const int XBUTTON1 = 0x0001;       // Evnia 手前ボタン
+    private const int XBUTTON2 = 0x0002;       // Evnia 奥側ボタン
 
-    // --- 追加: チャタリング防止用フィールド ---
-    private DateTime _lastClickTime = DateTime.MinValue;
-    private TimeSpan _coolDown = TimeSpan.FromMilliseconds(500); // デフォルト500ms
     // ---------------------------------------
-
     [DllImport("user32.dll")]
     private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
 
@@ -26,26 +21,31 @@ public class MouseHook
     [DllImport("user32.dll")]
     private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr WindowFromPoint(POINT pt);
-
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
     private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
-    private LowLevelMouseProc? _proc;
+    private LowLevelMouseProc _proc;
     private IntPtr _hookID = IntPtr.Zero;
+    // ---------------------------------------
 
-    public event Action<Point>? OnLeftClick;
-    public event Action<Point>? OnRightClick;
-    public event Action<Point>? OnMiddleClick;
+    public event Action<int, int>? OnMouseMiddleClick;
+    public event Action<int, int>? OnSideButton1Click;
+    public event Action<int, int>? OnSideButton2Click;
 
-    // クールタイムを外部から調整したい場合
-    public void SetCoolDown(int milliseconds) => _coolDown = TimeSpan.FromMilliseconds(milliseconds);
+    //private const int ChatternigThreshold = 300;
+
+    private DateTime _lastClick = DateTime.MinValue;
+
+    public int ChatteringThreshold { get; set; } = 500;
+
+    public bool EnableMiddleClick { get; set; }
+    public bool EnableSideClick { get; set; }
+
+    public MouseHook()
+    {
+        _proc = HookCallback;
+    }
 
     public void Start()
     {
-        _proc = HookCallback;
         _hookID = SetWindowsHookEx(WH_MOUSE_LL, _proc, IntPtr.Zero, 0);
     }
 
@@ -55,64 +55,52 @@ public class MouseHook
     {
         if (nCode >= 0)
         {
-            bool isLeftUp = (wParam == (IntPtr)WM_LBUTTONUP);
-            bool isRightUp = (wParam == (IntPtr)WM_RBUTTONUP);
-            bool isMiddleUp = (wParam == (IntPtr)WM_MBUTTONUP);
-            bool isMiddleDown = (wParam == (IntPtr)WM_MBUTTONDOWN);
-
-            if (isMiddleDown || isMiddleUp)
+            if ((wParam == (IntPtr)WM_MBUTTONDOWN && EnableMiddleClick) ||
+                (wParam == (IntPtr)WM_XBUTTONDOWN && EnableSideClick))
             {
-                if (isMiddleUp)
-                {
-                    // 離した瞬間にエビデンス撮影などの処理を実行
-                    MSLLHOOKSTRUCT hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-                    if (!IsOwnWindow(hookStruct.pt))
-                    {
-                        var point = new System.Drawing.Point(hookStruct.pt.x, hookStruct.pt.y);
-                        OnMiddleClick?.Invoke(point);
-                    }
-                }
-
-                // ★重要：CallNextHookEx を呼ばずに 1 を返すことで、
-                // 他のアプリ（ブラウザやエクスプローラ等）に中央クリックが伝わらなくなります。
+                var hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+                Task.Run(() => ProcessAsync(wParam, hookStruct.pt.x, hookStruct.pt.y, hookStruct.mouseData));
                 return (IntPtr)1;
             }
-            else if (isLeftUp || isRightUp)
+
+            if ((wParam == (IntPtr)WM_MBUTTONUP && EnableMiddleClick) ||
+                (wParam == (IntPtr)WM_XBUTTONUP && EnableSideClick))
             {
-                DateTime now = DateTime.Now;
-                if (now - _lastClickTime >= _coolDown)
-                {
-                    MSLLHOOKSTRUCT hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-
-                    if (IsOwnWindow(hookStruct.pt))
-                    {
-                        return CallNextHookEx(_hookID, nCode, wParam, lParam);
-                    }
-
-                    _lastClickTime = now;
-                    var point = new Point(hookStruct.pt.x, hookStruct.pt.y);
-
-                    if (isLeftUp) OnLeftClick?.Invoke(point);
-                    else if (isRightUp) OnRightClick?.Invoke(point);
-                }
+                return (IntPtr)1;
             }
-
 
         }
         return CallNextHookEx(_hookID, nCode, wParam, lParam);
     }
 
-    private bool IsOwnWindow(POINT pt)
+    private void ProcessAsync(IntPtr wParam, int x, int y, uint mouseData)
     {
-        // クリックされた位置にあるウィンドウハンドルを取得
-        IntPtr hWnd = WindowFromPoint(pt);
-        if (hWnd == IntPtr.Zero) return false;
+        DateTime now = DateTime.Now;
 
-        // そのウィンドウのプロセスIDを取得
-        GetWindowThreadProcessId(hWnd, out uint processId);
+        if (wParam == (IntPtr)WM_MBUTTONDOWN)
+        {
+            if ((now - _lastClick).TotalMilliseconds < ChatteringThreshold) return;
+            _lastClick = now;
 
-        // 現在実行中のプロセスIDと比較
-        return processId == (uint)Environment.ProcessId;
+            var point = new Point(x, y);
+            App.Current.Dispatcher.InvokeAsync(() => OnMouseMiddleClick?.Invoke(x, y));
+        }
+
+        else if (wParam == (IntPtr)WM_XBUTTONDOWN)
+        {
+            if ((now - _lastClick).TotalMilliseconds < ChatteringThreshold) return;
+            _lastClick = now;
+
+            int xButton = (int)((mouseData >> 16) & 0xFFFF);
+            if (xButton == XBUTTON1)
+            {
+                App.Current.Dispatcher.InvokeAsync(() => OnSideButton1Click?.Invoke(x, y));
+            }
+            else if (xButton == XBUTTON2)
+            {
+                App.Current.Dispatcher.InvokeAsync(() => OnSideButton2Click?.Invoke(x, y));
+            }
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]

@@ -45,7 +45,7 @@ namespace TraceShot.Features
             // 3.ハードウェアアクセル
             HardwareAccelCheckBox.IsChecked = Default.UseHardwareAccel;
 
-            // ホットキーの表示
+            // 4.ホットキーの表示
             _tempBookmarkKey = (Key)Default.BookmarkHotkeyKey;
             _tempBookmarkMod = (ModifierKeys)Default.BookmarkHotkeyMod;
             HotkeySettingButton.Content = HotkeyRegister.Format(_tempBookmarkKey, _tempBookmarkMod);
@@ -55,6 +55,11 @@ namespace TraceShot.Features
             VoiceHotkeySettingButton.Content = HotkeyRegister.Format(_tempVoiceKey, _tempVoiceMod);
 
             EnableVoiceRecognitionCheckBox.IsChecked = _setting.IsVoiceEnabled;
+
+            // 5.マウス中央、サイドボタン
+            EnableMiddleClickCheckBox.IsChecked = Default.EnableMiddleClick;
+            EnableSideClickCheckBox.IsChecked = Default.EnableSideClick;
+            ChatteringSlider.Value = Default.ChatteringThreshold;
         }
 
         private void HotkeySettingButton_Click(object sender, RoutedEventArgs e)
@@ -149,6 +154,11 @@ namespace TraceShot.Features
 
             // 音声認識オン／オフ
             SettingsService.Instance.IsVoiceEnabled = EnableVoiceRecognitionCheckBox.IsChecked ?? false;
+
+            // プロパティへの反映（Configクラスなどがある前提）
+            Default.EnableMiddleClick = EnableMiddleClickCheckBox.IsChecked ?? true;
+            Default.EnableSideClick = EnableSideClickCheckBox.IsChecked ?? true;
+            Default.ChatteringThreshold = (int)ChatteringSlider.Value;
 
             SettingsService.Instance.Save();
             this.DialogResult = true;

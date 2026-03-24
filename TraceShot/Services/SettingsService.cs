@@ -53,7 +53,6 @@ namespace TraceShot.Services
         partial void OnOverTextColorChanged(Color value) => OverTextBrush = CreateFrozenBrush(value);
         partial void OnCropColorChanged(Color value) => CropBrush = CreateFrozenBrush(value);
 
-
         partial void OnMainColorChanged(Color value)
         {
             MainBrush = CreateFrozenBrush(value);

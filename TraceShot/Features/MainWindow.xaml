@@ -11,7 +11,8 @@
         xmlns:conv="clr-namespace:TraceShot.Converters"
         xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
         mc:Ignorable="d"
-        Title="TraceShot" Height="600" Width="900">
+        Title="TraceShot" Height="600" Width="900"
+        Closed="Window_Closed">
     <Window.TaskbarItemInfo>
         <TaskbarItemInfo x:Name="taskbarInfo" />
     </Window.TaskbarItemInfo>
@@ -701,15 +702,16 @@
                                 <MenuItem Header="この項目を削除" Click="DeleteEntry_Click" />
                             </ContextMenu>
                         </ListBox.ContextMenu>
+
                         <ListBox.GroupStyle>
                             <GroupStyle>
                                 <GroupStyle.HeaderTemplate>
                                     <DataTemplate>
-                                        <Border Background="#EEE" BorderBrush="#DDD" BorderThickness="0,0,0,1" Padding="5,2"
+                                        <Border x:Name="GroupBorder" Background="#EEE" BorderBrush="#DDD" BorderThickness="0,0,0,1" Padding="5,2"
                                                 PreviewMouseLeftButtonDown="GroupHeader_PreviewMouseLeftButtonDown">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="📋 " />
-                                                <TextBlock Text="{Binding Name, Converter={StaticResource GroupNameConverter}}"
+                                                <TextBlock x:Name="IconTxt" Text="📋 " />
+                                                <TextBlock x:Name="HeaderText" Text="{Binding Name, Converter={StaticResource GroupNameConverter}}"
                                                            FontWeight="Bold" />
                                             </StackPanel>
                                         </Border>
@@ -722,9 +724,7 @@
                             <DataTemplate DataType="{x:Type models:TimelineEntry}">
                                 <StackPanel Orientation="Horizontal" Margin="5,2">
                                     <TextBlock x:Name="IconTxt" Text="●" Margin="0,0,5,0" Foreground="Gray" />
-
                                     <TextBlock Text="{Binding Time, StringFormat=\{0:mm\\:ss\}}" Width="45"/>
-
                                     <TextBlock Text="{Binding Result}" Width="40" Margin="5,0" FontWeight="Bold">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
@@ -944,8 +944,6 @@
                             <TextBlock x:Name="RecordingText" Text="録画開始"/>
                         </StackPanel>
                     </Button>
-                    <CheckBox x:Name="ClickTriggerCheckBox" Content="マウス中央で撮影" IsChecked="True" VerticalAlignment="Center" Margin="5,0,10,0"
-                              Checked="ClickTriggerCheckBox_Checked" Unchecked="ClickTriggerCheckBox_Unchecked"/>
                 </StackPanel>
 
                 <!-- 再生パネル -->
@@ -987,7 +985,7 @@
                         <CheckBox x:Name="CropEnabledCheckBox" 
                               Checked="CropEnabledCheckBox_Changed"
                               Unchecked="CropEnabledCheckBox_Changed"
-                              Content="クロップ有効" 
+                              Content="フォーカス" 
                               IsChecked="{Binding IsCropEnabled}"
                               VerticalAlignment="Center" 
                               Margin="10,0,5,0"/>

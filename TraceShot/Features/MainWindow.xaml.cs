@@ -1,7 +1,5 @@
-﻿using DocumentFormat.OpenXml.Packaging;
-using NHotkey;
+﻿using NHotkey;
 using ScreenRecorderLib;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -155,14 +153,38 @@ namespace TraceShot.Features
             PreviewImage.Source = ImageService.GetReadyStandardImage(dpi);
 
             // マウスクリックをフックして録画
-            _mouseHook.OnMiddleClick += (pos) =>
+            _mouseHook.OnMouseMiddleClick += (x, y) =>
             {
-                // 録画中のみ、証跡追加を実行
                 if (_isRecording)
                 {
-                    AddClickTriggerBookmark(pos);
+                    AddClickTriggerBookmark(x, y);
                 }
             };
+            _mouseHook.OnSideButton1Click += (x, y) =>
+            {
+                if (_isRecording)
+                {
+                    AddClickTriggerBookmark(x, y);
+                }
+            };
+            _mouseHook.OnSideButton2Click += (x, y) =>
+            {
+                if (_isRecording)
+                {
+                    AddClickTriggerBookmark(x, y);
+                }
+            };
+            _mouseHook.Start();
+        }
+
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            _mouseHook.Stop();
+
+            if (_isRecording)
+            {
+                RecService.Instance.StopRecording();
+            }
         }
 
         private void ApplyCurrentSettings()
@@ -195,6 +217,11 @@ namespace TraceShot.Features
             }
             // ホットキー登録
             RefreshHotkey();
+
+            // マウス中央、サイドボタンの撮影設定
+            _mouseHook.ChatteringThreshold = Default.ChatteringThreshold;
+            _mouseHook.EnableMiddleClick = Default.EnableMiddleClick;
+            _mouseHook.EnableSideClick = Default.EnableSideClick;
         }
 
         private void OpenSettings_Click(object sender, RoutedEventArgs e)
@@ -1168,7 +1195,7 @@ namespace TraceShot.Features
             }
         }
 
-        private void AddClickTriggerBookmark(Drawing.Point rawMousePos)
+        private void AddClickTriggerBookmark(int x, int y)
         {
             SoundService.Instance.PlayShutter();
 
@@ -1491,16 +1518,6 @@ namespace TraceShot.Features
             VideoPlayer.Stop();
         }
 
-        private void ClickTriggerCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            _mouseHook.Start();
-        }
-
-        private void ClickTriggerCheckBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            _mouseHook.Stop();
-        }
-
         private async Task ExecuteOcrOnAnnotation(RectAnnotation rect)
         {
             var bm = TimelineListBox.SelectedItem as TimelineEntry;
@@ -1656,9 +1673,10 @@ namespace TraceShot.Features
 
         private void DeleteEntry_Click(object sender, RoutedEventArgs e)
         {
-            if (TimelineListBox.SelectedItem is TimelineEntry selected)
+            var selectedItems = TimelineListBox.SelectedItems.Cast<TimelineEntry>().ToList();
+            foreach (TimelineEntry entry in selectedItems)
             {
-                RecService.Instance.Entries.Remove(selected);
+                RecService.Instance.Entries.Remove(entry);
             }
 
         }
