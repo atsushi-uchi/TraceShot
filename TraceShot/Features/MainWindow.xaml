@@ -13,11 +13,6 @@
         mc:Ignorable="d"
         Title="TraceShot" Height="600" Width="900"
         Closed="Window_Closed">
-    <Window.InputBindings>
-        <KeyBinding Modifiers="Control" Key="C" Command="{Binding CopyCommand}" />
-        <KeyBinding Modifiers="Control" Key="V" Command="{Binding PasteCommand}" />
-        <!--<KeyBinding Key="Delete" Command="{Binding DeleteAnnotationCommand}" />-->
-    </Window.InputBindings>
     <Window.TaskbarItemInfo>
         <TaskbarItemInfo x:Name="taskbarInfo" />
     </Window.TaskbarItemInfo>
@@ -359,11 +354,15 @@
                     </Thumb.Style>
                     <Thumb.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="矩形マーク削除" Click="OnDeleteMenu_Click"/>
+                            <MenuItem Header="削除" Click="OnDeleteMenu_Click">
+                                <MenuItem.Icon>
+                                    <TextBlock Text="&#xE8E5;" FontFamily="Segoe MDL2 Assets"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
                             <Separator />
                             <MenuItem Header="コピー" InputGestureText="Ctrl+C" Click="OnCopyMenu_Click">
                                 <MenuItem.Icon>
-                                    <TextBlock Text="ContentCopy" FontFamily="Segoe MDL2 Assets"/>
+                                    <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets"/>
                                 </MenuItem.Icon>
                             </MenuItem>
                             <Separator />
@@ -514,12 +513,21 @@
                            DragCompleted="OnAnnotation_DragCompleted">
                         <Thumb.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Header="削除" Click="OnDeleteMenu_Click"/>
-                                <MenuItem Header="編集" Click="OnEditMenu_Click"/>
+                                <MenuItem Header="削除" Click="OnDeleteMenu_Click">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="&#xE8E5;" FontFamily="Segoe MDL2 Assets"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
                                 <Separator />
                                 <MenuItem Header="コピー" InputGestureText="Ctrl+C" Click="OnCopyMenu_Click">
                                     <MenuItem.Icon>
-                                        <TextBlock Text="ContentCopy" FontFamily="Segoe MDL2 Assets"/>
+                                        <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <Separator />
+                                <MenuItem Header="編集" Click="OnEditMenu_Click">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="&#xE8E5;" FontFamily="Segoe MDL2 Assets"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
                             </ContextMenu>
@@ -623,18 +631,18 @@
 
         <Menu Grid.Row="0" Background="White" BorderBrush="#EEE" BorderThickness="0,0,0,1">
             <MenuItem Header="ファイル(_F)">
-                <MenuItem Header="開く(_O)..." Click="OpenEvidence_Click"/>
+                <MenuItem Header="開く(_O)..." Click="OpenEvidence_Click" InputGestureText="Ctrl+O"/>
                 <MenuItem Header="保存(_S)" Click="SaveEvidence_Click" InputGestureText="Ctrl+S"/>
-                <MenuItem Header="エクスポート(_E)..." Click="OpenExport_Click"/>
+                <MenuItem Header="エクスポート(_E)..." Click="OpenExport_Click" InputGestureText="Ctrl+E" />
                 <Separator />
                 <MenuItem Header="終了(_X)" Click="Exit_Click" />
             </MenuItem>
-            <MenuItem Header="編集">
-                <MenuItem Header="コピー" InputGestureText="Ctrl+C" Click="OnCopyMenu_Click"/>
-                <MenuItem Header="貼り付け" InputGestureText="Ctrl+V" Click="OnPasteMenu_Click"/>
+            <MenuItem Header="編集(_E)">
+                <MenuItem Header="注釈をコピー" InputGestureText="Ctrl+C" Click="OnCopyMenu_Click"/>
+                <MenuItem Header="注釈を貼り付け" InputGestureText="Ctrl+V" Click="OnPasteMenu_Click"/>
             </MenuItem>
             <MenuItem Header="設定(_P)" Click="OpenSettings_Click" />
-            <MenuItem x:Name="DebugMenuItem" Header="デバッグ ON" IsCheckable="True" Click="DebugButton_Click" />
+            <!--<MenuItem x:Name="DebugMenuItem" Header="デバッグ ON" IsCheckable="True" Click="DebugButton_Click" />-->
         </Menu>
 
 

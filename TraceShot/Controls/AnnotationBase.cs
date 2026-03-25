@@ -24,6 +24,7 @@ namespace TraceShot.Controls
         [ObservableProperty] private double _height;
 
         [ObservableProperty] private bool _isVisible = true;
+        [JsonIgnore]
         [ObservableProperty] private bool _isSelected;
 
         public Guid Id { get; } = Guid.NewGuid();

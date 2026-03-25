@@ -1,5 +1,4 @@
-﻿using DocumentFormat.OpenXml.Vml.Office;
-using NHotkey;
+﻿using NHotkey;
 using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
@@ -20,7 +19,6 @@ using TraceShot.Services;
 using TraceShot.ViewModels;
 using Windows.Media.SpeechRecognition;
 using static TraceShot.Properties.Settings;
-using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Canvas = System.Windows.Controls.Canvas;
 using Cursors = System.Windows.Input.Cursors;
@@ -104,13 +102,37 @@ namespace TraceShot.Features
                 // Ctrl + S で保存を実行する
                 if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.S)
                 {
-                    SaveEvidence_Click(null, null);
-                    e.Handled = true; // 他のコントロールにイベントが流れるのを防ぐ
+                    SaveEvidence_Click(this, null);
+                    e.Handled = true;
+                }
+                // Ctrl + O で開くを実行する
+                else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O)
+                {
+                    OpenEvidence_Click(this, null);
+                    e.Handled = true;
+                }
+                // Ctrl + E でエクスポートを実行する
+                else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.E)
+                {
+                    OpenExport_Click(this, null);
+                    e.Handled = true;
+                }
+                // Ctrl + C でコピーを実行する
+                else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.C)
+                {
+                    OnCopyMenu_Click(this, null);
+                    e.Handled = true;
+                }
+                // Ctrl + V でペーストを実行する
+                else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.V)
+                {
+                    OnPasteMenu_Click(this, null);
+                    e.Handled = true;
                 }
                 // Deleteキーで選択項目を削除
                 else if (e.Key == Key.Delete)
                 {
-                    DeleteBookmarkButton_Click(null, null);
+                    DeleteBookmarkButton_Click(this, null);
                     e.Handled = true;
                 }
             };
@@ -295,7 +317,7 @@ namespace TraceShot.Features
             }
         }
 
-        private async void OpenEvidence_Click(object sender, RoutedEventArgs e)
+        private async void OpenEvidence_Click(object sender, RoutedEventArgs? e)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -318,7 +340,7 @@ namespace TraceShot.Features
             }
         }
 
-        private void OpenExport_Click(object sender, RoutedEventArgs e)
+        private void OpenExport_Click(object sender, RoutedEventArgs? e)
         {
             var exportWin = new ExportWindow(_cacheManager)
             {
@@ -601,7 +623,6 @@ namespace TraceShot.Features
                 }
         }
 
-        // 位置を移動させる
         private void OnMoveThumb_DragDelta(object sender, DragDeltaEventArgs e)
         {
             if (sender is Thumb t && t.DataContext is RectAnnotation rect)
@@ -612,7 +633,6 @@ namespace TraceShot.Features
             }
         }
 
-        // 左辺リサイズ：幅を減らした分だけ、Xを右に動かす（逆も然り）
         private void OnLeftResize_DragDelta(object sender, DragDeltaEventArgs e)
         {
             if (sender is Thumb t && t.DataContext is RectAnnotation rect)
@@ -623,7 +643,6 @@ namespace TraceShot.Features
             }
         }
 
-        // 上辺リサイズ：高さを減らした分だけ、Yを下へ動かす
         private void OnTopResize_DragDelta(object sender, DragDeltaEventArgs e)
         {
             if (sender is Thumb t && t.DataContext is RectAnnotation rect)
@@ -634,7 +653,6 @@ namespace TraceShot.Features
             }
         }
 
-        // 右辺リサイズ：幅をそのまま増減させる
         private void OnRightResize_DragDelta(object sender, DragDeltaEventArgs e)
         {
             if (sender is Thumb t && t.DataContext is RectAnnotation rect)
@@ -644,7 +662,6 @@ namespace TraceShot.Features
             }
         }
 
-        // 下辺リサイズ：高さをそのまま増減させる
         private void OnBottomResize_DragDelta(object sender, DragDeltaEventArgs e)
         {
             if (sender is Thumb t && t.DataContext is RectAnnotation rect)
@@ -654,7 +671,6 @@ namespace TraceShot.Features
             }
         }
 
-        // 右下（一番シンプル）：Width と Height をそのまま増減
         private void OnBottomRightResize_DragDelta(object sender, DragDeltaEventArgs e)
         {
             if (sender is Thumb t && t.DataContext is RectAnnotation rect)
@@ -664,7 +680,6 @@ namespace TraceShot.Features
             }
         }
 
-        // 左上（一番複雑）：Width/Height を増やしつつ、X/Y を減らす
         private void OnTopLeftResize_DragDelta(object sender, DragDeltaEventArgs e)
         {
             if (sender is Thumb t && t.DataContext is RectAnnotation rect)
@@ -680,7 +695,6 @@ namespace TraceShot.Features
             }
         }
 
-        // 右上：Width を増やし、Height を増やしつつ Y を減らす
         private void OnTopRightResize_DragDelta(object sender, DragDeltaEventArgs e)
         {
             if (sender is Thumb t && t.DataContext is RectAnnotation rect)
@@ -695,7 +709,6 @@ namespace TraceShot.Features
             }
         }
 
-        // 左下：Width を増やしつつ X を減らし、Height を増やす
         private void OnBottomLeftResize_DragDelta(object sender, DragDeltaEventArgs e)
         {
             if (sender is Thumb t && t.DataContext is RectAnnotation rect)
@@ -940,7 +953,6 @@ namespace TraceShot.Features
             }
         }
 
-        // スライダーを手動で動かしたとき
         private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             if (_isDragging)
@@ -955,7 +967,6 @@ namespace TraceShot.Features
             }
         }
 
-        // スライダーを掴んだらタイマーを止める（操作しやすくするため）
         private void Slider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
         {
             _isDragging = true;
@@ -963,7 +974,6 @@ namespace TraceShot.Features
             SliderToolTip.IsOpen = true;
         }
 
-        // 離したら動画の再生位置を確定してタイマー再開
         private void Slider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
         {
             _isDragging = false;
@@ -988,6 +998,7 @@ namespace TraceShot.Features
                 Data.SelectedItem = entry;
             }
         }
+        
         private void Slider_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
             // ドラッグ中のみ処理を行う
@@ -1010,6 +1021,7 @@ namespace TraceShot.Features
                 SliderToolTip.VerticalOffset = -30;
             }
         }
+        
         private void Slider_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             var slider = sender as Slider;
@@ -1054,7 +1066,6 @@ namespace TraceShot.Features
             Data.StatusText = "⏸ 一時停止中";
         }
 
-        // 録画開始の処理の中に追記
         private void RefreshHotkey()
         {
             try
@@ -1076,7 +1087,6 @@ namespace TraceShot.Features
             }
         }
 
-        // ホットキーが押された時の動作
         private void OnBookmark(object? sender, HotkeyEventArgs e)
         {
             Data.AddTimelineEntry();
@@ -1091,7 +1101,6 @@ namespace TraceShot.Features
             e.Handled = true;
         }
 
-        // 録画開始時の処理
         private void OnRecordingStarted()
         {
             // フラグ更新
@@ -1108,7 +1117,6 @@ namespace TraceShot.Features
             Data.CanAddEntry = true;
         }
 
-        // 録画停止時の処理
         private void OnRecordingStopped()
         {
             // フラグ更新
@@ -1415,7 +1423,7 @@ namespace TraceShot.Features
             }
         }
 
-        private Brush GetBrush(TestResult result)
+        private static SolidColorBrush GetBrush(TestResult result)
         {
             return result switch
             {
@@ -1443,7 +1451,6 @@ namespace TraceShot.Features
             }
         }
 
-        // 音声認識の初期化（コンストラクタなどで呼ぶ）
         private async void InitSpeechRecognition()
         {
             try
@@ -1518,7 +1525,6 @@ namespace TraceShot.Features
             PlayerPause(false);
             VideoPlayer.Stop();
         }
-
 
         private void NoteBorder_SizeChanged(object sender, SizeChangedEventArgs e)
         {
@@ -1639,16 +1645,20 @@ namespace TraceShot.Features
 
         }
 
-        private void OnCopyMenu_Click(object sender, RoutedEventArgs e)
+        private void OnCopyMenu_Click(object sender, RoutedEventArgs? e)
         {
             if (sender is MenuItem menuItem && DataContext is MainViewModel vm)
             {
                 var annotation = menuItem.DataContext as AnnotationBase;
                 Data.CopyAnnotation(annotation);
             }
+            else
+            {
+                Data.CopyAnnotation();
+            }
         }
 
-        private void OnPasteMenu_Click(object sender, RoutedEventArgs e)
+        private void OnPasteMenu_Click(object sender, RoutedEventArgs? e)
         {
             if (TimelineListBox.SelectedItem is Bookmark bookmark)
             {

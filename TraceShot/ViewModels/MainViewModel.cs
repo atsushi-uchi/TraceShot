@@ -109,20 +109,23 @@ namespace TraceShot.ViewModels
                 var loaded = JsonSerializer.Deserialize<RecEvidence>(jsonString, options);
                 if (loaded == null) throw new Exception("JSONファイルのデシリアライズに失敗");
 
-                foreach (var entry in loaded.Entries)
+                foreach (var bookmark in loaded.Entries)
                 {
-                    foreach (var rect in entry.Rects.OfType<RectAnnotation>())
+                    foreach (var annotation in bookmark.Annotations)
                     {
-                        rect.OcrAction = ExecuteOcrAction;
-                        rect.PropertyChanged += (s, e) =>
+                        annotation.IsSelected = false;
+
+                        if (annotation is RectAnnotation rect)
                         {
-                            if (e.PropertyName == nameof(RectAnnotation.IsFocused))
+                            rect.OcrAction = ExecuteOcrAction;
+                            rect.PropertyChanged += (s, e) =>
                             {
-                                AnnotationManager.RefreshCropOverlay();
-                            }
-                        };
-
-
+                                if (e.PropertyName == nameof(RectAnnotation.IsFocused))
+                                {
+                                    AnnotationManager.RefreshCropOverlay();
+                                }
+                            };
+                        }
                     }
                 }
                 RecService.Instance.Evidence = loaded;
@@ -321,7 +324,7 @@ namespace TraceShot.ViewModels
             });
         }
 
-        public void CopyAnnotation(AnnotationBase? target)
+        public void CopyAnnotation(AnnotationBase? target = null)
         {
             var targetAnnotation = target ?? AnnotationManager.SelectedAnnotation;
             if (targetAnnotation is AnnotationBase finalTarget)
@@ -369,21 +372,5 @@ namespace TraceShot.ViewModels
                 return null;
             }
         }
-
-        [RelayCommand]
-        public void Copy()
-        {
-            CopyAnnotation(AnnotationManager.SelectedAnnotation);
-        }
-
-        [RelayCommand]
-        public void Paste()
-        {
-            if (SelectedItem is Bookmark bookmark)
-            {
-                PasteAnnotation(bookmark);
-            }
-        }
-
     }
 }
