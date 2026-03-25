@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -11,12 +12,17 @@ using TraceShot.Controls;
 using TraceShot.Extensions;
 using TraceShot.Models;
 using TraceShot.Services;
+using Clipboard = System.Windows.Clipboard;
+using DataObject = System.Windows.DataObject;
+using IDataObject = System.Windows.IDataObject;
 
 namespace TraceShot.ViewModels
 {
     public partial class MainViewModel : ObservableObject
     {
         [ObservableProperty] private AnnotationManager _annotationManager;
+
+        private const string ClipboardFormat = "TraceShot_Annotation_JSON";
 
         public MainViewModel()
         {
@@ -112,7 +118,7 @@ namespace TraceShot.ViewModels
                         {
                             if (e.PropertyName == nameof(RectAnnotation.IsFocused))
                             {
-                                _annotationManager.RefreshCropOverlay();
+                                AnnotationManager.RefreshCropOverlay();
                             }
                         };
 
@@ -146,7 +152,7 @@ namespace TraceShot.ViewModels
 
         public async Task ExecuteFocusAction(RectAnnotation rect)
         {
-            _annotationManager.RefreshCropOverlay();
+            AnnotationManager.RefreshCropOverlay();
         }
 
         public async Task ExecuteOcrAction(RectAnnotation rect)
@@ -314,5 +320,70 @@ namespace TraceShot.ViewModels
                 TimelineView?.Refresh();
             });
         }
+
+        public void CopyAnnotation(AnnotationBase? target)
+        {
+            var targetAnnotation = target ?? AnnotationManager.SelectedAnnotation;
+            if (targetAnnotation is AnnotationBase finalTarget)
+            {
+                try
+                {
+                    string json = JsonSerializer.Serialize<AnnotationBase>(finalTarget);
+
+                    var data = new DataObject();
+                    data.SetData("TraceShot_Annotation_JSON", json);
+                    Clipboard.SetDataObject(data);
+
+                    StatusText = "注釈をクリップボードにコピーしました";
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Copy failed: {ex.Message}");
+                }
+            }
+        }
+
+        public void PasteAnnotation(Bookmark bookmark)
+        {
+            IDataObject data = Clipboard.GetDataObject();
+            if (data.GetDataPresent(ClipboardFormat))
+            {
+                if (data.GetData(ClipboardFormat) is not string json) return;
+                var paseted = DeserializeAnnotation(json);
+                if (paseted != null)
+                {
+                    AnnotationManager.AddPastedAnnotation(bookmark, paseted);
+                }
+            }
+        }
+
+        private AnnotationBase? DeserializeAnnotation(string json)
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<AnnotationBase>(json);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Deserialization failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        [RelayCommand]
+        public void Copy()
+        {
+            CopyAnnotation(AnnotationManager.SelectedAnnotation);
+        }
+
+        [RelayCommand]
+        public void Paste()
+        {
+            if (SelectedItem is Bookmark bookmark)
+            {
+                PasteAnnotation(bookmark);
+            }
+        }
+
     }
 }

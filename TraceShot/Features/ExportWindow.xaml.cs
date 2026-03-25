@@ -783,7 +783,7 @@ namespace TraceShot.Features
                             // 最低でも150ポイント以上の高さを確保するようにして、画像を見えるようにする
                             ws.Row(currentRow).Height = Math.Max(rowHeightPt, 150);
 
-                            Debug.WriteLine($"画像配置完了: Row={currentRow}, CalcHeight={targetHeight}, RowHeightSet={ws.Row(currentRow).Height}");
+                            //Debug.WriteLine($"画像配置完了: Row={currentRow}, CalcHeight={targetHeight}, RowHeightSet={ws.Row(currentRow).Height}");
                         }
                     }
                 }

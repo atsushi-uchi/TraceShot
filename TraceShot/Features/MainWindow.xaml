@@ -13,6 +13,11 @@
         mc:Ignorable="d"
         Title="TraceShot" Height="600" Width="900"
         Closed="Window_Closed">
+    <Window.InputBindings>
+        <KeyBinding Modifiers="Control" Key="C" Command="{Binding CopyCommand}" />
+        <KeyBinding Modifiers="Control" Key="V" Command="{Binding PasteCommand}" />
+        <!--<KeyBinding Key="Delete" Command="{Binding DeleteAnnotationCommand}" />-->
+    </Window.InputBindings>
     <Window.TaskbarItemInfo>
         <TaskbarItemInfo x:Name="taskbarInfo" />
     </Window.TaskbarItemInfo>
@@ -131,9 +136,17 @@
                                 <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                 <Setter TargetName="bodyVisual" Property="Opacity" Value="0.5"/>
                             </Trigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <!--<Setter TargetName="bodyVisual" Property="Stroke" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />-->
+                                <Setter TargetName="bodyVisual" Property="StrokeThickness" Value="3" />
+                            </DataTrigger>
                             <DataTrigger Binding="{Binding IsDrawing}" Value="True">
                                 <Setter TargetName="bodyVisual" Property="Fill" Value="{Binding DataContext.Config.OverBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                 <Setter TargetName="bodyVisual" Property="Opacity" Value="0.5"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsMasking}" Value="True">
+                                <Setter TargetName="bodyVisual" Property="Fill" Value="{StaticResource DiagonalHatchBrush}" />
+                                <Setter TargetName="bodyVisual" Property="Opacity" Value="0.7" />
                             </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -340,17 +353,19 @@
                        DragCompleted="OnAnnotation_DragCompleted">
                     <Thumb.Style>
                         <Style TargetType="Thumb" BasedOn="{StaticResource MoveThumbStyle}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsMasking}" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource DiagonalHatchBrush}" />
-                                    <Setter Property="Opacity" Value="0.7" />
-                                </DataTrigger>
-                            </Style.Triggers>
+                            <Setter Property="BorderBrush" Value="Transparent"/>
+                            <Setter Property="BorderThickness" Value="2"/>
                         </Style>
                     </Thumb.Style>
                     <Thumb.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="矩形マーク削除" Click="OnDeleteMenu_Click"/>
+                            <Separator />
+                            <MenuItem Header="コピー" InputGestureText="Ctrl+C" Click="OnCopyMenu_Click">
+                                <MenuItem.Icon>
+                                    <TextBlock Text="ContentCopy" FontFamily="Segoe MDL2 Assets"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
                             <Separator />
                             <MenuItem Header="フォーカス設定"
                               IsCheckable="True" 
@@ -418,8 +433,21 @@
 
         <DataTemplate DataType="{x:Type ctrl:NoteAnnotation}">
             <Canvas>
-                <Line Stroke="{Binding DataContext.Config.MainBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
-                      StrokeThickness="2" StrokeDashCap="Round">
+                <Line StrokeDashCap="Round">
+                    <Line.Style>
+                        <Style TargetType="Line">
+                            <Setter Property="Stroke" Value="{Binding DataContext.Config.MainBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                            <Setter Property="StrokeThickness" Value="2" />
+
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                    <Setter Property="StrokeThickness" Value="3" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Line.Style>
+
+
                     <Line.X1>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelStartX"/>
@@ -488,6 +516,12 @@
                             <ContextMenu>
                                 <MenuItem Header="削除" Click="OnDeleteMenu_Click"/>
                                 <MenuItem Header="編集" Click="OnEditMenu_Click"/>
+                                <Separator />
+                                <MenuItem Header="コピー" InputGestureText="Ctrl+C" Click="OnCopyMenu_Click">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="ContentCopy" FontFamily="Segoe MDL2 Assets"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
                             </ContextMenu>
                         </Thumb.ContextMenu>
 
@@ -497,7 +531,8 @@
                                     <Border Visibility="{Binding IsCommitted, Converter={StaticResource BoolToVisConverter}}"
                                             CornerRadius="5" Padding="5"
                                             SizeChanged="NoteBorder_SizeChanged"
-                                            MouseLeftButtonDown="Border_MouseLeftButtonDown">
+                                            MouseLeftButtonDown="Border_MouseLeftButtonDown"
+                                            BorderThickness="2" BorderBrush="Transparent">
 
                                         <Border.Style>
                                             <Style TargetType="Border">
@@ -513,8 +548,21 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
-                                        <TextBlock Text="{Binding Text}" 
-                                            Padding="3" Foreground="{Binding DataContext.Config.MainTextBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+
+                                        <TextBlock Text="{Binding Text}" Padding="3" FontSize="14"
+                                                   Foreground="{Binding DataContext.Config.MainTextBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="FontWeight" Value="Normal" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
                                     </Border>
 
                                     <!-- TextBox -->
@@ -581,8 +629,12 @@
                 <Separator />
                 <MenuItem Header="終了(_X)" Click="Exit_Click" />
             </MenuItem>
+            <MenuItem Header="編集">
+                <MenuItem Header="コピー" InputGestureText="Ctrl+C" Click="OnCopyMenu_Click"/>
+                <MenuItem Header="貼り付け" InputGestureText="Ctrl+V" Click="OnPasteMenu_Click"/>
+            </MenuItem>
             <MenuItem Header="設定(_P)" Click="OpenSettings_Click" />
-            <!--<MenuItem x:Name="DebugMenuItem" Header="デバッグ ON" IsCheckable="True" Click="DebugButton_Click" />-->
+            <MenuItem x:Name="DebugMenuItem" Header="デバッグ ON" IsCheckable="True" Click="DebugButton_Click" />
         </Menu>
 
 

@@ -1,4 +1,6 @@
-﻿using System.Collections.ObjectModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
 using TraceShot.Models;
 using TraceShot.Services;
@@ -7,13 +9,36 @@ using Size = System.Windows.Size;
 
 namespace TraceShot.Controls
 {
-    public partial class AnnotationManager
+    public partial class AnnotationManager : ObservableObject
     {
         // 確定した注釈のリスト（これをXAMLのItemsControlにバインドする）
         public ObservableCollection<AnnotationBase> Annotations { get; } = new();
 
-        public AnnotationBase? SelectedAnnotation { get; private set; }
+        public AnnotationBase? CreatingAnnotation { get; private set; }
 
+        private AnnotationBase? _selectedAnnotation;
+        public AnnotationBase? SelectedAnnotation
+        {
+            get => _selectedAnnotation;
+            set
+            {
+                if (_selectedAnnotation == value) return;
+                if (_selectedAnnotation != null)
+                {
+                    _selectedAnnotation.IsSelected = false;
+                    //Debug.WriteLine($"解除：{_selectedAnnotation.Id}");
+                }
+
+                if (SetProperty(ref _selectedAnnotation, value))
+                {
+                    if (_selectedAnnotation != null)
+                    {
+                        //Debug.WriteLine($"選択：{_selectedAnnotation.Id}");
+                        _selectedAnnotation.IsSelected = true;
+                    }
+                }
+            }
+        }
         public void RefreshCropOverlay()
         {
             // 1. 既存のオーバーレイ（ガード、クロップ、個別フォーカス用）をクリア
@@ -107,9 +132,9 @@ namespace TraceShot.Controls
             {
                 Annotations.Remove(target);
                 // 削除したものが選択中だった場合は解除
-                if (SelectedAnnotation == target)
+                if (CreatingAnnotation == target)
                 {
-                    SelectedAnnotation = null;
+                    CreatingAnnotation = null;
                 }
             }
         }
@@ -120,11 +145,11 @@ namespace TraceShot.Controls
             Annotations.ToList().ForEach(a => a.IsSelected = false);
 
             // 2. 新しいものを選択
-            SelectedAnnotation = target;
+            CreatingAnnotation = target;
 
-            if (SelectedAnnotation != null)
+            if (CreatingAnnotation != null)
             {
-                SelectedAnnotation.IsSelected = true;
+                CreatingAnnotation.IsSelected = true;
             }
         }
 
@@ -133,7 +158,7 @@ namespace TraceShot.Controls
         /// </summary>
         public AnnotationBase StartDrawing<T>(Bookmark bookmark, Point pos, Size size) where T : AnnotationBase, new()
         {
-            SelectedAnnotation = new T
+            CreatingAnnotation = new T
             {
                 X = pos.X,
                 Y = pos.Y,
@@ -141,13 +166,13 @@ namespace TraceShot.Controls
                 Height = 0
             };
 
-            SelectedAnnotation.OnStart(pos, size);
+            CreatingAnnotation.OnStart(pos, size);
 
-            bookmark.Annotations.Add(SelectedAnnotation);
+            bookmark.Annotations.Add(CreatingAnnotation);
 
-            Annotations.Add(SelectedAnnotation);
+            Annotations.Add(CreatingAnnotation);
 
-            if (SelectedAnnotation is RectAnnotation rect)
+            if (CreatingAnnotation is RectAnnotation rect)
             {
                 rect.PropertyChanged += (s, e) =>
                 {
@@ -158,7 +183,7 @@ namespace TraceShot.Controls
                 };
             }
 
-            return SelectedAnnotation;
+            return CreatingAnnotation;
         }
 
         /// <summary>
@@ -166,9 +191,9 @@ namespace TraceShot.Controls
         /// </summary>
         public void UpdateDrawing(Point pos, Size size)
         {
-            if (SelectedAnnotation == null) return;
+            if (CreatingAnnotation == null) return;
 
-            SelectedAnnotation.OnUpdate(pos, size);
+            CreatingAnnotation.OnUpdate(pos, size);
         }
 
         /// <summary>
@@ -176,26 +201,67 @@ namespace TraceShot.Controls
         /// </summary>
         public void CompleteDrawing(Bookmark? bookmark)
         {
-            if (SelectedAnnotation == null) return;
+            if (CreatingAnnotation == null) return;
 
             // 図形自身に「完了していいか？」を判断させる
-            bool shouldKeep = SelectedAnnotation.OnComplete(Annotations);
+            bool shouldKeep = CreatingAnnotation.OnComplete(Annotations);
 
             if (!shouldKeep)
             {
-                Annotations.Remove(SelectedAnnotation);
-                bookmark?.Annotations.Remove(SelectedAnnotation);
+                Annotations.Remove(CreatingAnnotation);
+                bookmark?.Annotations.Remove(CreatingAnnotation);
             }
 
-            SelectedAnnotation = null;
+            SelectedAnnotation = CreatingAnnotation;
+            CreatingAnnotation = null;
         }
 
         public void CompleteDrawing(AnnotationBase annotation, Point pos, Size size, string tag)
         {
             annotation.OnComplete(pos, size, tag);
-            SelectedAnnotation = null;
+
+            SelectedAnnotation = annotation;
+            CreatingAnnotation = null;
+
+            //Debug.WriteLine($"CompleteDrawing 選択：{annotation.Id}");
         }
 
         public void ClearAll() => Annotations.Clear();
+
+        public void AddPastedAnnotation(Bookmark bookmark, AnnotationBase annotation)
+        {
+            // 1. フォーカス排他制御（貼り付けたものが Focused の場合）
+            if (annotation is RectAnnotation rect && rect.IsFocused)
+            {
+                var list = Annotations.OfType<RectAnnotation>().ToList();
+                foreach (var other in list)
+                {
+                    if (other != rect) // 自分以外をオフに
+                    {
+                        other.IsFocused = false;
+                    }
+                }
+            }
+
+            // 2. リストに追加
+            bookmark.Annotations.Add(annotation);
+            Annotations.Add(annotation);
+            SelectedAnnotation = annotation;
+
+            // 3. イベントの再バインド
+            if (annotation is RectAnnotation r)
+            {
+                r.PropertyChanged += (s, e) =>
+                {
+                    if (e.PropertyName == nameof(RectAnnotation.IsFocused))
+                    {
+                        RefreshCropOverlay();
+                    }
+                };
+            }
+
+            // 4. 強制描画更新
+            RefreshCropOverlay();
+        }
     }
 }

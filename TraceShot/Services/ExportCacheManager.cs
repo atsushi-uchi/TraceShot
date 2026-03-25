@@ -59,7 +59,7 @@ namespace TraceShot.Services
                         // 4. メモリキャッシュに登録して返す
                         _imageStore[id] = loadedBitmap;
 
-                        Debug.WriteLine($"画像ファイル読込成功 {entry.ImagePath}");
+                        //Debug.WriteLine($"画像ファイル読込成功 {entry.ImagePath}");
 
                         return loadedBitmap;
                     }

@@ -1,4 +1,5 @@
-﻿using NHotkey;
+﻿using DocumentFormat.OpenXml.Vml.Office;
+using NHotkey;
 using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
@@ -797,7 +798,7 @@ namespace TraceShot.Features
                     RecService.Instance.Entries.Remove(cp);
                 }
 
-                Debug.WriteLine($"index:{index} count:{TimelineListBox.Items.Count}");
+                //Debug.WriteLine($"index:{index} count:{TimelineListBox.Items.Count}");
 
                 if (TimelineListBox.Items.Count > index)
                 {
@@ -1369,7 +1370,7 @@ namespace TraceShot.Features
             double startX = (start / totalSec) * canvasWidth;
             double endX = (end / totalSec) * canvasWidth;
             double width = (endX - startX) - 2;
-            Debug.WriteLine($"RefreshResultRangeCanvas start={start} end={end} width={width}");
+            //Debug.WriteLine($"RefreshResultRangeCanvas start={start} end={end} width={width}");
             if (width > 0.1)
             {
                 Rectangle rect = new()
@@ -1518,49 +1519,6 @@ namespace TraceShot.Features
             VideoPlayer.Stop();
         }
 
-        //private async Task ExecuteOcrOnAnnotation(RectAnnotation rect)
-        //{
-        //    var bm = TimelineListBox.SelectedItem as Bookmark;
-        //    if (bm == null) return;
-
-        //    // 1. ビデオ情報を取得
-        //    var info = new VideoSnapshotInfo(VideoPlayer);
-
-        //    // 2. 正味の画像を生成（既存の ImageService を利用）
-        //    BitmapSource pureVideoBitmap = ImageService.GeneratePureVideoBitmap(bm, info);
-
-        //    // 3. RectAnnotation の相対座標（RelX, RelY...）を使用
-        //    // 0.0〜1.0 なので、そのまま PixelWidth/Height を掛けるだけ
-        //    int px = (int)(rect.RelX * pureVideoBitmap.PixelWidth);
-        //    int py = (int)(rect.RelY * pureVideoBitmap.PixelHeight);
-        //    int pw = (int)(rect.RelWidth * pureVideoBitmap.PixelWidth);
-        //    int ph = (int)(rect.RelHeight * pureVideoBitmap.PixelHeight);
-
-        //    // 範囲チェック（画像の外にはみ出さないように）
-        //    px = Math.Clamp(px, 0, pureVideoBitmap.PixelWidth - 1);
-        //    py = Math.Clamp(py, 0, pureVideoBitmap.PixelHeight - 1);
-        //    pw = Math.Min(pw, pureVideoBitmap.PixelWidth - px);
-        //    ph = Math.Min(ph, pureVideoBitmap.PixelHeight - py);
-
-        //    if (pw <= 0 || ph <= 0) return;
-
-        //    var cropped = new CroppedBitmap(pureVideoBitmap, new Int32Rect(px, py, pw, ph));
-
-        //    // 4. OCR実行
-        //    Data.StatusText = "解析中...";
-        //    string result = await ImageService.RecognizeTextFromBitmapSource(cropped);
-
-        //    if (!string.IsNullOrWhiteSpace(result))
-        //    {
-        //        string cleanText = result.Replace("\r", "").Replace("\n", " ").Trim();
-        //        bm.AddNewLine(cleanText); // Bookmarkにテキストを追加
-        //        Data.StatusText = "OCR完了";
-        //    }
-        //    else
-        //    {
-        //        Data.StatusText = "文字を検出できませんでした";
-        //    }
-        //}
 
         private void NoteBorder_SizeChanged(object sender, SizeChangedEventArgs e)
         {
@@ -1681,31 +1639,42 @@ namespace TraceShot.Features
 
         }
 
-        private void OnSetFocusMenu_Click(object sender, MouseButtonEventArgs e)
+        private void OnCopyMenu_Click(object sender, RoutedEventArgs e)
         {
-            var menuItem = sender as MenuItem;
-            // 1. クリックされた矩形（データ）を取得
-            if (menuItem?.DataContext is RectAnnotation selectedRect &&
-                TimelineListBox.SelectedItem is Bookmark bookmark)
+            if (sender is MenuItem menuItem && DataContext is MainViewModel vm)
             {
-                // 2. 「1ブックマーク1フォーカス」の制約：他の矩形をオフにする
-                // selectedEntry.Annotations はその項目の全注釈リスト
-                foreach (var ann in bookmark.Annotations.OfType<RectAnnotation>())
+                var annotation = menuItem.DataContext as AnnotationBase;
+                Data.CopyAnnotation(annotation);
+            }
+        }
+
+        private void OnPasteMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (TimelineListBox.SelectedItem is Bookmark bookmark)
+            {
+                Data.PasteAnnotation(bookmark);
+            }
+            else
+            {
+                int caseId = 0;
+                var currentTime = VideoPlayer.Position;
+                var lastEntry = Data.TimelineEntries.FirstOrDefault(x => x.Time > currentTime);
+                if (lastEntry != null)
                 {
-                    if (ann != selectedRect)
-                    {
-                        ann.IsFocused = false;
-                    }
+                    caseId = lastEntry.CaseId;
                 }
-
-                // 3. 選択した矩形をフォーカスオン（ここでモデル側の OnIsFocusedChanged が走り、MaskingがOFFになる）
-                selectedRect.IsFocused = true;
-
-                // 4. エビデンス出力用の座標を更新
-                //bookmark.LocalFocusRect = new Rect(selectedRect.X, selectedRect.Y, selectedRect.Width, selectedRect.Height);
-
-                // ステータス表示などの演出
-                Data.StatusText = $"Focus locked on No.{bookmark.CaseId}";
+                bookmark = new Bookmark
+                {
+                    Time = currentTime,
+                    CaseId = caseId,
+                    Result = TestResult.SS,
+                    Icon = "🖋️",
+                    Note = "",
+                };
+                Data.TimelineEntries.Add(bookmark);
+                Data.SelectedItem = bookmark;
+                Data.UpdateTimelineGroups();
+                Data.PasteAnnotation(bookmark);
             }
         }
     }

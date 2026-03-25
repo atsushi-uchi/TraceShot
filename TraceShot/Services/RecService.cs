@@ -500,7 +500,7 @@ namespace TraceShot.Services
             {
                 var errorMsg = "Recording Failed: " + e.Error;
                 TraceLogs.Add(errorMsg);
-                Debug.WriteLine(errorMsg); // ★ 出力ウィンドウに表示
+                //Debug.WriteLine(errorMsg); // ★ 出力ウィンドウに表示
                 System.Windows.MessageBox.Show(errorMsg); // ★ 実行中に確実に気づけるようにする
             };
 

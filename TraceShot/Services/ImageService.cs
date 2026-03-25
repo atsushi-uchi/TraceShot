@@ -29,7 +29,7 @@ namespace TraceShot.Services
                 debugEncoder.Frames.Add(BitmapFrame.Create(bitmapSource));
                 debugEncoder.Save(fileStream);
             }
-            Debug.WriteLine($"[OCR Debug] Image saved to: {debugPath}");
+            //Debug.WriteLine($"[OCR Debug] Image saved to: {debugPath}");
         }
 
         /// <summary>

@@ -58,6 +58,28 @@ namespace TraceShot.Controls
             return true;
         }
 
+        public void UpdateRelativeMetrics(Size canvasSize)
+        {
+            if (canvasSize.Width > 0 && canvasSize.Height > 0)
+            {
+                RelX = X / canvasSize.Width;
+                RelY = Y / canvasSize.Height;
+                RelWidth = Width / canvasSize.Width;
+                RelHeight = Height / canvasSize.Height;
+            }
+        }
+
+        public void UpdateAbsoluteMetrics(Size canvasSize)
+        {
+            if (canvasSize.Width > 0 && canvasSize.Height > 0)
+            {
+                X = RelX * canvasSize.Width;
+                Y = RelY * canvasSize.Height;
+                Width = RelWidth * canvasSize.Width;
+                Height = RelHeight * canvasSize.Height;
+            }
+        }
+
         public double Normalize(double pos, double total) => total > 0 ? pos / total : 0;
     }
 }
