@@ -135,6 +135,15 @@ namespace TraceShot.Features
                     DeleteBookmarkButton_Click(this, null);
                     e.Handled = true;
                 }
+                // Escで選択している注釈を解除
+                else if (e.Key == Key.Escape)
+                {
+                    if (Data.AnnotationManager.SelectedAnnotation != null)
+                    {
+                        Data.AnnotationManager.SelectedAnnotation = null;
+                        e.Handled = true;
+                    }
+                }
             };
 
             _playerTimer = new DispatcherTimer
