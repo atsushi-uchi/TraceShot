@@ -40,11 +40,9 @@ namespace TraceShot.Features
     {
         public MainViewModel Data { get; } = new();
 
-        //private AnnotationManager _annotationManager;
-
         private ExportCacheManager _cacheManager = new();
-
         private SpeechRecognizer? _winrtRecognizer;
+        private Dictionary<(ModifierKeys, Key), Action> _keyBindings;
 
         private bool _isPlaying = false;
         private bool _isRecording = false;
@@ -97,54 +95,7 @@ namespace TraceShot.Features
                 InitSpeechRecognition();
             }
 
-            this.KeyDown += (s, e) =>
-            {
-                // Ctrl + S で保存を実行する
-                if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.S)
-                {
-                    SaveEvidence_Click(this, null);
-                    e.Handled = true;
-                }
-                // Ctrl + O で開くを実行する
-                else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O)
-                {
-                    OpenEvidence_Click(this, null);
-                    e.Handled = true;
-                }
-                // Ctrl + E でエクスポートを実行する
-                else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.E)
-                {
-                    OpenExport_Click(this, null);
-                    e.Handled = true;
-                }
-                // Ctrl + C でコピーを実行する
-                else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.C)
-                {
-                    OnCopyMenu_Click(this, null);
-                    e.Handled = true;
-                }
-                // Ctrl + V でペーストを実行する
-                else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.V)
-                {
-                    OnPasteMenu_Click(this, null);
-                    e.Handled = true;
-                }
-                // Deleteキーで選択項目を削除
-                else if (e.Key == Key.Delete)
-                {
-                    DeleteBookmarkButton_Click(this, null);
-                    e.Handled = true;
-                }
-                // Escで選択している注釈を解除
-                else if (e.Key == Key.Escape)
-                {
-                    if (Data.AnnotationManager.SelectedAnnotation != null)
-                    {
-                        Data.AnnotationManager.SelectedAnnotation = null;
-                        e.Handled = true;
-                    }
-                }
-            };
+            InitializeKeyBindings();
 
             _playerTimer = new DispatcherTimer
             {
@@ -185,28 +136,49 @@ namespace TraceShot.Features
             PreviewImage.Source = ImageService.GetReadyStandardImage(dpi);
 
             // マウスクリックをフックして録画
-            _mouseHook.OnMouseMiddleClick += (x, y) =>
+            Action<int, int> onMouseClick = (x, y) =>
             {
-                if (_isRecording)
-                {
-                    AddClickTriggerBookmark(x, y);
-                }
+                if (_isRecording) AddClickTriggerBookmark(x, y);
             };
-            _mouseHook.OnSideButton1Click += (x, y) =>
-            {
-                if (_isRecording)
-                {
-                    AddClickTriggerBookmark(x, y);
-                }
-            };
-            _mouseHook.OnSideButton2Click += (x, y) =>
-            {
-                if (_isRecording)
-                {
-                    AddClickTriggerBookmark(x, y);
-                }
-            };
+            _mouseHook.OnMouseMiddleClick += onMouseClick;
+            _mouseHook.OnSideButton1Click += onMouseClick;
+            _mouseHook.OnSideButton2Click += onMouseClick;
             _mouseHook.Start();
+        }
+
+        private void InitializeKeyBindings()
+        {
+            _keyBindings = new()
+            {
+                { (ModifierKeys.Control, Key.S), () => SaveEvidence_Click(this, null) },
+                { (ModifierKeys.Control, Key.O), () => OpenEvidence_Click(this, null) },
+                { (ModifierKeys.Control, Key.E), () => OpenExport_Click(this, null) },
+                { (ModifierKeys.Control, Key.C), () => OnCopyMenu_Click(this, null) },
+                { (ModifierKeys.Control, Key.V), () => OnPasteMenu_Click(this, null) },
+                { (ModifierKeys.None, Key.Delete), () => DeleteBookmarkButton_Click(this, null) },
+                { (ModifierKeys.None, Key.Escape), () => ClearAnnotationSelection() },
+            };
+        }
+
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+            // 現在の入力状態（修飾キー + 押されたキー）をタプルで作成
+            var input = (Keyboard.Modifiers, e.Key);
+
+            // 辞書にその組み合わせが登録されていれば実行する
+            if (_keyBindings.TryGetValue(input, out var action))
+            {
+                action();
+                e.Handled = true; // イベントが処理されたことを通知（重要！）
+            }
+        }
+
+        private void ClearAnnotationSelection()
+        {
+            if (Data.AnnotationManager.SelectedAnnotation != null)
+            {
+                Data.AnnotationManager.SelectedAnnotation = null;
+            }
         }
 
         private void Window_Closed(object sender, EventArgs e)
@@ -395,6 +367,21 @@ namespace TraceShot.Features
             }
         }
 
+        private Bookmark CreateBookmarkAtCurrentTime()
+        {
+            int caseId = 0;
+            var currentTime = VideoPlayer.Position;
+            var lastEntry = Data.TimelineEntries.FirstOrDefault(x => x.Time > currentTime);
+
+            return new Bookmark
+            {
+                Time = currentTime,
+                CaseId = lastEntry?.CaseId ?? 0,
+                Result = TestResult.SS,
+                Icon = "🖋️",
+                Note = "",
+            };
+        }
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
             var currentPos = e.GetPosition(VideoPlayer);
@@ -403,21 +390,7 @@ namespace TraceShot.Features
 
             if (TimelineListBox.SelectedItem is not Bookmark entry)
             {
-                int caseId = 0;
-                var currentTime = VideoPlayer.Position;
-                var lastEntry = Data.TimelineEntries.FirstOrDefault(x => x.Time > currentTime);
-                if (lastEntry != null)
-                {
-                    caseId = lastEntry.CaseId;
-                }
-                entry = new Bookmark
-                {
-                    Time = currentTime,
-                    CaseId = caseId,
-                    Result = TestResult.SS,
-                    Icon = "🖋️",
-                    Note = "",
-                };
+                entry = CreateBookmarkAtCurrentTime();
                 Data.TimelineEntries.Add(entry);
                 Data.SelectedItem = entry;
                 Data.UpdateTimelineGroups();
@@ -493,75 +466,84 @@ namespace TraceShot.Features
 
         private void TextInput_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            var textBox = sender as TextBox;
+            var note = textBox?.DataContext as NoteAnnotation;
             var bookmark = TimelineListBox.SelectedItem as Bookmark;
-            if (e.Key == Key.Enter)
-            {
-                // Ctrl や Shift が押されていない「Enter単体」の時だけ確定する
-                if (Keyboard.Modifiers == ModifierKeys.None)
-                {
-                    var textBox = sender as TextBox;
-                    if (textBox?.DataContext is NoteAnnotation note)
-                    {
-                        // 1. テキストが空（またはスペースのみ）かチェック
-                        if (string.IsNullOrWhiteSpace(note.Text))
-                        {
-                            // 空ならマネージャー経由で削除
-                            Data.AnnotationManager.Remove(bookmark, note);
-                        }
-                        else
-                        {
-                            // 文字があれば確定処理
-                            note.IsEditing = false;
-                            note.IsCommitted = true;
-                        }
-                    }
 
-                    // イベントをここで終了させ、TextBoxに改行を入れさせない
+            if (note == null) return;
+
+            switch (e.Key)
+            {
+                case Key.Enter:
+                    // Ctrl や Shift が押されていない「Enter単体」の時だけ確定
+                    if (Keyboard.Modifiers == ModifierKeys.None)
+                    {
+                        CommitNoteEdit(note, bookmark);
+                        e.Handled = true;
+                    }
+                    break;
+
+                case Key.Escape:
+                    // ESC キーでキャンセル
+                    CancelNoteEdit(note, bookmark);
                     e.Handled = true;
-                }
-            }
-            else if (e.Key == Key.Escape)
-            {
-                var textBox = sender as TextBox;
-                if (textBox?.DataContext is NoteAnnotation note)
-                {
-                    if (string.IsNullOrEmpty(note.OriginText))
-                    {
-                        // 空ならマネージャー経由で削除
-                        Data.AnnotationManager.Remove(bookmark, note);
-                    }
-                    else
-                    {
-                        note.Text = note.OriginText;
-                        note.IsEditing = false;
-                        note.IsCommitted = true;
-                    }
-                }
-
-                // イベントをここで終了させ、TextBoxに改行を入れさせない
-                e.Handled = true;
+                    break;
             }
         }
 
         private void TextInput_LostFocus(object sender, RoutedEventArgs e)
         {
             var textBox = sender as TextBox;
-            if (textBox?.DataContext is NoteAnnotation note)
+            var note = textBox?.DataContext as NoteAnnotation;
+            var bookmark = TimelineListBox.SelectedItem as Bookmark;
+
+            if (note == null) return;
+
+            // フォーカスを失った時は編集を確定
+            CommitNoteEdit(note, bookmark);
+        }
+
+        private void StartNoteEdit(NoteAnnotation note)
+        {
+            if (note == null) return;
+
+            note.OriginText = note.Text;
+            note.IsEditing = true;
+            note.IsCommitted = false;
+        }
+
+        private void CommitNoteEdit(NoteAnnotation note, Bookmark? bookmark)
+        {
+            if (note == null) return;
+
+            if (string.IsNullOrWhiteSpace(note.Text))
             {
-                // 1. テキストが空（またはスペースのみ）かチェック
-                if (string.IsNullOrWhiteSpace(note.Text))
-                {
-                    if (TimelineListBox.SelectedItem is Bookmark bookmark)
-                    {
-                        Data.AnnotationManager.Remove(bookmark, note);
-                    }
-                }
-                else
-                {
-                    // 文字があれば確定処理
-                    note.IsEditing = false;
-                    note.IsCommitted = true;
-                }
+                // テキストが空の場合は削除
+                Data.AnnotationManager.Remove(bookmark, note);
+            }
+            else
+            {
+                // テキストがある場合は確定
+                note.IsEditing = false;
+                note.IsCommitted = true;
+            }
+        }
+
+        private void CancelNoteEdit(NoteAnnotation note, Bookmark? bookmark)
+        {
+            if (note == null) return;
+
+            if (string.IsNullOrEmpty(note.OriginText))
+            {
+                // 元のテキストがない場合は削除
+                Data.AnnotationManager.Remove(bookmark, note);
+            }
+            else
+            {
+                // 元のテキストに復元して確定
+                note.Text = note.OriginText;
+                note.IsEditing = false;
+                note.IsCommitted = true;
             }
         }
 
@@ -589,20 +571,11 @@ namespace TraceShot.Features
 
         private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // ダブルクリック（ClickCount == 2）のときだけ処理する
             if (e.ClickCount == 2)
             {
-                var border = sender as System.Windows.Controls.Border;
-                var note = border?.DataContext as NoteAnnotation;
-
-                if (note != null)
+                if (sender is Border border && border.DataContext is NoteAnnotation note)
                 {
-                    // 編集モードをTrueにする
-                    note.OriginText = note.Text;
-                    note.IsEditing = true;
-                    note.IsCommitted = false;
-
-                    // イベントをここで完了させ、親の Canvas などにクリックが伝わらないようにする
+                    StartNoteEdit(note);
                     e.Handled = true;
                 }
             }
@@ -642,106 +615,65 @@ namespace TraceShot.Features
             }
         }
 
-        private void OnLeftResize_DragDelta(object sender, DragDeltaEventArgs e)
+        // 統合メソッド
+        private void OnResize_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
+            if (sender is not Thumb t || t.DataContext is not RectAnnotation rect) return;
+
+            double deltaX = e.HorizontalChange / VideoPlayer.ActualWidth;
+            double deltaY = e.VerticalChange / VideoPlayer.ActualHeight;
+
+            switch (t.Tag?.ToString())
             {
-                double deltaRel = e.HorizontalChange / VideoPlayer.ActualWidth;
-                rect.RelX += deltaRel;
-                rect.RelWidth -= deltaRel;
-            }
-        }
+                case "Left":
+                    rect.RelX += deltaX;
+                    rect.RelWidth -= deltaX;
+                    break;
 
-        private void OnTopResize_DragDelta(object sender, DragDeltaEventArgs e)
-        {
-            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
-            {
-                double deltaRel = e.VerticalChange / VideoPlayer.ActualHeight;
-                rect.RelY += deltaRel;
-                rect.RelHeight -= deltaRel;
-            }
-        }
+                case "Right":
+                    rect.RelWidth += deltaX;
+                    break;
 
-        private void OnRightResize_DragDelta(object sender, DragDeltaEventArgs e)
-        {
-            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
-            {
-                double deltaRel = e.HorizontalChange / VideoPlayer.ActualWidth;
-                rect.RelWidth += deltaRel;
-            }
-        }
+                case "Top":
+                    rect.RelY += deltaY;
+                    rect.RelHeight -= deltaY;
+                    break;
 
-        private void OnBottomResize_DragDelta(object sender, DragDeltaEventArgs e)
-        {
-            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
-            {
-                double deltaRel = e.VerticalChange / VideoPlayer.ActualHeight;
-                rect.RelHeight += deltaRel;
-            }
-        }
+                case "Bottom":
+                    rect.RelHeight += deltaY;
+                    break;
 
-        private void OnBottomRightResize_DragDelta(object sender, DragDeltaEventArgs e)
-        {
-            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
-            {
-                rect.RelWidth += e.HorizontalChange / VideoPlayer.ActualWidth;
-                rect.RelHeight += e.VerticalChange / VideoPlayer.ActualHeight;
-            }
-        }
+                case "TopLeft":
+                    rect.RelX += deltaX;
+                    rect.RelWidth -= deltaX;
+                    rect.RelY += deltaY;
+                    rect.RelHeight -= deltaY;
+                    break;
 
-        private void OnTopLeftResize_DragDelta(object sender, DragDeltaEventArgs e)
-        {
-            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
-            {
-                double deltaX = e.HorizontalChange / VideoPlayer.ActualWidth;
-                double deltaY = e.VerticalChange / VideoPlayer.ActualHeight;
+                case "TopRight":
+                    rect.RelWidth += deltaX;
+                    rect.RelY += deltaY;
+                    rect.RelHeight -= deltaY;
+                    break;
 
-                rect.RelX += deltaX;
-                rect.RelWidth -= deltaX;
+                case "BottomLeft":
+                    rect.RelX += deltaX;
+                    rect.RelWidth -= deltaX;
+                    rect.RelHeight += deltaY;
+                    break;
 
-                rect.RelY += deltaY;
-                rect.RelHeight -= deltaY;
-            }
-        }
-
-        private void OnTopRightResize_DragDelta(object sender, DragDeltaEventArgs e)
-        {
-            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
-            {
-                double deltaX = e.HorizontalChange / VideoPlayer.ActualWidth;
-                double deltaY = e.VerticalChange / VideoPlayer.ActualHeight;
-
-                rect.RelWidth += deltaX;
-
-                rect.RelY += deltaY;
-                rect.RelHeight -= deltaY;
-            }
-        }
-
-        private void OnBottomLeftResize_DragDelta(object sender, DragDeltaEventArgs e)
-        {
-            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
-            {
-                double deltaX = e.HorizontalChange / VideoPlayer.ActualWidth;
-                double deltaY = e.VerticalChange / VideoPlayer.ActualHeight;
-
-                rect.RelX += deltaX;
-                rect.RelWidth -= deltaX;
-                rect.RelHeight += deltaY;
+                case "BottomRight":
+                    rect.RelWidth += deltaX;
+                    rect.RelHeight += deltaY;
+                    break;
             }
         }
 
         private void OnEditMenu_Click(object sender, RoutedEventArgs e)
         {
-            var bookmark = TimelineListBox.SelectedItem as Bookmark;
-
-            // MenuItem -> ContextMenu -> 紐付いている Thumb を辿って DataContext を取得
             if (sender is MenuItem menuItem && menuItem.DataContext is NoteAnnotation note)
             {
-
-                note.OriginText = note.Text;
-                note.IsEditing = true;
-                note.IsCommitted = false;
+                StartNoteEdit(note);
             }
         }
 
@@ -1675,21 +1607,7 @@ namespace TraceShot.Features
             }
             else
             {
-                int caseId = 0;
-                var currentTime = VideoPlayer.Position;
-                var lastEntry = Data.TimelineEntries.FirstOrDefault(x => x.Time > currentTime);
-                if (lastEntry != null)
-                {
-                    caseId = lastEntry.CaseId;
-                }
-                bookmark = new Bookmark
-                {
-                    Time = currentTime,
-                    CaseId = caseId,
-                    Result = TestResult.SS,
-                    Icon = "🖋️",
-                    Note = "",
-                };
+                bookmark = CreateBookmarkAtCurrentTime();
                 Data.TimelineEntries.Add(bookmark);
                 Data.SelectedItem = bookmark;
                 Data.UpdateTimelineGroups();
