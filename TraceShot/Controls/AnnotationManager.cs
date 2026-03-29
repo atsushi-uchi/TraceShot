@@ -190,19 +190,6 @@ namespace TraceShot.Controls
             PushAction(new UpdateAnnotationAction(this, annotation, before, after));
         }
 
-        private bool IsSameState(UpdateState a, UpdateState b)
-        {
-            bool basicSame = a.RelX == b.RelX &&
-                             a.RelY == b.RelY &&
-                             a.RelWidth == b.RelWidth &&
-                             a.RelHeight == b.RelHeight;
-
-            bool noteSame = a.RelStartX == b.RelStartX &&
-                            a.RelStartY == b.RelStartY;
-
-            return basicSame && noteSame;
-        }
-
         /// <summary>
         /// 座標更新用のUndo/Redoアクション
         /// </summary>
@@ -379,11 +366,6 @@ namespace TraceShot.Controls
             if (CreatingAnnotation == null) return;
 
             bool shouldKeep = CreatingAnnotation.OnComplete(Annotations);
-
-            if (CreatingAnnotation.RelWidth < 0.001 && CreatingAnnotation.RelHeight < 0.001)
-            {
-                shouldKeep = false;
-            }
 
             if (!shouldKeep)
             {

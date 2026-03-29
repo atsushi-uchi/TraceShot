@@ -329,6 +329,11 @@ namespace TraceShot.ViewModels
             var targetAnnotation = target ?? AnnotationManager.SelectedAnnotation;
             if (targetAnnotation is AnnotationBase finalTarget)
             {
+                if (targetAnnotation is NoteAnnotation note)
+                {
+                    Debug.WriteLine($"CopyAnnotation {note.Id} StartX={note.StartX} StartY={note.StartY} RelStartX={note.RelStartX} RelStartY={note.RelStartY}");
+                }
+
                 try
                 {
                     string json = JsonSerializer.Serialize<AnnotationBase>(finalTarget);
@@ -355,6 +360,11 @@ namespace TraceShot.ViewModels
                 var paseted = DeserializeAnnotation(json);
                 if (paseted != null)
                 {
+                    if (paseted is NoteAnnotation note)
+                    {
+                        Debug.WriteLine($"CopyAnnotation {note.Id} StartX={note.StartX} StartY={note.StartY} RelStartX={note.RelStartX} RelStartY={note.RelStartY}");
+                    }
+
                     AnnotationManager.AddPastedAnnotation(bookmark, paseted);
                 }
             }

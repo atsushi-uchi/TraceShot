@@ -1,4 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.Diagnostics;
+using System.Text.Json.Serialization;
 using Point = System.Windows.Point;
 using Size = System.Windows.Size;
 
@@ -17,25 +19,9 @@ namespace TraceShot.Controls
         [ObservableProperty] private double _actualTextHeight = 60; // 初期値（目安）
 
         public string OriginText = string.Empty;
-        partial void OnRelStartXChanged(double value) => StartX = value * _lastParentWidth;
-        partial void OnRelStartYChanged(double value) => StartY = value * _lastParentHeight;
-
-        public NoteAnnotation()
-        {
-            this.PropertyChanged += (s, e) =>
-            {
-                // 親のサイズ(size)をどこかに保持している前提
-                if (e.PropertyName == nameof(RelX)) X = RelX * _lastParentWidth;
-                if (e.PropertyName == nameof(RelY)) Y = RelY * _lastParentHeight;
-                if (e.PropertyName == nameof(RelStartX)) StartX = RelStartX * _lastParentWidth;
-                if (e.PropertyName == nameof(RelStartY)) StartY = RelStartY * _lastParentHeight;
-            };
-        }
 
         public override void OnStart(Point pos, Size size)
         {
-            _lastParentWidth = size.Width;
-            _lastParentHeight = size.Height;
             base.OnStart(pos, size);
 
             RelStartX = Normalize(pos.X, size.Width);
@@ -47,10 +33,6 @@ namespace TraceShot.Controls
 
         public override void OnUpdate(Point pos, Size size)
         {
-            _lastParentWidth = size.Width;
-            _lastParentHeight = size.Height;
-            // ドラッグ中は「終点（テキスト側）」だけを更新する
-            // 始点 (RelStartX) は OnStart の位置に固定される
             RelX = Normalize(pos.X, size.Width);
             RelY = Normalize(pos.Y, size.Height);
 
