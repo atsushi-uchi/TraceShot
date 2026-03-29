@@ -27,6 +27,12 @@ namespace TraceShot.Controls
         [JsonIgnore]
         [ObservableProperty] private bool _isSelected;
 
+        protected double _lastParentWidth = 1.0;
+        protected double _lastParentHeight = 1.0;
+
+        partial void OnRelXChanged(double value) => X = value * _lastParentWidth;
+        partial void OnRelYChanged(double value) => Y = value * _lastParentHeight;
+
         public Guid Id { get; } = Guid.NewGuid();
 
         public virtual void Delete() { }

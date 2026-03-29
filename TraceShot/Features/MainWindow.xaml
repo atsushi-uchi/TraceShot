@@ -259,7 +259,7 @@
                      IsHitTestVisible="False"/>
 
                 <Thumb x:Name="MoveHandle"
-                     Style="{StaticResource CropMoveThumbStyle}" DragDelta="OnMoveThumb_DragDelta" 
+                     Style="{StaticResource CropMoveThumbStyle}" DragStarted="OnAnnotation_DragStarted" DragDelta="OnMoveThumb_DragDelta" DragCompleted="OnAnnotation_DragCompleted"
                      Width="{Binding ActualWidth, ElementName=RootCanvas}" 
                      Height="{Binding ActualHeight, ElementName=RootCanvas}"/>
 
@@ -270,18 +270,18 @@
                     <Canvas>
                         <Thumb Canvas.Left="-3" Width="4" Height="{Binding ActualHeight, ElementName=RootCanvas}" 
                                Style="{StaticResource CropEdgeResizeHandleStyle}"
-                               Cursor="SizeWE" Tag="Left" DragDelta="OnResize_DragDelta" />
+                               Cursor="SizeWE" Tag="Left" DragStarted="OnAnnotation_DragStarted" DragDelta="OnResize_DragDelta" DragCompleted="OnAnnotation_DragCompleted" />
                         <Thumb Canvas.Left="{Binding ActualWidth, ElementName=RootCanvas}" Margin="-3,0,0,0" 
                                Width="4" Height="{Binding ActualHeight, ElementName=RootCanvas}" 
                                Style="{StaticResource CropEdgeResizeHandleStyle}"
-                               Cursor="SizeWE" Tag="Right" DragDelta="OnResize_DragDelta"/>
+                               Cursor="SizeWE" Tag="Right" DragStarted="OnAnnotation_DragStarted" DragDelta="OnResize_DragDelta" DragCompleted="OnAnnotation_DragCompleted"/>
                         <Thumb Canvas.Top="-3" Height="4" Width="{Binding ActualWidth, ElementName=RootCanvas}" 
                                Style="{StaticResource CropEdgeResizeHandleStyle}"
-                               Cursor="SizeNS" Tag="Top" DragDelta="OnResize_DragDelta"/>
+                               Cursor="SizeNS" Tag="Top" DragStarted="OnAnnotation_DragStarted" DragDelta="OnResize_DragDelta" DragCompleted="OnAnnotation_DragCompleted"/>
                         <Thumb Canvas.Top="{Binding ActualHeight, ElementName=RootCanvas}" Margin="0,-3,0,0" 
                                Height="4" Width="{Binding ActualWidth, ElementName=RootCanvas}" 
                                Style="{StaticResource CropEdgeResizeHandleStyle}"
-                               Cursor="SizeNS" Tag="Bottom" DragDelta="OnResize_DragDelta" />
+                               Cursor="SizeNS" Tag="Bottom" DragStarted="OnAnnotation_DragStarted" DragDelta="OnResize_DragDelta" DragCompleted="OnAnnotation_DragCompleted" />
 
                         <Thumb Canvas.Left="0" Canvas.Top="0" Width="8" Height="8" Cursor="SizeNWSE" 
                                Style="{StaticResource CropPointResizeHandleStyle}" 
@@ -349,7 +349,7 @@
                 <Thumb Canvas.Left="0" Canvas.Top="0" 
                        Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}"
-                       DragDelta="OnMoveThumb_DragDelta"
+                       DragStarted="OnAnnotation_DragStarted" DragDelta="OnMoveThumb_DragDelta"
                        DragCompleted="OnAnnotation_DragCompleted">
                     <Thumb.Style>
                         <Style TargetType="Thumb" BasedOn="{StaticResource MoveThumbStyle}">
@@ -373,10 +373,12 @@
                             <Separator />
                             <MenuItem Header="フォーカス設定"
                               IsCheckable="True" 
-                              IsChecked="{Binding IsFocused}"/>
+                              IsChecked="{Binding IsFocused, Mode=OneWay}"
+                              Click="MenuItem_Focus_Click"/>
                             <MenuItem Header="機密情報黒塗" 
                               IsCheckable="True" 
-                              IsChecked="{Binding IsMasking}" />
+                              IsChecked="{Binding IsMasking, Mode=OneWay}"
+                              Click="MenuItem_Masking_Click"/>
                             <Separator />
                             <MenuItem Header="OCRテキスト読取" Command="{Binding RunOcrCommand}"/>
                         </ContextMenu>
@@ -386,51 +388,51 @@
                 <Thumb Canvas.Left="0" Canvas.Top="0" 
                        Width="4" Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Style="{StaticResource EdgeResizeHandleStyle}"
-                       Tag="Left" DragDelta="OnResize_DragDelta" 
+                       Tag="Left" DragDelta="OnResize_DragDelta" DragStarted="OnAnnotation_DragStarted" 
                        DragCompleted="OnAnnotation_DragCompleted" Cursor="SizeWE"/>
                 <Thumb Canvas.Left="0" Canvas.Top="0" 
                        Height="4" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}"
                        Style="{StaticResource EdgeResizeHandleStyle}"
-                       Tag="Top" DragDelta="OnResize_DragDelta" 
+                       Tag="Top" DragDelta="OnResize_DragDelta" DragStarted="OnAnnotation_DragStarted" 
                        DragCompleted="OnAnnotation_DragCompleted" Cursor="SizeNS"/>
                 <Thumb Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" Canvas.Top="0" 
                        Width="4" Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Margin="-3,0,0,0"
                        Style="{StaticResource EdgeResizeHandleStyle}"
-                       Tag="Right" DragDelta="OnResize_DragDelta"
+                       Tag="Right" DragDelta="OnResize_DragDelta" DragStarted="OnAnnotation_DragStarted" 
                        DragCompleted="OnAnnotation_DragCompleted" Cursor="SizeWE"/>
                 <Thumb Canvas.Left="0" Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Height="4" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Margin="0,-3,0,0"
                        Style="{StaticResource EdgeResizeHandleStyle}"
-                       Tag="Bottom" DragDelta="OnResize_DragDelta" 
+                       Tag="Bottom" DragDelta="OnResize_DragDelta" DragStarted="OnAnnotation_DragStarted" 
                        DragCompleted="OnAnnotation_DragCompleted" Cursor="SizeNS"/>
 
                 <Thumb Canvas.Left="0" Canvas.Top="0" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
                        Style="{StaticResource PointResizeHandleStyle}"
-                       Tag="TopLeft" DragDelta="OnResize_DragDelta" 
+                       Tag="TopLeft" DragStarted="OnAnnotation_DragStarted" DragDelta="OnResize_DragDelta" 
                        DragCompleted="OnAnnotation_DragCompleted" Cursor="SizeNWSE"/>
 
                 <Thumb Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Canvas.Top="0" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
                        Style="{StaticResource PointResizeHandleStyle}"
-                       DragCompleted="OnAnnotation_DragCompleted"
+                       DragStarted="OnAnnotation_DragStarted" DragCompleted="OnAnnotation_DragCompleted"
                        Tag="TopRight" DragDelta="OnResize_DragDelta" Cursor="SizeNESW"/>
 
                 <Thumb Canvas.Left="0" 
                        Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
                        Style="{StaticResource PointResizeHandleStyle}"
-                       DragCompleted="OnAnnotation_DragCompleted"
+                       DragStarted="OnAnnotation_DragStarted" DragCompleted="OnAnnotation_DragCompleted"
                        Tag="BottomLeft" DragDelta="OnResize_DragDelta" Cursor="SizeNESW"/>
 
                 <Thumb Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}" 
                        Width="12" Height="12" Margin="-4,-4,0,0"
                        Style="{StaticResource PointResizeHandleStyle}"
-                       DragCompleted="OnAnnotation_DragCompleted"
+                       DragStarted="OnAnnotation_DragStarted" DragCompleted="OnAnnotation_DragCompleted"
                        Tag="BottomRight" DragDelta="OnResize_DragDelta" Cursor="SizeNWSE"/>
             </Canvas>
         </DataTemplate>
@@ -481,6 +483,7 @@
                 <Thumb Style="{StaticResource PointHandleStyle}" 
                        Cursor="SizeAll"
                        Tag="Start" 
+                       DragStarted="OnAnnotation_DragStarted" 
                        DragDelta="OnNoteStart_DragDelta"
                        DragCompleted="OnAnnotation_DragCompleted">
 
@@ -515,6 +518,7 @@
                     </Canvas.Top>
                     <Thumb Tag="End" Cursor="SizeAll"
                            DragDelta="OnNoteText_DragDelta" 
+                           DragStarted="OnAnnotation_DragStarted" 
                            DragCompleted="OnAnnotation_DragCompleted">
                         <Thumb.ContextMenu>
                             <ContextMenu>
@@ -643,6 +647,8 @@
                 <MenuItem Header="終了(_X)" Click="Exit_Click" />
             </MenuItem>
             <MenuItem Header="編集(_E)">
+                <MenuItem Header="元に戻す" InputGestureText="Ctrl+Z" Click="OnUndo_Click"/>
+                <MenuItem Header="やり直す" InputGestureText="Ctrl+Y" Click="OnRedo_Click"/>
                 <MenuItem Header="注釈をコピー" InputGestureText="Ctrl+C" Click="OnCopyMenu_Click"/>
                 <MenuItem Header="注釈を貼り付け" InputGestureText="Ctrl+V" Click="OnPasteMenu_Click"/>
             </MenuItem>

@@ -1,4 +1,5 @@
-﻿using NHotkey;
+﻿using DocumentFormat.OpenXml.ExtendedProperties;
+using NHotkey;
 using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
@@ -154,6 +155,8 @@ namespace TraceShot.Features
                 { (ModifierKeys.Control, Key.E), () => OpenExport_Click(this, null) },
                 { (ModifierKeys.Control, Key.C), () => OnCopyMenu_Click(this, null) },
                 { (ModifierKeys.Control, Key.V), () => OnPasteMenu_Click(this, null) },
+                { (ModifierKeys.Control, Key.Z), () => OnUndo_Click(this, null) },
+                { (ModifierKeys.Control, Key.Y), () => OnRedo_Click(this, null) },
                 { (ModifierKeys.None, Key.Delete), () => DeleteBookmarkButton_Click(this, null) },
                 { (ModifierKeys.None, Key.Escape), () => ClearAnnotationSelection() },
             };
@@ -396,6 +399,12 @@ namespace TraceShot.Features
                 Data.UpdateTimelineGroups();
             }
 
+            if (e.ChangedButton != MouseButton.Left)
+            {
+                Debug.WriteLine("Left mouse button is not pressed. Ignoring drawing action.");
+                return;
+            }
+
             if (Keyboard.Modifiers == ModifierKeys.Control)
             {
                 // NoteAnnotation モード
@@ -445,6 +454,27 @@ namespace TraceShot.Features
         {
             if (sender is Thumb thumb && thumb.DataContext is AnnotationBase annotation)
             {
+                // Try to consume a previously recorded "before" state (recorded on DragStarted)
+                if (Data.AnnotationManager.TryConsumeUpdateStart(annotation.Id, out var before))
+                {
+                    var after = new AnnotationManager.UpdateState
+                    {
+                        RelX = annotation.RelX,
+                        RelY = annotation.RelY,
+                        RelWidth = annotation.RelWidth,
+                        RelHeight = annotation.RelHeight,
+                    };
+
+                    if (annotation is NoteAnnotation note)
+                    {
+                        after.RelStartX = note.RelStartX;
+                        after.RelStartY = note.RelStartY;
+                    }
+
+                    // Push the update action so it becomes undo/redoable
+                    Data.AnnotationManager.PushUpdateAction(annotation, before!, after);
+                }
+
                 var transform = thumb.TransformToVisual(VideoPlayer);
                 Point currentPos = transform.Transform(new Point(0, 0));
 
@@ -461,6 +491,16 @@ namespace TraceShot.Features
                 {
                     bookmark.IsDirty = true;
                 }
+            }
+        }
+
+        private void OnAnnotation_DragStarted(object sender, DragStartedEventArgs e)
+        {
+            if (sender is Thumb thumb && thumb.DataContext is AnnotationBase annotation)
+            {
+                Debug.WriteLine($"DragStarted: {annotation.Id} ({annotation.GetType().Name})");
+                // Record the starting state so we can create an undo/redo action on completion
+                Data.AnnotationManager.RecordUpdateStart(annotation);
             }
         }
 
@@ -523,6 +563,11 @@ namespace TraceShot.Features
             }
             else
             {
+                if (note.OriginText != note.Text)
+                {
+                    Data.AnnotationManager.PushTextUpdateAction(note);
+                }
+
                 // テキストがある場合は確定
                 note.IsEditing = false;
                 note.IsCommitted = true;
@@ -1611,6 +1656,37 @@ namespace TraceShot.Features
                 Data.SelectedItem = bookmark;
                 Data.UpdateTimelineGroups();
                 Data.PasteAnnotation(bookmark);
+            }
+        }
+
+        private void OnUndo_Click(object sender, RoutedEventArgs? e)
+        {
+            //Debug.WriteLine("Undo clicked");
+            Data.AnnotationManager.Undo();
+        }
+
+        private void OnRedo_Click(object sender, RoutedEventArgs? e)
+        {
+            //Debug.WriteLine("Redo clicked");
+            Data.AnnotationManager.Redo();
+        }
+
+        private void MenuItem_Focus_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem mi && mi.DataContext is RectAnnotation rect)
+            {
+                // Manager経由で状態変更を実行
+                var allRects = Data.AnnotationManager.Annotations.OfType<RectAnnotation>();
+                Data.AnnotationManager.ExecuteRectStateChange(allRects, rect, "Focus");
+            }
+        }
+
+        private void MenuItem_Masking_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem mi && mi.DataContext is RectAnnotation rect)
+            {
+                var allRects = Data.AnnotationManager.Annotations.OfType<RectAnnotation>();
+                Data.AnnotationManager.ExecuteRectStateChange(allRects, rect, "Masking");
             }
         }
     }
