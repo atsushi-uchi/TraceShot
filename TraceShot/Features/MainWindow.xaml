@@ -374,11 +374,11 @@
                             <MenuItem Header="フォーカス設定"
                               IsCheckable="True" 
                               IsChecked="{Binding IsFocused, Mode=OneWay}"
-                              Click="MenuItem_Focus_Click"/>
+                              Click="OnFocusMenu_Click"/>
                             <MenuItem Header="機密情報黒塗" 
                               IsCheckable="True" 
                               IsChecked="{Binding IsMasking, Mode=OneWay}"
-                              Click="MenuItem_Masking_Click"/>
+                              Click="OnMaskingMenu_Click"/>
                             <Separator />
                             <MenuItem Header="OCRテキスト読取" Command="{Binding RunOcrCommand}"/>
                         </ContextMenu>

@@ -1038,7 +1038,7 @@ namespace TraceShot.Features
             }
         }
 
-        public void PlayerPause(bool withReflash)
+        private void PlayerPause(bool withReflash)
         {
             if (withReflash) VideoPlayer.Play();
 
@@ -1659,6 +1659,25 @@ namespace TraceShot.Features
             }
         }
 
+        private void OnFocusMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem mi && mi.DataContext is RectAnnotation rect)
+            {
+                // Manager経由で状態変更を実行
+                var allRects = Data.AnnotationManager.Annotations.OfType<RectAnnotation>();
+                Data.AnnotationManager.ExecuteRectStateChange(allRects, rect, "Focus");
+            }
+        }
+
+        private void OnMaskingMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem mi && mi.DataContext is RectAnnotation rect)
+            {
+                var allRects = Data.AnnotationManager.Annotations.OfType<RectAnnotation>();
+                Data.AnnotationManager.ExecuteRectStateChange(allRects, rect, "Masking");
+            }
+        }
+
         private void OnUndo_Click(object sender, RoutedEventArgs? e)
         {
             //Debug.WriteLine("Undo clicked");
@@ -1669,25 +1688,6 @@ namespace TraceShot.Features
         {
             //Debug.WriteLine("Redo clicked");
             Data.AnnotationManager.Redo();
-        }
-
-        private void MenuItem_Focus_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuItem mi && mi.DataContext is RectAnnotation rect)
-            {
-                // Manager経由で状態変更を実行
-                var allRects = Data.AnnotationManager.Annotations.OfType<RectAnnotation>();
-                Data.AnnotationManager.ExecuteRectStateChange(allRects, rect, "Focus");
-            }
-        }
-
-        private void MenuItem_Masking_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuItem mi && mi.DataContext is RectAnnotation rect)
-            {
-                var allRects = Data.AnnotationManager.Annotations.OfType<RectAnnotation>();
-                Data.AnnotationManager.ExecuteRectStateChange(allRects, rect, "Masking");
-            }
         }
     }
 }
