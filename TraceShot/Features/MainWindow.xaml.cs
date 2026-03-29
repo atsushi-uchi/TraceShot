@@ -42,7 +42,7 @@ namespace TraceShot.Features
 
         private ExportCacheManager _cacheManager = new();
         private SpeechRecognizer? _winrtRecognizer;
-        private Dictionary<(ModifierKeys, Key), Action> _keyBindings;
+        private Dictionary<(ModifierKeys, Key), Action>? _keyBindings;
 
         private bool _isPlaying = false;
         private bool _isRecording = false;
@@ -64,7 +64,6 @@ namespace TraceShot.Features
         {
             InitializeComponent();
 
-            //_annotationManager = new AnnotationManager();
             DataContext = Data;
 
             Data.ScrollIntoViewRequested = (entry) =>
@@ -382,6 +381,7 @@ namespace TraceShot.Features
                 Note = "",
             };
         }
+
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
             var currentPos = e.GetPosition(VideoPlayer);
@@ -615,7 +615,6 @@ namespace TraceShot.Features
             }
         }
 
-        // 統合メソッド
         private void OnResize_DragDelta(object sender, DragDeltaEventArgs e)
         {
             if (sender is not Thumb t || t.DataContext is not RectAnnotation rect) return;
