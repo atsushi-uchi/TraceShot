@@ -293,6 +293,7 @@ namespace TraceShot.Controls
                 Annotations.Remove(target);
                 if (CreatingAnnotation == target) CreatingAnnotation = null;
             }
+            RefreshCropOverlay();
         }
 
         public void Select(AnnotationBase? target)
