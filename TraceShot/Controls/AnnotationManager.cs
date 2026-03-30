@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Windows;
 using TraceShot.Models;
 using TraceShot.Services;
+using static TraceShot.Controls.AnnotationManager;
 using Point = System.Windows.Point;
 using Size = System.Windows.Size;
 
@@ -11,6 +12,7 @@ namespace TraceShot.Controls
 {
     public partial class AnnotationManager : ObservableObject
     {
+        public event Action<Guid>? RequestBookmarkSelection;
         private readonly Stack<IUndoableAction> _undoStack = new();
         private readonly Stack<IUndoableAction> _redoStack = new();
 
@@ -20,7 +22,7 @@ namespace TraceShot.Controls
         /// <summary>
         /// 状態変更前のスナップショットを撮り、変更を実行してスタックに積みます。
         /// </summary>
-        public void ExecuteRectStateChange(IEnumerable<RectAnnotation> allRects, RectAnnotation target, string mode)
+        public void ExecuteRectStateChange(IEnumerable<RectAnnotation> allRects, RectAnnotation target, string mode, Bookmark? bookmark)
         {
             // 1. 変更前の全状態を記録
             var before = allRects.Select(r => (r, r.IsFocused, r.IsMasking)).ToList();
@@ -51,22 +53,15 @@ namespace TraceShot.Controls
 
             if (changed)
             {
-                PushAction(new RectStateAction(this, before, after));
+                PushAction(new RectStateAction(this, before, after, bookmark));
             }
         }
 
-        public void PushBoolPropertyAction(AnnotationBase annotation, string propertyName, bool before, bool after, Action? onChanged = null)
-        {
-            if (annotation == null || before == after) return;
-
-            PushAction(new UpdateBoolPropertyAction(annotation, propertyName, before, after, onChanged));
-        }
-
-        public void PushTextUpdateAction(NoteAnnotation note)
+        public void PushTextUpdateAction(NoteAnnotation note, Bookmark? bookmark)
         {
             if (note == null || note.OriginText == note.Text) return;
 
-            PushAction(new UpdateTextAction(note, note.OriginText, note.Text));
+            PushAction(new UpdateTextAction(note, note.OriginText, note.Text, bookmark));
 
             note.OriginText = note.Text;
         }
@@ -83,12 +78,13 @@ namespace TraceShot.Controls
         {
             if (!CanUndo) return;
 
-            var currentSelected = SelectedAnnotation;
-            SelectedAnnotation = null; // 一時的に選択解除してUIの干渉を遮断
+            var action = _undoStack.Pop();
 
-            var act = _undoStack.Pop();
-            act.Undo();
-            _redoStack.Push(act);
+            // アクション実行前にブックマークを切り替え
+            RequestBookmarkSelection?.Invoke(action.BookmarkId);
+
+            action.Undo();
+            _redoStack.Push(action);
 
             RefreshCropOverlay();
             OnPropertyChanged(nameof(CanUndo));
@@ -99,12 +95,13 @@ namespace TraceShot.Controls
         {
             if (!CanRedo) return;
 
-            var currentSelected = SelectedAnnotation;
-            SelectedAnnotation = null; // 一時的に選択解除してUIの干渉を遮断
+            var action = _redoStack.Pop();
 
-            var act = _redoStack.Pop();
-            act.Redo();
-            _undoStack.Push(act);
+            // アクション実行前にブックマークを切り替え
+            RequestBookmarkSelection?.Invoke(action.BookmarkId);
+
+            action.Redo();
+            _undoStack.Push(action);
 
             RefreshCropOverlay();
             OnPropertyChanged(nameof(CanUndo));
@@ -169,7 +166,7 @@ namespace TraceShot.Controls
         /// <summary>
         /// 更新アクションをスタックに積みます。DragCompletedなどで呼び出してください。
         /// </summary>
-        public void PushUpdateAction(AnnotationBase annotation, UpdateState before, UpdateState after)
+        public void PushUpdateAction(AnnotationBase annotation, UpdateState before, UpdateState after, Bookmark? bookmark)
         {
             if (annotation == null || before == null || after == null) return;
 
@@ -187,45 +184,9 @@ namespace TraceShot.Controls
             Debug.WriteLine($"PushUpdateAction {annotation.Id}");
 
             // 移動距離が極端に小さい場合は無視するロジックを入れても良い
-            PushAction(new UpdateAnnotationAction(this, annotation, before, after));
-        }
-
-        /// <summary>
-        /// 座標更新用のUndo/Redoアクション
-        /// </summary>
-        internal class UpdateAnnotationAction : IUndoableAction
-        {
-            private readonly AnnotationManager _mgr;
-            private readonly AnnotationBase _annotation;
-            private readonly UpdateState _before;
-            private readonly UpdateState _after;
-
-            public UpdateAnnotationAction(AnnotationManager mgr, AnnotationBase annotation, UpdateState before, UpdateState after)
-            {
-                _mgr = mgr;
-                _annotation = annotation;
-                _before = before;
-                _after = after;
-            }
-
-            public void Undo() => ApplyState(_before);
-            public void Redo() => ApplyState(_after);
-
-            private void ApplyState(UpdateState s)
-            {
-                _annotation.RelX = s.RelX;
-                _annotation.RelY = s.RelY;
-                _annotation.RelWidth = s.RelWidth;
-                _annotation.RelHeight = s.RelHeight;
-
-                if (_annotation is NoteAnnotation note)
-                {
-                    if (s.RelStartX.HasValue) note.RelStartX = s.RelStartX.Value;
-                    if (s.RelStartY.HasValue) note.RelStartY = s.RelStartY.Value;
-                }
-
-                _mgr.RefreshCropOverlay();
-            }
+            var action = new UpdateAnnotationAction(this, annotation, before, after, bookmark);
+            
+            PushAction(action);
         }
 
         public ObservableCollection<AnnotationBase> Annotations { get; } = new();
@@ -413,6 +374,48 @@ namespace TraceShot.Controls
     {
         void Undo();
         void Redo();
+
+        Guid BookmarkId { get; }
+    }
+
+    /// <summary>
+    /// 座標更新用のUndo/Redoアクション
+    /// </summary>
+    internal class UpdateAnnotationAction : IUndoableAction
+    {
+        private readonly AnnotationManager _mgr;
+        private readonly AnnotationBase _annotation;
+        private readonly UpdateState _before;
+        private readonly UpdateState _after;
+
+        public UpdateAnnotationAction(AnnotationManager mgr, AnnotationBase annotation, UpdateState before, UpdateState after, Bookmark? bookmark)
+        {
+            _mgr = mgr;
+            _annotation = annotation;
+            _before = before;
+            _after = after;
+            BookmarkId = bookmark?.Id ?? Guid.Empty;
+        }
+        public Guid BookmarkId { get; private set; }
+
+        public void Undo() => ApplyState(_before);
+        public void Redo() => ApplyState(_after);
+
+        private void ApplyState(UpdateState s)
+        {
+            _annotation.RelX = s.RelX;
+            _annotation.RelY = s.RelY;
+            _annotation.RelWidth = s.RelWidth;
+            _annotation.RelHeight = s.RelHeight;
+
+            if (_annotation is NoteAnnotation note)
+            {
+                if (s.RelStartX.HasValue) note.RelStartX = s.RelStartX.Value;
+                if (s.RelStartY.HasValue) note.RelStartY = s.RelStartY.Value;
+            }
+
+            _mgr.RefreshCropOverlay();
+        }
     }
 
     internal class AddAnnotationAction : IUndoableAction
@@ -423,8 +426,12 @@ namespace TraceShot.Controls
 
         public AddAnnotationAction(AnnotationManager mgr, Bookmark bookmark, AnnotationBase annotation)
         {
-            _mgr = mgr; _bookmark = bookmark; Annotation = annotation;
+            _mgr = mgr; 
+            _bookmark = bookmark; 
+            Annotation = annotation;
         }
+
+        public Guid BookmarkId => _bookmark.Id;
 
         public void Undo()
         {
@@ -441,11 +448,17 @@ namespace TraceShot.Controls
 
     internal class RemoveAnnotationAction : IUndoableAction
     {
-        private readonly AnnotationManager _mgr; private readonly Bookmark _bookmark; private readonly AnnotationBase _annotation;
+        private readonly AnnotationManager _mgr;
+        private readonly Bookmark _bookmark;
+        private readonly AnnotationBase _annotation;
+
         public RemoveAnnotationAction(AnnotationManager mgr, Bookmark bookmark, AnnotationBase annotation)
         {
             _mgr = mgr; _bookmark = bookmark; _annotation = annotation;
         }
+
+        public Guid BookmarkId => _bookmark.Id;
+
         public void Undo()
         {
             if (!_bookmark.Annotations.Contains(_annotation)) _bookmark.Annotations.Add(_annotation);
@@ -464,43 +477,18 @@ namespace TraceShot.Controls
         private readonly string _oldText;
         private readonly string _newText;
 
-        public UpdateTextAction(NoteAnnotation note, string oldText, string newText)
+        public UpdateTextAction(NoteAnnotation note, string oldText, string newText, Bookmark? bookmark)
         {
             _note = note;
             _oldText = oldText;
             _newText = newText;
+            BookmarkId = bookmark?.Id ?? Guid.Empty;
         }
+
+        public Guid BookmarkId { get; private set; }
 
         public void Undo() => _note.Text = _oldText;
         public void Redo() => _note.Text = _newText;
-    }
-
-    internal class UpdateBoolPropertyAction : IUndoableAction
-    {
-        private readonly AnnotationBase _annotation;
-        private readonly string _propertyName;
-        private readonly bool _before;
-        private readonly bool _after;
-        private readonly Action? _onChanged;
-
-        public UpdateBoolPropertyAction(AnnotationBase annotation, string propertyName, bool before, bool after, Action? onChanged = null)
-        {
-            _annotation = annotation;
-            _propertyName = propertyName;
-            _before = before;
-            _after = after;
-            _onChanged = onChanged;
-        }
-
-        public void Undo() => Apply(_before);
-        public void Redo() => Apply(_after);
-
-        private void Apply(bool value)
-        {
-            var prop = _annotation.GetType().GetProperty(_propertyName);
-            prop?.SetValue(_annotation, value);
-            _onChanged?.Invoke(); // 必要に応じて描画更新などを走らせる
-        }
     }
 
     internal class RectStateAction : IUndoableAction
@@ -512,12 +500,16 @@ namespace TraceShot.Controls
 
         public RectStateAction(AnnotationManager mgr,
                                List<(RectAnnotation, bool, bool)> before,
-                               List<(RectAnnotation, bool, bool)> after)
+                               List<(RectAnnotation, bool, bool)> after,
+                               Bookmark? bookmark)
         {
             _mgr = mgr;
             _before = before;
             _after = after;
+            BookmarkId = bookmark?.Id ?? Guid.Empty;
         }
+
+        public Guid BookmarkId { get; private set; }
 
         public void Undo() => Apply(_before);
         public void Redo() => Apply(_after);

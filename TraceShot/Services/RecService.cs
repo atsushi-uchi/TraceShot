@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using DocumentFormat.OpenXml.Wordprocessing;
 using ScreenRecorderLib;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -12,6 +13,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using TraceShot.Controls;
 using TraceShot.Models;
+using Xceed.Wpf.Toolkit.Primitives;
 using Brushes = System.Windows.Media.Brushes;
 using Pen = System.Windows.Media.Pen;
 using Point = System.Windows.Point;
@@ -59,6 +61,11 @@ namespace TraceShot.Services
             {
                 RecordingTime = _stopwatch.Elapsed.ToString(@"hh\:mm\:ss");
             };
+        }
+
+        public Bookmark? GetBookmark(Guid Id)
+        {
+            return Entries.FirstOrDefault(b => b.Id == Id);
         }
 
         public Bookmark? GetBookmark(TimeSpan time)

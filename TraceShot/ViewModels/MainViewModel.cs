@@ -29,6 +29,7 @@ namespace TraceShot.ViewModels
             SetupTimelineView();
             
             _annotationManager = new AnnotationManager();
+            _annotationManager.RequestBookmarkSelection += OnRequestBookmarkSelection;
 
             RecService.Instance.PropertyChanged += (s, e) =>
             {
@@ -45,6 +46,16 @@ namespace TraceShot.ViewModels
                     OnPropertyChanged(nameof(CanAddEntry));
                 }
             };
+        }
+
+        private void OnRequestBookmarkSelection(Guid bookmarkId)
+        {
+            // 現在のリストから該当するブックマークを探して選択
+            var target = RecService.Instance.GetBookmark(bookmarkId);
+            if (target != null)
+            {
+                SelectedItem = target;
+            }
         }
 
         public void SetupTimelineView()

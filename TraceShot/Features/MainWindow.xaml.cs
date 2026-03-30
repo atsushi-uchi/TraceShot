@@ -472,7 +472,7 @@ namespace TraceShot.Features
                     }
 
                     // Push the update action so it becomes undo/redoable
-                    Data.AnnotationManager.PushUpdateAction(annotation, before!, after);
+                    Data.AnnotationManager.PushUpdateAction(annotation, before!, after, Data.SelectedItem);
                 }
 
                 var transform = thumb.TransformToVisual(VideoPlayer);
@@ -565,7 +565,7 @@ namespace TraceShot.Features
             {
                 if (note.OriginText != note.Text)
                 {
-                    Data.AnnotationManager.PushTextUpdateAction(note);
+                    Data.AnnotationManager.PushTextUpdateAction(note, bookmark);
                 }
 
                 // テキストがある場合は確定
@@ -1665,7 +1665,7 @@ namespace TraceShot.Features
             {
                 // Manager経由で状態変更を実行
                 var allRects = Data.AnnotationManager.Annotations.OfType<RectAnnotation>();
-                Data.AnnotationManager.ExecuteRectStateChange(allRects, rect, "Focus");
+                Data.AnnotationManager.ExecuteRectStateChange(allRects, rect, "Focus", Data.SelectedItem);
             }
         }
 
@@ -1674,7 +1674,7 @@ namespace TraceShot.Features
             if (sender is MenuItem mi && mi.DataContext is RectAnnotation rect)
             {
                 var allRects = Data.AnnotationManager.Annotations.OfType<RectAnnotation>();
-                Data.AnnotationManager.ExecuteRectStateChange(allRects, rect, "Masking");
+                Data.AnnotationManager.ExecuteRectStateChange(allRects, rect, "Masking", Data.SelectedItem);
             }
         }
 
