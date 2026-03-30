@@ -105,7 +105,6 @@ namespace TraceShot.ViewModels
 
         [ObservableProperty] private AppViewMode _currentMode = AppViewMode.Recording;
 
-        //[ObservableProperty] private bool _isEditMode = false;
         public bool IsEditMode
         {
             get => CurrentMode == AppViewMode.Edit || CurrentMode == AppViewMode.Rescue;
@@ -291,13 +290,27 @@ namespace TraceShot.ViewModels
         {
             if (!Enum.TryParse<TestResult>(result, out var resultType)) return;
 
-            if (CurrentMode == AppViewMode.Edit)
+            switch (CurrentMode)
             {
-                EditExecuteResult(resultType);
+                case AppViewMode.Recording:
+                    RecExecuteResult(resultType);
+                    break;
+                case AppViewMode.Edit:
+                    EditExecuteResult(resultType);
+                    break;
+                case AppViewMode.Rescue:
+                    RescueExecuteResult(resultType);
+                    break;
             }
-            else
+        }
+
+        private void RescueExecuteResult(TestResult resultType)
+        {
+            if (SelectedItem is Bookmark entry)
             {
-                RecExecuteResult(resultType);
+                entry.Result = resultType;
+                UpdateTimelineGroups();
+                RefreshCanvas?.Invoke();
             }
         }
 
@@ -336,7 +349,6 @@ namespace TraceShot.ViewModels
                 }
             }
         }
-
 
         private void RecExecuteResult(TestResult resultType)
         {
@@ -450,6 +462,22 @@ namespace TraceShot.ViewModels
             {
                 Debug.WriteLine($"Deserialization failed: {ex.Message}");
                 return null;
+            }
+        }
+
+        public void SwitchToRescueMode(string error)
+        {
+            var bookmark = TimelineEntries.OrderBy(x => x.Time).FirstOrDefault();
+            if (File.Exists(bookmark?.ImagePath))
+            {
+                var bitmap = LoadImageFromFile(bookmark.ImagePath);
+                RescueImageSource = bitmap;
+                CurrentMode = AppViewMode.Rescue;
+                StatusText = $"録画に失敗したため、救済モードに切り替えます。エラー内容：{error}";
+            }
+            else
+            {
+                StatusText = $"録画に失敗しました。 エラー内容：{error}";
             }
         }
     }

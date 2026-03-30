@@ -1,5 +1,4 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using DocumentFormat.OpenXml.Wordprocessing;
 using ScreenRecorderLib;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -13,7 +12,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using TraceShot.Controls;
 using TraceShot.Models;
-using Xceed.Wpf.Toolkit.Primitives;
 using Brushes = System.Windows.Media.Brushes;
 using Pen = System.Windows.Media.Pen;
 using Point = System.Windows.Point;
@@ -47,16 +45,15 @@ namespace TraceShot.Services
         public int FrameRate { get; set; }
         public bool UseHardwareAccel { get; set; }
 
-        public event EventHandler? OnActualRecordingStarted;
         public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
-
-        // 録画停止時に実行する処理を登録するためのアクション
-        public Action? OnRecordingStopped { get; set; }
+        public event EventHandler<string>? RecordingErrorOccurred;
 
         private RecService()
         {
-            _timer = new DispatcherTimer();
-            _timer.Interval = TimeSpan.FromSeconds(0.5);
+            _timer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(0.5)
+            };
             _timer.Tick += (s, e) =>
             {
                 RecordingTime = _stopwatch.Elapsed.ToString(@"hh\:mm\:ss");
@@ -381,17 +378,6 @@ namespace TraceShot.Services
             _recorder = Recorder.CreateRecorder(options);
             _recorder.OnFrameRecorded += (s, e) => OnPreviewFrameReceived?.Invoke(this, e);
 
-            // ステータス変更イベントを登録
-            _recorder.OnStatusChanged += (s, e) =>
-            {
-                // ステータスが "Recording" になったら準備完了
-                if (_recorder.Status == RecorderStatus.Recording)
-                {
-                    // UIスレッドなどでタイマーを開始させるための通知を送る
-                    OnActualRecordingStarted?.Invoke(this, EventArgs.Empty);
-                }
-            };
-
             StartRecording(filePath);
         }
 
@@ -444,17 +430,6 @@ namespace TraceShot.Services
             // 3. インスタンス生成と開始
             _recorder = Recorder.CreateRecorder(options);
             _recorder.OnFrameRecorded += (s, e) => OnPreviewFrameReceived?.Invoke(this, e);
-
-            // ステータス変更イベントを登録
-            _recorder.OnStatusChanged += (s, e) =>
-            {
-                // ステータスが "Recording" になったら準備完了
-                if (_recorder.Status == RecorderStatus.Recording)
-                {
-                    // UIスレッドなどでタイマーを開始させるための通知を送る
-                    OnActualRecordingStarted?.Invoke(this, EventArgs.Empty);
-                }
-            };
 
             StartRecording(filePath);
         }
@@ -525,11 +500,7 @@ namespace TraceShot.Services
             _recorder?.Stop();
             SaveEvidenceJson();
             IsRecording = false;
-
             RecordingTime = "00:00:00";
-
-            // 登録されている処理（MainWindowのモード切替など）を実行
-            OnRecordingStopped?.Invoke();
         }
     }
 }

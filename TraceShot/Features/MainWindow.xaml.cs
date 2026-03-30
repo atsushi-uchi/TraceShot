@@ -1,5 +1,4 @@
-﻿using DocumentFormat.OpenXml.ExtendedProperties;
-using NHotkey;
+﻿using NHotkey;
 using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
@@ -39,6 +38,8 @@ namespace TraceShot.Features
 
     public partial class MainWindow : Window
     {
+        private enum ResizeDirection { None, Left, Right, Top, Bottom, Move }
+
         public MainViewModel Data { get; } = new();
         private ExportCacheManager _cacheManager = new();
         private SpeechRecognizer? _winrtRecognizer;
@@ -53,10 +54,8 @@ namespace TraceShot.Features
         private MouseHook _mouseHook = new();
         private Drawing.Rectangle? _selectedRegion = null; // 選択された範囲を保持
         private IntPtr _targetWindowHandle;
-
         string _fullDeviceName = string.Empty;
         string _rectDeviceName = string.Empty;
-        private enum ResizeDirection { None, Left, Right, Top, Bottom, Move }
         private DebugWindow? _debugWindow;
 
         public MainWindow()
@@ -99,12 +98,6 @@ namespace TraceShot.Features
             _playerTimer.Tick += Timer_Tick;
             _playerTimer.Start();
 
-            RecService.Instance.OnRecordingStopped = () =>
-            {
-                //Dispatcher.Invoke(() => Data.CurrentMode = AppViewMode.Edit);
-                Dispatcher.Invoke(() => Data.IsEditMode = true);
-            };
-
             Data.Config.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(Data.CurrentMode))
@@ -132,7 +125,12 @@ namespace TraceShot.Features
             _mouseHook.OnSideButton1Click += onMouseClick;
             _mouseHook.OnSideButton2Click += onMouseClick;
             _mouseHook.Start();
+
+            // 録画サービス イベント登録
+            RecService.Instance.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
+            RecService.Instance.RecordingErrorOccurred += (s, error) => Data.SwitchToRescueMode(error);
         }
+
 
         private void InitializeKeyBindings()
         {
@@ -400,7 +398,6 @@ namespace TraceShot.Features
 
         private Bookmark CreateBookmarkAtCurrentTime()
         {
-            int caseId = 0;
             var currentTime = VideoPlayer.Position;
             var lastEntry = Data.TimelineEntries.FirstOrDefault(x => x.Time > currentTime);
 
@@ -423,7 +420,6 @@ namespace TraceShot.Features
 
             if (actualSize.Width <= 0 || actualSize.Height <= 0)
             {
-                Debug.WriteLine("Canvas size is 0. Ignoring drawing action.");
                 return;
             }
 
@@ -444,7 +440,6 @@ namespace TraceShot.Features
 
             if (e.ChangedButton != MouseButton.Left)
             {
-                Debug.WriteLine("Left mouse button is not pressed. Ignoring drawing action.");
                 return;
             }
 
@@ -912,17 +907,8 @@ namespace TraceShot.Features
 
         private void VideoPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
         {
-            // 1. ステータスバーにエラーを表示
-            Data.StatusText = "❌ 再生エラー";
-
-            // 2. ログに詳細を記録（以前の画像で見られた TraceLogs や TimelineListBox を活用）
             string errorMessage = $"再生に失敗しました: {e.ErrorException.Message}";
-            RecService.Instance.TraceLogs.Add(errorMessage);
-
-            // 3. ユーザーへの通知
-            MessageBox.Show(errorMessage, "再生エラー", MessageBoxButton.OK, MessageBoxImage.Error);
-
-            // 必要に応じて代替のプレビュー画像などを表示
+            Data.SwitchToRescueMode(errorMessage);
             PreviewImage.Source = null;
         }
 
@@ -1129,8 +1115,8 @@ namespace TraceShot.Features
             // フラグ更新
             _isRecording = true;
 
-            // イベント登録
-            RecService.Instance.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
+            //// イベント登録
+            //RecService.Instance.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
 
             VideoPlayer.Stop();
 
@@ -1146,7 +1132,7 @@ namespace TraceShot.Features
             _isRecording = false;
 
             // イベント解除
-            RecService.Instance.OnPreviewFrameReceived -= RecorderManager_OnPreviewFrameReceived;
+            //RecService.Instance.OnPreviewFrameReceived -= RecorderManager_OnPreviewFrameReceived;
             Data.PreviewBitmap = null;
 
             PreviewImage.Source = ImageService.GetReadyStandardImage();
@@ -1218,6 +1204,7 @@ namespace TraceShot.Features
                 await Task.Delay(1000);
 
                 OnRecordingStopped();
+                Data.IsEditMode = true;
 
                 if (RecService.Instance.TraceLogs.Count > 0)
                 {
