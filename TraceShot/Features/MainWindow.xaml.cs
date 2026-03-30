@@ -40,11 +40,9 @@ namespace TraceShot.Features
     public partial class MainWindow : Window
     {
         public MainViewModel Data { get; } = new();
-
         private ExportCacheManager _cacheManager = new();
         private SpeechRecognizer? _winrtRecognizer;
         private Dictionary<(ModifierKeys, Key), Action>? _keyBindings;
-
         private bool _isPlaying = false;
         private bool _isRecording = false;
         private bool _isInternalSelectionChange = false;
@@ -85,9 +83,6 @@ namespace TraceShot.Features
             Data.GetCurrentPosition = () => VideoPlayer.Position;
             Data.GetVideoSnapshotFunc = () => new VideoSnapshotInfo(VideoPlayer);
 
-            // XAMLのItemsControlのDataContextにマネージャーをセット（またはBindingを設定）
-            AnnotationItemsControl.ItemsSource = Data.AnnotationManager.Annotations;
-
             ApplyCurrentSettings();
 
             if (Data.Config.IsVoiceEnabled)
@@ -106,27 +101,20 @@ namespace TraceShot.Features
 
             RecService.Instance.OnRecordingStopped = () =>
             {
+                //Dispatcher.Invoke(() => Data.CurrentMode = AppViewMode.Edit);
                 Dispatcher.Invoke(() => Data.IsEditMode = true);
             };
 
             Data.Config.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == nameof(Data.IsEditMode))
+                if (e.PropertyName == nameof(Data.CurrentMode))
                 {
-                    // 録画モード（IsEditMode == false）に切り替わった場合
-                    if (Data.IsEditMode)
+
+                    if (Data.CurrentMode == AppViewMode.Edit)
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            //RefreshDrawingCanvas();
                             RefreshBookmarkCanvas();
-                        });
-                    }
-                    else
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            //DrawingCanvas.Children.Clear();
                         });
                     }
                 }
@@ -160,6 +148,47 @@ namespace TraceShot.Features
                 { (ModifierKeys.None, Key.Delete), () => DeleteBookmarkButton_Click(this, null) },
                 { (ModifierKeys.None, Key.Escape), () => ClearAnnotationSelection() },
             };
+        }
+
+        private void Timer_Tick(object? sender, EventArgs e)
+        {
+            if (VideoPlayer.NaturalDuration.HasTimeSpan)
+            {
+                TimelineSlider.Maximum = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+                string current = VideoPlayer.Position.ToString(@"mm\:ss");
+                string total = VideoPlayer.NaturalDuration.TimeSpan.ToString(@"mm\:ss");
+                TimeText.Text = $"{current} / {total}";
+
+                bool isUserInteracting = _isDragging || Mouse.LeftButton == MouseButtonState.Pressed;
+                if (!isUserInteracting)
+                {
+                    TimelineSlider.Value = VideoPlayer.Position.TotalSeconds;
+                }
+
+                if (_isPlaying)
+                {
+                    if (StopAtPointCheckBox.IsChecked ?? false)
+                    {
+                        // 現在のポジション付近にエントリーが存在するか
+                        var entry = RecService.Instance.Evidence.Entries
+                            .Where(bm => Math.Abs(bm.Time.TotalSeconds - VideoPlayer.Position.TotalSeconds) < 0.1)
+                            .OrderBy(bm => bm.Time)
+                            .FirstOrDefault();
+
+                        if (entry != null)
+                        {
+                            if (Data.SelectedItem != entry)
+                            {
+                                Data.SelectedItem = entry;
+                            }
+                        }
+                        else
+                        {
+                            Data.SelectedItem = null;
+                        }
+                    }
+                }
+            }
         }
 
         private void Window_KeyDown(object sender, KeyEventArgs e)
@@ -387,12 +416,26 @@ namespace TraceShot.Features
 
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            var currentPos = e.GetPosition(VideoPlayer);
-            var actualPos = new Size(VideoPlayer.ActualWidth, VideoPlayer.ActualHeight);
-            if (actualPos.Width <= 0 || actualPos.Height <= 0) return;
+            if (sender is not IInputElement canvas || sender is not FrameworkElement frameworkElement) return;
+
+            var currentPos = e.GetPosition(canvas);
+            var actualSize = new Size(frameworkElement.ActualWidth, frameworkElement.ActualHeight);
+
+            if (actualSize.Width <= 0 || actualSize.Height <= 0)
+            {
+                Debug.WriteLine("Canvas size is 0. Ignoring drawing action.");
+                return;
+            }
 
             if (TimelineListBox.SelectedItem is not Bookmark entry)
             {
+                // 救済モード（動画なし）の場合、現在の再生時間は取れないので
+                // 必要に応じて処理を分岐（例：新規作成を禁止するか、0秒で作るか）
+                if (Data.CurrentMode == AppViewMode.Rescue)
+                {
+                    Debug.WriteLine("救済モードでブックマークがない場合は、一旦何もしない");
+                    return;
+                }
                 entry = CreateBookmarkAtCurrentTime();
                 Data.TimelineEntries.Add(entry);
                 Data.SelectedItem = entry;
@@ -408,12 +451,12 @@ namespace TraceShot.Features
             if (Keyboard.Modifiers == ModifierKeys.Control)
             {
                 // NoteAnnotation モード
-                Data.AnnotationManager.StartDrawing<NoteAnnotation>(entry, currentPos, actualPos);
+                Data.AnnotationManager.StartDrawing<NoteAnnotation>(entry, currentPos, actualSize);
             }
             else
             {
                 // 通常の RectAnnotation モード
-                var annotation = Data.AnnotationManager.StartDrawing<RectAnnotation>(entry, currentPos, actualPos);
+                var annotation = Data.AnnotationManager.StartDrawing<RectAnnotation>(entry, currentPos, actualSize);
                 if (annotation is RectAnnotation rect)
                 {
                     rect.OcrAction = Data.ExecuteOcrAction;
@@ -433,6 +476,11 @@ namespace TraceShot.Features
                     Width = VideoPlayer.ActualWidth,
                     Height = VideoPlayer.ActualHeight,
                 };
+                if (Data.CurrentMode == AppViewMode.Rescue) // レスキューモード用
+                {
+                    currentPos = e.GetPosition(RescueImage);
+                    actualPos = new Size(RescueImage.ActualWidth, RescueImage.ActualHeight);
+                }
 
                 Data.AnnotationManager.UpdateDrawing(currentPos, actualPos);
             }
@@ -630,8 +678,16 @@ namespace TraceShot.Features
         {
             if (sender is Thumb t && t.DataContext is NoteAnnotation note)
             {
-                note.RelStartX += e.HorizontalChange / VideoPlayer.ActualWidth;
-                note.RelStartY += e.VerticalChange / VideoPlayer.ActualHeight;
+                if (Data.CurrentMode == AppViewMode.Edit)
+                {
+                    note.RelStartX += e.HorizontalChange / VideoPlayer.ActualWidth;
+                    note.RelStartY += e.VerticalChange / VideoPlayer.ActualHeight;
+                }
+                else if (Data.CurrentMode == AppViewMode.Rescue)
+                {
+                    note.RelStartX += e.HorizontalChange / RescueImage.ActualWidth;
+                    note.RelStartY += e.VerticalChange / RescueImage.ActualHeight;
+                }
             }
         }
 
@@ -640,9 +696,17 @@ namespace TraceShot.Features
             if (sender is Thumb t && t.DataContext is NoteAnnotation note)
                 if (!note.IsEditing) // 編集中は移動させない設定
                 {
-                    // 動画プレイヤーのサイズを基準に、相対的な移動量を加算
-                    note.RelX += e.HorizontalChange / VideoPlayer.ActualWidth;
-                    note.RelY += e.VerticalChange / VideoPlayer.ActualHeight;
+                    if (Data.CurrentMode == AppViewMode.Edit)
+                    {
+                        // 動画プレイヤーのサイズを基準に、相対的な移動量を加算
+                        note.RelX += e.HorizontalChange / VideoPlayer.ActualWidth;
+                        note.RelY += e.VerticalChange / VideoPlayer.ActualHeight;
+                    }
+                    else if(Data.CurrentMode == AppViewMode.Rescue)
+                    {
+                        note.RelX += e.HorizontalChange / RescueImage.ActualWidth;
+                        note.RelY += e.VerticalChange / RescueImage.ActualHeight;
+                    }
 
                     // 念のため、キャンバスからはみ出さないように制限（0.0 〜 1.0）
                     note.RelX = Math.Clamp(note.RelX, 0, 1);
@@ -654,9 +718,18 @@ namespace TraceShot.Features
         {
             if (sender is Thumb t && t.DataContext is RectAnnotation rect)
             {
-                // 変化量(px) / 動画プレイヤーの現在のサイズ(px) = 相対変化量
-                rect.RelX += e.HorizontalChange / VideoPlayer.ActualWidth;
-                rect.RelY += e.VerticalChange / VideoPlayer.ActualHeight;
+                if (Data.CurrentMode == AppViewMode.Edit)
+                {
+                    // 変化量(px) / 動画プレイヤーの現在のサイズ(px) = 相対変化量
+                    rect.RelX += e.HorizontalChange / VideoPlayer.ActualWidth;
+                    rect.RelY += e.VerticalChange / VideoPlayer.ActualHeight;
+                }
+                else if (Data.CurrentMode == AppViewMode.Rescue)
+                {
+                    rect.RelX += e.HorizontalChange / RescueImage.ActualWidth;
+                    rect.RelY += e.VerticalChange / RescueImage.ActualHeight;
+                }
+
             }
         }
 
@@ -666,6 +739,12 @@ namespace TraceShot.Features
 
             double deltaX = e.HorizontalChange / VideoPlayer.ActualWidth;
             double deltaY = e.VerticalChange / VideoPlayer.ActualHeight;
+
+            if (Data.CurrentMode == AppViewMode.Rescue) // レスキューモード用
+            {
+                deltaX = e.HorizontalChange / RescueImage.ActualWidth;
+                deltaY = e.VerticalChange / RescueImage.ActualHeight;
+            }
 
             switch (t.Tag?.ToString())
             {
@@ -895,47 +974,6 @@ namespace TraceShot.Features
             // MainWindowを再表示してアクティブにする
             this.Show();
             this.Activate();
-        }
-
-        private void Timer_Tick(object? sender, EventArgs e)
-        {
-            if (VideoPlayer.NaturalDuration.HasTimeSpan)
-            {
-                TimelineSlider.Maximum = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
-                string current = VideoPlayer.Position.ToString(@"mm\:ss");
-                string total = VideoPlayer.NaturalDuration.TimeSpan.ToString(@"mm\:ss");
-                TimeText.Text = $"{current} / {total}";
-
-                bool isUserInteracting = _isDragging || Mouse.LeftButton == MouseButtonState.Pressed;
-                if (!isUserInteracting)
-                {
-                    TimelineSlider.Value = VideoPlayer.Position.TotalSeconds;
-                }
-
-                if (_isPlaying)
-                {
-                    if (StopAtPointCheckBox.IsChecked ?? false)
-                    {
-                        // 現在のポジション付近にエントリーが存在するか
-                        var entry = RecService.Instance.Evidence.Entries
-                            .Where(bm => Math.Abs(bm.Time.TotalSeconds - VideoPlayer.Position.TotalSeconds) < 0.1)
-                            .OrderBy(bm => bm.Time)
-                            .FirstOrDefault();
-
-                        if (entry != null)
-                        {
-                            if (Data.SelectedItem != entry)
-                            {
-                                Data.SelectedItem = entry;
-                            }
-                        }
-                        else
-                        {
-                            Data.SelectedItem = null;
-                        }
-                    }
-                }
-            }
         }
 
         private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -1204,7 +1242,7 @@ namespace TraceShot.Features
             // UIスレッドで実行
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                if (RecordingOverlay.Visibility != Visibility.Visible) return;
+                if (RecordingModeGrid.Visibility != Visibility.Visible) return;
 
                 var data = e.BitmapData;
                 if (data == null) return;
@@ -1249,13 +1287,37 @@ namespace TraceShot.Features
         {
             if (TimelineListBox.SelectedItem is Bookmark selected)
             {
-                if (!_isInternalSelectionChange)
+                // --- 救済モード時の画像更新 ---
+                if (Data.CurrentMode == AppViewMode.Rescue)
                 {
-                    VideoPlayer.Position = selected.Time;
-                    PlayerPause(true);
-                    Data.StatusText = $"Seek: {selected.Time}";
+                    if (File.Exists(selected.ImagePath))
+                    {
+                        var bitmap = Data.LoadImageFromFile(selected.ImagePath);
+                        if (bitmap != null)
+                        {
+                            Data.RescueImageSource = bitmap;
+                            //Data.RescueImageWidth = bitmap.PixelWidth;
+                            //Data.RescueImageHeight = bitmap.PixelHeight;
+
+                            // レイアウトを強制更新してCanvasサイズを確定させる
+                            RescueModeGrid.UpdateLayout();
+                        }
+                    }
                 }
-                // マネージャーの表示リストを切り替える
+                else if (Data.CurrentMode == AppViewMode.Edit)
+                {
+                    if (!_isInternalSelectionChange)
+                    {
+                        VideoPlayer.Position = selected.Time;
+                        PlayerPause(true);
+                        Data.StatusText = $"Seek: {selected.Time}";
+                    }
+                }
+
+                // 必要ないと思われる　注釈のロード（基準サイズを現在の表示モードに合わせて渡す）
+                //double targetWidth = (Data.CurrentMode == AppViewMode.Rescue) ? Data.RescueImageWidth : VideoPlayer.ActualWidth;
+                //double targetHeight = (Data.CurrentMode == AppViewMode.Rescue) ? Data.RescueImageHeight : VideoPlayer.ActualHeight;
+
                 Data.AnnotationManager.LoadAnnotationsFromBookmark(selected);
             }
             else
@@ -1485,12 +1547,11 @@ namespace TraceShot.Features
         {
             if (ModeToggleButton.IsChecked == true)
             {
-                Data.IsEditMode = true;
-                //RefreshDrawingCanvas();
+                Data.CurrentMode = AppViewMode.Edit;
             }
             else
             {
-                Data.IsEditMode = false;
+                Data.CurrentMode = AppViewMode.Recording;
             }
         }
 

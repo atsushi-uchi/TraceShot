@@ -33,6 +33,7 @@
         <conv:RelativeToAbsoluteConverter x:Key="RelToAbsConverter"/>
         <conv:RectConverter x:Key="RectConverter"/>
         <conv:GroupNameConverter x:Key="GroupNameConverter"/>
+        <conv:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
         <Style x:Key="StandardToggleSwitchStyle" TargetType="ToggleButton">
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="20"/>
@@ -314,8 +315,8 @@
 
         <DataTemplate DataType="{x:Type ctrl:GuardAnnotation}">
             <Grid Background="Transparent" 
-                  Width="{Binding ActualWidth, ElementName=VideoPlayer}"
-                  Height="{Binding ActualHeight, ElementName=VideoPlayer}"
+                  Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                  Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                   IsHitTestVisible="True" />
         </DataTemplate>
 
@@ -324,25 +325,25 @@
                 <Canvas.Left>
                     <MultiBinding Converter="{StaticResource RelToAbsConverter}" Mode="TwoWay">
                         <Binding Path="RelX"/>
-                        <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                        <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                     </MultiBinding>
                 </Canvas.Left>
                 <Canvas.Top>
                     <MultiBinding Converter="{StaticResource RelToAbsConverter}" Mode="TwoWay">
                         <Binding Path="RelY"/>
-                        <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                        <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                     </MultiBinding>
                 </Canvas.Top>
                 <Canvas.Width>
                     <MultiBinding Converter="{StaticResource RelToAbsConverter}" Mode="TwoWay">
                         <Binding Path="RelWidth"/>
-                        <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                        <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                     </MultiBinding>
                 </Canvas.Width>
                 <Canvas.Height>
                     <MultiBinding Converter="{StaticResource RelToAbsConverter}" Mode="TwoWay">
                         <Binding Path="RelHeight"/>
-                        <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                        <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                     </MultiBinding>
                 </Canvas.Height>
 
@@ -457,25 +458,25 @@
                     <Line.X1>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelStartX"/>
-                            <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                            <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                         </MultiBinding>
                     </Line.X1>
                     <Line.Y1>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelStartY"/>
-                            <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                            <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                         </MultiBinding>
                     </Line.Y1>
                     <Line.X2>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelX"/>
-                            <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                            <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                         </MultiBinding>
                     </Line.X2>
                     <Line.Y2>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelY"/>
-                            <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                            <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                         </MultiBinding>
                     </Line.Y2>
                 </Line>
@@ -490,13 +491,13 @@
                     <Canvas.Left>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelStartX"/>
-                            <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                            <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                         </MultiBinding>
                     </Canvas.Left>
                     <Canvas.Top>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelStartY"/>
-                            <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                            <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                         </MultiBinding>
                     </Canvas.Top>
                 </Thumb>
@@ -505,14 +506,14 @@
                     <Canvas.Left>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelX"/>
-                            <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                            <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                             <Binding Path="ActualTextWidth"/>
                         </MultiBinding>
                     </Canvas.Left>
                     <Canvas.Top>
                         <MultiBinding Converter="{StaticResource RelToAbsConverter}">
                             <Binding Path="RelY"/>
-                            <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                            <Binding Path="ActualHeight" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                             <Binding Path="ActualTextHeight"/>
                         </MultiBinding>
                     </Canvas.Top>
@@ -664,28 +665,22 @@
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0" Background="Black">
-                <MediaElement x:Name="VideoPlayer"
-                              Source="{Binding VideoSource}"
-                      Stretch="Uniform"
-                      LoadedBehavior="Manual" 
-                      UnloadedBehavior="Stop" 
-                      ScrubbingEnabled="True"
-                      MediaOpened="VideoPlayer_MediaOpened"
-                      MediaFailed="VideoPlayer_MediaFailed"
-                      MediaEnded="VideoPlayer_MediaEnded">
-                    <MediaElement.Style>
-                        <Style TargetType="MediaElement">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </MediaElement.Style>
-                </MediaElement>
+                <Grid x:Name="EditModeGrid"
+                      Visibility="{Binding CurrentMode,
+                                   Converter={StaticResource EnumToVisibilityConverter},
+                                   ConverterParameter=Edit}">
 
-                <ItemsControl x:Name="AnnotationItemsControl" ItemsSource="{Binding Annotations}"
+                    <MediaElement x:Name="VideoPlayer"
+                              Source="{Binding VideoSource}"
+                              Stretch="Uniform"
+                              LoadedBehavior="Manual" 
+                              UnloadedBehavior="Stop" 
+                              ScrubbingEnabled="True"
+                              MediaOpened="VideoPlayer_MediaOpened"
+                              MediaFailed="VideoPlayer_MediaFailed"
+                              MediaEnded="VideoPlayer_MediaEnded"/>
+
+                    <ItemsControl ItemsSource="{Binding AnnotationManager.Annotations}"
                           Width="{Binding ActualWidth, ElementName=VideoPlayer}"
                           Height="{Binding ActualHeight, ElementName=VideoPlayer}"
                           Background="Transparent" 
@@ -693,62 +688,116 @@
                           MouseDown="DrawingCanvas_MouseDown" 
                           MouseMove="DrawingCanvas_MouseMove"
                           MouseUp="DrawingCanvas_MouseUp">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <Canvas x:Name="AnnotationCanvas" 
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas x:Name="AnnotationCanvas" 
                                     Background="Transparent" IsItemsHost="True"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
 
-                    <ItemsControl.ItemContainerStyle>
-                        <Style TargetType="ContentPresenter">
-                            <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}"/>
-                            <Setter Property="Canvas.Left">
-                                <Setter.Value>
-                                    <MultiBinding Converter="{StaticResource RelToAbsConverter}">
-                                        <Binding Path="RelX"/>
-                                        <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
-                                    </MultiBinding>
-                                </Setter.Value>
-                            </Setter>
-                            <Setter Property="Canvas.Top">
-                                <Setter.Value>
-                                    <MultiBinding Converter="{StaticResource RelToAbsConverter}">
-                                        <Binding Path="RelY"/>
-                                        <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
-                                    </MultiBinding>
-                                </Setter.Value>
-                            </Setter>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Converter={StaticResource TypeNameConverter}}" Value="NoteAnnotation">
-                                    <Setter Property="Canvas.Left" Value="0"/>
-                                    <Setter Property="Canvas.Top" Value="0"/>
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding Converter={StaticResource TypeNameConverter}}" Value="NoteAnnotation">
-                                    <Setter Property="Panel.ZIndex" Value="100"/>
-                                    <Setter Property="Canvas.Left" Value="0"/>
-                                    <Setter Property="Canvas.Top" Value="0"/>
-                                </DataTrigger>
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}"/>
+                                <Setter Property="Canvas.Left">
+                                    <Setter.Value>
+                                        <MultiBinding Converter="{StaticResource RelToAbsConverter}">
+                                            <Binding Path="RelX"/>
+                                            <Binding Path="ActualWidth" ElementName="VideoPlayer"/>
+                                        </MultiBinding>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="Canvas.Top">
+                                    <Setter.Value>
+                                        <MultiBinding Converter="{StaticResource RelToAbsConverter}">
+                                            <Binding Path="RelY"/>
+                                            <Binding Path="ActualHeight" ElementName="VideoPlayer"/>
+                                        </MultiBinding>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Converter={StaticResource TypeNameConverter}}" Value="NoteAnnotation">
+                                        <Setter Property="Canvas.Left" Value="0"/>
+                                        <Setter Property="Canvas.Top" Value="0"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Converter={StaticResource TypeNameConverter}}" Value="NoteAnnotation">
+                                        <Setter Property="Panel.ZIndex" Value="100"/>
+                                        <Setter Property="Canvas.Left" Value="0"/>
+                                        <Setter Property="Canvas.Top" Value="0"/>
+                                    </DataTrigger>
 
-                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                    <Setter Property="Panel.ZIndex" Value="100"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ItemsControl.ItemContainerStyle>
-                </ItemsControl>
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="Panel.ZIndex" Value="100"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                    </ItemsControl>
+                </Grid>
 
-                <Grid x:Name="RecordingOverlay">
-                    <Grid.Style>
-                        <Style TargetType="Grid">
-                            <Setter Property="Visibility" Value="Visible" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Grid.Style>
+                <Grid x:Name="RescueModeGrid" 
+                              Visibility="{Binding CurrentMode, 
+                              Converter={StaticResource EnumToVisibilityConverter}, 
+                              ConverterParameter=Rescue}">
+                    <Image x:Name="RescueImage" Stretch="Uniform" Source="{Binding RescueImageSource}" />
+
+                    <ItemsControl ItemsSource="{Binding AnnotationManager.Annotations}"
+                                  Width="{Binding ActualWidth, ElementName=RescueImage}"
+                                  Height="{Binding ActualHeight, ElementName=RescueImage}"
+                                  Background="Transparent" 
+                                  ClipToBounds="True"
+                                  MouseDown="DrawingCanvas_MouseDown" 
+                                  MouseMove="DrawingCanvas_MouseMove"
+                                  MouseUp="DrawingCanvas_MouseUp">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas x:Name="AnnotationCanvas" 
+                                    Background="Transparent" IsItemsHost="True"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}"/>
+                                <Setter Property="Canvas.Left">
+                                    <Setter.Value>
+                                        <MultiBinding Converter="{StaticResource RelToAbsConverter}">
+                                            <Binding Path="RelX"/>
+                                            <Binding Path="ActualWidth" ElementName="RescueImage"/>
+                                        </MultiBinding>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="Canvas.Top">
+                                    <Setter.Value>
+                                        <MultiBinding Converter="{StaticResource RelToAbsConverter}">
+                                            <Binding Path="RelY"/>
+                                            <Binding Path="ActualHeight" ElementName="RescueImage"/>
+                                        </MultiBinding>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Converter={StaticResource TypeNameConverter}}" Value="NoteAnnotation">
+                                        <Setter Property="Canvas.Left" Value="0"/>
+                                        <Setter Property="Canvas.Top" Value="0"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Converter={StaticResource TypeNameConverter}}" Value="NoteAnnotation">
+                                        <Setter Property="Panel.ZIndex" Value="100"/>
+                                        <Setter Property="Canvas.Left" Value="0"/>
+                                        <Setter Property="Canvas.Top" Value="0"/>
+                                    </DataTrigger>
+
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="Panel.ZIndex" Value="100"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                    </ItemsControl>
+                </Grid>
+
+                <Grid x:Name="RecordingModeGrid"
+                             Visibility="{Binding CurrentMode,
+                             Converter={StaticResource EnumToVisibilityConverter},
+                             ConverterParameter=Recording}">
                     <Image x:Name="PreviewImage" Stretch="Uniform" />
                 </Grid>
             </Grid>
@@ -860,14 +909,18 @@
                                          Name="CaesNoEditBox"
                                          Text="{Binding SelectedItem.CaseId, UpdateSourceTrigger=PropertyChanged}" 
                                          VerticalAlignment="Center"
-                                         Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisConverter}}"
-                                         Height="20">
-                                </TextBox>
+                                         Visibility="{Binding CurrentMode,
+                                                      Converter={StaticResource EnumToVisibilityConverter},
+                                                      ConverterParameter=Edit}"
+                                         Height="20"/>
+
                                 <TextBox Grid.Column="1" 
                                          Name="NextNoEditBox" 
                                          Text="{Binding NextNo, UpdateSourceTrigger=PropertyChanged}" 
                                          VerticalAlignment="Center"
-                                         Visibility="{Binding IsEditMode, Converter={StaticResource InverseBoolToVisConverter}}"
+                                         Visibility="{Binding CurrentMode,
+                                                      Converter={StaticResource EnumToVisibilityConverter},
+                                                      ConverterParameter=Recording}"
                                          Height="20"/>
                             </Grid>
                             <UniformGrid Columns="4" Margin="0,0,0,5">
@@ -896,17 +949,10 @@
         <!-- コントロールエリア -->
         <Border Grid.Row="2" Height="60" Background="LightGray" BorderBrush="#DDD" BorderThickness="0,1,0,0">
             <Grid>
-                <StackPanel x:Name="RecordingTimerArea">
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Visible"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
+                <StackPanel x:Name="RecordingTimerArea" 
+                            Visibility="{Binding CurrentMode,
+                                         Converter={StaticResource EnumToVisibilityConverter},
+                                         ConverterParameter=Recording}">
                     <Grid VerticalAlignment="Center" HorizontalAlignment="Center">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="100" />
@@ -946,17 +992,10 @@
                     </Grid>
                 </StackPanel>
 
-                <StackPanel x:Name="PlayerControlsArea" VerticalAlignment="Center">
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Visible"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsEditMode}" Value="False">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
+                <StackPanel x:Name="PlayerControlsArea" VerticalAlignment="Center"
+                            Visibility="{Binding CurrentMode,
+                                         Converter={StaticResource EnumToVisibilityConverter},
+                                         ConverterParameter=Edit}">
 
                     <Grid Margin="20,0">
                         <Grid.RowDefinitions>
@@ -991,18 +1030,10 @@
         <Border Grid.Row="3" Background="#F9F9F9" Padding="10" BorderBrush="#DDD" BorderThickness="0,1,0,0">
             <StackPanel Orientation="Vertical">
                 <!-- 録画パネル -->
-                <StackPanel x:Name="RecordingPanel" Orientation="Horizontal">
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Visible"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
-
+                <StackPanel x:Name="RecordingPanel" Orientation="Horizontal"
+                            Visibility="{Binding CurrentMode, 
+                                         Converter={StaticResource EnumToVisibilityConverter}, 
+                                         ConverterParameter=Recording}">
                     <StackPanel x:Name="RegionPanel" Orientation="Horizontal">
                         <TextBlock Text="録画範囲：" VerticalAlignment="Center" Margin="10,0,5,0" FontSize="11"/>
                         <ComboBox x:Name="ModeComboBox" SelectedIndex="0" Width="80" VerticalContentAlignment="Center">
@@ -1021,18 +1052,10 @@
                 </StackPanel>
 
                 <!-- 再生パネル -->
-                <StackPanel x:Name="PlayerPanel" Orientation="Horizontal">
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Visible"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsEditMode}" Value="False">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
-
+                <StackPanel x:Name="PlayerPanel" Orientation="Horizontal"
+                            Visibility="{Binding CurrentMode, 
+                                         Converter={StaticResource EnumToVisibilityConverter}, 
+                                         ConverterParameter=Edit}">
                     <StackPanel x:Name="PlaySpeedPanel" Orientation="Horizontal">
                         <TextBlock Text="速度:" VerticalAlignment="Center" Margin="10,0,5,0" FontSize="11"/>
                         <ComboBox x:Name="SpeedComboBox" Width="60" SelectedIndex="3" 

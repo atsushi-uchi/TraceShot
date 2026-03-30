@@ -170,7 +170,6 @@ namespace TraceShot.Controls
         {
             if (annotation == null || before == null || after == null) return;
 
-            // 開始時と終了時が全く同じ（1ピクセルも動いていない）なら、スタックに積まない
             if (before.RelX == after.RelX &&
                     before.RelY == after.RelY &&
                     before.RelWidth == after.RelWidth &&
@@ -178,12 +177,9 @@ namespace TraceShot.Controls
                     before.RelStartX == after.RelStartX &&
                     before.RelStartY == after.RelStartY)
             {
-                Debug.WriteLine("変化がないためスタックをスキップしました");
                 return;
             }
-            Debug.WriteLine($"PushUpdateAction {annotation.Id}");
 
-            // 移動距離が極端に小さい場合は無視するロジックを入れても良い
             var action = new UpdateAnnotationAction(this, annotation, before, after, bookmark);
             
             PushAction(action);

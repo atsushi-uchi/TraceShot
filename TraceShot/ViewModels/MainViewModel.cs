@@ -18,6 +18,13 @@ using IDataObject = System.Windows.IDataObject;
 
 namespace TraceShot.ViewModels
 {
+    public enum AppViewMode
+    {
+        Recording, // 録画モード
+        Edit,      // 通常編集モード（動画あり）
+        Rescue     // 非常事態モード（静止画のみ）
+    }
+
     public partial class MainViewModel : ObservableObject
     {
         [ObservableProperty] private AnnotationManager _annotationManager;
@@ -91,11 +98,40 @@ namespace TraceShot.ViewModels
         public RecService Recorder => RecService.Instance;
 
         public ObservableCollection<Bookmark> TimelineEntries => RecService.Instance.Entries;
+
         [ObservableProperty]  private ICollectionView? _timelineView;
 
         [ObservableProperty] private Bookmark? _selectedItem;
 
-        [ObservableProperty] private bool _isEditMode = false;
+        [ObservableProperty] private AppViewMode _currentMode = AppViewMode.Recording;
+
+        //[ObservableProperty] private bool _isEditMode = false;
+        public bool IsEditMode
+        {
+            get => CurrentMode == AppViewMode.Edit || CurrentMode == AppViewMode.Rescue;
+            set
+            {
+                if (value)
+                {
+                    //CurrentMode = AppViewMode.Edit;
+
+                    // 物理ファイルの存在チェックで Edit か Rescue かを最終決定
+                    string videoPath = Path.Combine(RecService.Instance.CurrentFolder, RecService.Instance.Evidence?.VideoFileName ?? "");
+
+                    if (File.Exists(videoPath))
+                        CurrentMode = AppViewMode.Edit;
+                    else
+                        CurrentMode = AppViewMode.Rescue;
+                }
+                else
+                {
+                    // OFFにした時：録画モードへ
+                    CurrentMode = AppViewMode.Recording;
+                }
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CurrentMode));
+            }
+        }
 
         [ObservableProperty] private int _nextNo = 1;
 
@@ -108,8 +144,8 @@ namespace TraceShot.ViewModels
 
         [ObservableProperty] private Uri? _videoSource;
         [ObservableProperty] private string _statusText = "";
-
         [ObservableProperty] private bool _canAddEntry = false;
+        [ObservableProperty] private BitmapSource? _rescueImageSource;
 
         public async Task<bool> LoadEvidenceAsync(string filePath)
         {
@@ -150,18 +186,50 @@ namespace TraceShot.ViewModels
                 {
                     VideoSource = new Uri(videoPath);
                     StatusText = $"読み込み: {loaded.RecMode} {loaded.VideoFileName}";
-                    IsEditMode = true;
-
-                    UpdateTimelineGroups();
-                    CanAddEntry = true;
-                    return true;
                 }
+                else
+                {
+                    StatusText = "動画が見つかりません。静止画編集モードで起動します。";
+                    var firstEntry = loaded.Entries.OrderBy(x => x.Time).FirstOrDefault();
+                    if (firstEntry != null && File.Exists(firstEntry.ImagePath))
+                    {
+                        var bitmap = LoadImageFromFile(firstEntry.ImagePath);
+                        if (bitmap != null)
+                        {
+                            RescueImageSource = bitmap;
+                        }
+                    }
+                }
+                IsEditMode = true;
+                UpdateTimelineGroups();
+                CanAddEntry = true;
+                return true;
             }
             catch (Exception ex)
             {
                 StatusText = $"ファイル読込失敗 {ex.Message}";
+                return false;
             }
-            return false;
+        }
+
+        public BitmapSource? LoadImageFromFile(string path)
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
+
+            try
+            {
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad; // ファイルロックを回避
+                bitmap.UriSource = new Uri(path, UriKind.Absolute);
+                bitmap.EndInit();
+                bitmap.Freeze(); // スレッド間での共有を可能にする
+                return bitmap;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public async Task ExecuteFocusAction(RectAnnotation rect)
@@ -223,7 +291,7 @@ namespace TraceShot.ViewModels
         {
             if (!Enum.TryParse<TestResult>(result, out var resultType)) return;
 
-            if (IsEditMode)
+            if (CurrentMode == AppViewMode.Edit)
             {
                 EditExecuteResult(resultType);
             }
@@ -340,11 +408,6 @@ namespace TraceShot.ViewModels
             var targetAnnotation = target ?? AnnotationManager.SelectedAnnotation;
             if (targetAnnotation is AnnotationBase finalTarget)
             {
-                if (targetAnnotation is NoteAnnotation note)
-                {
-                    Debug.WriteLine($"CopyAnnotation {note.Id} StartX={note.StartX} StartY={note.StartY} RelStartX={note.RelStartX} RelStartY={note.RelStartY}");
-                }
-
                 try
                 {
                     string json = JsonSerializer.Serialize<AnnotationBase>(finalTarget);
@@ -371,12 +434,8 @@ namespace TraceShot.ViewModels
                 var paseted = DeserializeAnnotation(json);
                 if (paseted != null)
                 {
-                    if (paseted is NoteAnnotation note)
-                    {
-                        Debug.WriteLine($"CopyAnnotation {note.Id} StartX={note.StartX} StartY={note.StartY} RelStartX={note.RelStartX} RelStartY={note.RelStartY}");
-                    }
-
                     AnnotationManager.AddPastedAnnotation(bookmark, paseted);
+                    bookmark.Modified();
                 }
             }
         }
