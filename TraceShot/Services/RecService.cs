@@ -329,7 +329,6 @@ namespace TraceShot.Services
             File.WriteAllText(JsonPath, jsonString);
         }
 
-
         public void StartFullscreenRecording(string filePath, string targetDeviceName)
         {
             DisplayRecordingSource? screenSource = null;
@@ -405,6 +404,7 @@ namespace TraceShot.Services
                 IsRecording = false;
                 RecordingTime = "00:00:00";
             });
+            OnRecordingFinished?.Invoke(this, EventArgs.Empty);
         }
 
         private void Recorder_OnRecordingFailed(object? sender, RecordingFailedEventArgs e)

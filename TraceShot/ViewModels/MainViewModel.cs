@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Security.RightsManagement;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Data;

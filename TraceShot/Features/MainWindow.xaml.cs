@@ -131,7 +131,6 @@ namespace TraceShot.Features
             RecService.Instance.RecordingErrorOccurred += (s, error) => Data.SwitchToRescueMode(error);
         }
 
-
         private void InitializeKeyBindings()
         {
             _keyBindings = new()
@@ -497,43 +496,28 @@ namespace TraceShot.Features
         {
             if (sender is Thumb thumb && thumb.DataContext is AnnotationBase annotation)
             {
-                // 1. 基準となる要素（Parent）を特定する
-                FrameworkElement referenceElement;
-                if (Data.CurrentMode == AppViewMode.Rescue)
-                {
-                    // 救済モードなら画像表示用のコントロール（例: RescueImage）
-                    referenceElement = RescueImage;
-                }
-                else
-                {
-                    // 通常モードなら VideoPlayer
-                    referenceElement = VideoPlayer;
-                }
+                // 1. 基準要素の特定と有効性チェック
+                FrameworkElement referenceElement = (Data.CurrentMode == AppViewMode.Rescue) ? RescueImage : VideoPlayer;
+                if (!referenceElement.IsVisible) return;
 
-
-                // 2. その要素に基づいた現在の座標を取得
+                // 2. 座標取得とテキスト中心オフセット補正
                 var transform = thumb.TransformToVisual(referenceElement);
                 Point currentPos = transform.Transform(new Point(0, 0));
 
-                // 2. テキストブロック（終点）の場合のみ、中心オフセットを考慮する
                 var tag = thumb.Tag?.ToString() ?? "";
                 if (annotation is NoteAnnotation note && tag == "End")
                 {
-                    // マウス位置(左上)に、コントロールの幅・高さの半分を足して「中心」を求める
-                    // ※ XAML側で RenderTransform や Margin で中心をずらしている場合は、
-                    // その逆算値をここで currentPos に加算します。
                     currentPos.X += note.ActualTextWidth / 2.0;
                     currentPos.Y += note.ActualTextHeight / 2.0;
                 }
 
-                // 3. 正確な ActualSize を取得
-                var actualSize = new Size
-                {
-                    Width = referenceElement.ActualWidth,
-                    Height = referenceElement.ActualHeight,
-                };
+                var actualSize = new Size(referenceElement.ActualWidth, referenceElement.ActualHeight);
 
-                // 4. アン一ドゥ/リドゥ用の処理（ここでも相対座標を扱う）
+                // --- 修正：先に座標を確定させる ---
+                // これにより annotation 内部の RelX 等が最新になる
+                Data.AnnotationManager.CompleteDrawing(annotation, currentPos, actualSize, tag);
+
+                // 4. アン一ドゥ/リドゥ用の処理（最新の状態を保存）
                 if (Data.AnnotationManager.TryConsumeUpdateStart(annotation.Id, out var before))
                 {
                     var after = new AnnotationManager.UpdateState
@@ -543,15 +527,27 @@ namespace TraceShot.Features
                         RelWidth = annotation.RelWidth,
                         RelHeight = annotation.RelHeight,
                     };
+
+                    // Note特有のプロパティも忘れずに
+                    if (annotation is NoteAnnotation noteAnno)
+                    {
+                        after.RelStartX = noteAnno.RelStartX;
+                        after.RelStartY = noteAnno.RelStartY;
+                    }
+
                     Data.AnnotationManager.PushUpdateAction(annotation, before!, after, Data.SelectedItem);
                 }
 
-                // 5. 座標確定処理
-                Data.AnnotationManager.CompleteDrawing(annotation, currentPos, actualSize, tag);
-
-                if (TimelineListBox.SelectedItem is Bookmark bookmark)
+                // --- 5. ダーティフラグ更新 ---
+                if (annotation is CropAnnotation)
                 {
-                    bookmark.IsDirty = true;
+                    foreach (var bookmark in Data.Recorder.Entries) { bookmark.Modified(); }
+
+                    Data.AnnotationManager.RefreshCropOverlay();
+                }
+                else if (TimelineListBox.SelectedItem is Bookmark bookmark)
+                {
+                    bookmark.Modified();
                 }
             }
         }
@@ -841,21 +837,25 @@ namespace TraceShot.Features
             {
                 RecService.Instance.Evidence.CropState = CropState.Editing;
                 var crop = new CropAnnotation();
-                //crop.State = CropState.Editing;
                 crop.RelWidth = 0.5;
                 crop.RelHeight = 0.5;
-                // 中央に配置するための座標計算
-                // (1.0 - 0.5) / 2 = 0.25
                 crop.RelX = (1.0 - crop.RelWidth) / 2;
                 crop.RelY = (1.0 - crop.RelHeight) / 2;
                 Data.AnnotationManager.Annotations.Add(crop);
             }
+
             Data.AnnotationManager.RefreshCropOverlay();
         }
 
         private void CropEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             RecService.Instance.Evidence.CropState = CropState.Confirmed;
+
+            foreach(var bookmark in Data.Recorder.Entries)
+            {
+                bookmark.Modified();
+            }
+
             Data.AnnotationManager.RefreshCropOverlay();
         }
 
@@ -1132,9 +1132,6 @@ namespace TraceShot.Features
             // フラグ更新
             _isRecording = true;
 
-            //// イベント登録
-            //RecService.Instance.OnPreviewFrameReceived += RecorderManager_OnPreviewFrameReceived;
-
             VideoPlayer.Stop();
 
             RecordingIcon.Foreground = Brushes.Black;
@@ -1148,8 +1145,6 @@ namespace TraceShot.Features
             // フラグ更新
             _isRecording = false;
 
-            // イベント解除
-            //RecService.Instance.OnPreviewFrameReceived -= RecorderManager_OnPreviewFrameReceived;
             Data.PreviewBitmap = null;
 
             PreviewImage.Source = ImageService.GetReadyStandardImage();
@@ -1251,8 +1246,6 @@ namespace TraceShot.Features
                 // ビットマップの初期化/再作成
                 if (Data.PreviewBitmap == null || Data.PreviewBitmap.PixelWidth != width || Data.PreviewBitmap.PixelHeight != height)
                 {
-                    // ScreenRecorderLibのBitmapDataは通常 Bgr32 (24bitの場合は Bgr24)
-                    // アルファチャネルを含む場合は Pbgra32 など調整が必要な場合があります
                     Data.PreviewBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr32, null);
                     PreviewImage.Source = Data.PreviewBitmap;
                 }
@@ -1260,8 +1253,6 @@ namespace TraceShot.Features
                 Data.PreviewBitmap.Lock();
                 try
                 {
-                    // BitmapData.Scan0 (IntPtr) から WriteableBitmap へコピー
-                    // 第3引数の bufferSize は Stride * Height で計算
                     int bufferSize = data.Stride * height;
 
                     Data.PreviewBitmap.WritePixels(
