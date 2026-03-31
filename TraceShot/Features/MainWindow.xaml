@@ -665,6 +665,11 @@
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0" Background="Black">
+                <Border x:Name="ShutterEffectPanel" 
+                        Background="AliceBlue" 
+                        Opacity="0" 
+                        IsHitTestVisible="False" 
+                        Panel.ZIndex="9999"/>
                 <Grid x:Name="EditModeGrid"
                       Visibility="{Binding CurrentMode,
                                    Converter={StaticResource EnumToVisibilityConverter},

@@ -138,6 +138,8 @@ namespace TraceShot.ViewModels
         public Func<TimeSpan>? GetCurrentPosition { get; set; }
         public Func<VideoSnapshotInfo>? GetVideoSnapshotFunc { get; set; }
 
+        public event EventHandler? ShutterRequested;
+
         public WriteableBitmap? PreviewBitmap;
 
         [ObservableProperty] private Uri? _videoSource;
@@ -341,7 +343,8 @@ namespace TraceShot.ViewModels
                         Note = "",
                         Icon = "📸"
                     };
-                    SoundService.Instance.PlayShutter();
+                    ShutterRequested?.Invoke(this, EventArgs.Empty);
+                    SelectedItem = entry;
                     TimelineEntries.Add(entry);
                     UpdateTimelineGroups();
                     RefreshCanvas?.Invoke();
@@ -369,7 +372,7 @@ namespace TraceShot.ViewModels
                 NextNo++;
             }
 
-            SoundService.Instance.PlayShutter();
+            ShutterRequested?.Invoke(this, EventArgs.Empty);
 
             if (PreviewBitmap != null)
             {
@@ -377,10 +380,10 @@ namespace TraceShot.ViewModels
                 entry.ImagePath = path;
             }
 
+            ScrollIntoViewRequested?.Invoke(entry);
+            SelectedItem = entry;
             TimelineEntries.Add(entry);
             UpdateTimelineGroups();
-            SelectedItem = entry;
-            ScrollIntoViewRequested?.Invoke(entry);
         }
 
         public void UpdateTimelineGroups()

@@ -8,6 +8,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Shell;
@@ -111,6 +112,10 @@ namespace TraceShot.Features
                         });
                     }
                 }
+            };
+            Data.ShutterRequested += (sender, args) =>
+            {
+                TriggerShutterEffect();
             };
 
             var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
@@ -1222,7 +1227,7 @@ namespace TraceShot.Features
 
         private void AddClickTriggerBookmark(int x, int y)
         {
-            SoundService.Instance.PlayShutter();
+            TriggerShutterEffect();
 
             if (Data.PreviewBitmap is not null)
             {
@@ -1738,6 +1743,31 @@ namespace TraceShot.Features
         {
             //Debug.WriteLine("Redo clicked");
             Data.AnnotationManager.Redo();
+        }
+
+        public void TriggerShutterEffect()
+        {
+            // UIスレッドで実行することを保証
+            App.Current.Dispatcher.Invoke(() =>
+            {
+                var animation = new DoubleAnimationUsingKeyFrames();
+
+                // 1. 0.03秒で不透明度 1.0 (完全に真っ白にする)
+                // 瞬きよりも速い速度で叩きつけることで「強い閃光」を演出します
+                animation.KeyFrames.Add(new DiscreteDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(0.03))));
+
+                // 2. 0.1秒間、高輝度を維持 (0.8)
+                // ここで「溜め」を作ることで、ユーザーの網膜に焼き付けます
+                animation.KeyFrames.Add(new LinearDoubleKeyFrame(0.8, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(0.1))));
+
+                // 3. 0.4秒かけて、ゆっくりとフェードアウト
+                // この「余韻」が安心感に繋がります
+                animation.KeyFrames.Add(new SplineDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(0.5)), new KeySpline(0.4, 0, 1, 1)));
+
+                ShutterEffectPanel.BeginAnimation(Border.OpacityProperty, animation);
+
+                SoundService.Instance.PlayShutter();
+            });
         }
     }
 }
