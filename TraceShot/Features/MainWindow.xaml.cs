@@ -998,19 +998,23 @@ namespace TraceShot.Features
             }
         }
 
-        private void Slider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
+        private void Slider_DragStarted(object sender, DragStartedEventArgs e)
         {
             _isDragging = true;
             SliderToolTip.Visibility = Visibility.Visible;
             SliderToolTip.IsOpen = true;
         }
 
-        private void Slider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+        private void Slider_DragCompleted(object sender, DragCompletedEventArgs e)
         {
             _isDragging = false;
             SliderToolTip.IsOpen = false;
             SliderToolTip.Visibility = Visibility.Collapsed;
+            AfterSliderChange();
+        }
 
+        private void AfterSliderChange()
+        {
             double currentValue = TimelineSlider.Value;
             VideoPlayer.Position = TimeSpan.FromSeconds(currentValue);
 
@@ -1028,8 +1032,14 @@ namespace TraceShot.Features
             {
                 Data.SelectedItem = entry;
             }
+            else
+            {
+                Data.SelectedItem = null;
+            }
+            PlayerPause(false);
+            Data.StatusText = $"Seek: {VideoPlayer.Position}";
         }
-        
+
         private void Slider_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
             // ドラッグ中のみ処理を行う
@@ -1047,7 +1057,7 @@ namespace TraceShot.Features
 
                 // つまみの位置に合わせてツールチップを移動
                 SliderToolTip.PlacementTarget = slider;
-                SliderToolTip.Placement = System.Windows.Controls.Primitives.PlacementMode.Relative;
+                SliderToolTip.Placement = PlacementMode.Relative;
                 SliderToolTip.HorizontalOffset = mousePos.X;
                 SliderToolTip.VerticalOffset = -30;
             }
@@ -1055,14 +1065,7 @@ namespace TraceShot.Features
         
         private void Slider_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            var slider = sender as Slider;
-            if (slider != null)
-            {
-                var pos = TimeSpan.FromSeconds(slider.Value);
-                VideoPlayer.Position = pos;
-                PlayerPause(false);
-                Data.StatusText = $"Seek: {pos}";
-            }
+            AfterSliderChange();
         }
 
         private void PlayPauseButton_Click(object? sender, RoutedEventArgs? e)
@@ -1290,8 +1293,6 @@ namespace TraceShot.Features
                         if (bitmap != null)
                         {
                             Data.RescueImageSource = bitmap;
-                            //Data.RescueImageWidth = bitmap.PixelWidth;
-                            //Data.RescueImageHeight = bitmap.PixelHeight;
 
                             // レイアウトを強制更新してCanvasサイズを確定させる
                             RescueModeGrid.UpdateLayout();
@@ -1307,10 +1308,6 @@ namespace TraceShot.Features
                         Data.StatusText = $"Seek: {selected.Time}";
                     }
                 }
-
-                // 必要ないと思われる　注釈のロード（基準サイズを現在の表示モードに合わせて渡す）
-                //double targetWidth = (Data.CurrentMode == AppViewMode.Rescue) ? Data.RescueImageWidth : VideoPlayer.ActualWidth;
-                //double targetHeight = (Data.CurrentMode == AppViewMode.Rescue) ? Data.RescueImageHeight : VideoPlayer.ActualHeight;
 
                 Data.AnnotationManager.LoadAnnotationsFromBookmark(selected);
             }

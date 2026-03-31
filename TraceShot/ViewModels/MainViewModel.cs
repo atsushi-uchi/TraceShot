@@ -344,10 +344,10 @@ namespace TraceShot.ViewModels
                         Icon = "📸"
                     };
                     ShutterRequested?.Invoke(this, EventArgs.Empty);
-                    SelectedItem = entry;
                     TimelineEntries.Add(entry);
                     UpdateTimelineGroups();
                     RefreshCanvas?.Invoke();
+                    ScrollIntoViewRequested?.Invoke(entry);
                 }
             }
         }
@@ -380,10 +380,9 @@ namespace TraceShot.ViewModels
                 entry.ImagePath = path;
             }
 
-            ScrollIntoViewRequested?.Invoke(entry);
-            SelectedItem = entry;
             TimelineEntries.Add(entry);
             UpdateTimelineGroups();
+            ScrollIntoViewRequested?.Invoke(entry);
         }
 
         public void UpdateTimelineGroups()
@@ -414,6 +413,10 @@ namespace TraceShot.ViewModels
             App.Current.Dispatcher.Invoke(() =>
             {
                 TimelineView?.Refresh();
+                if (SelectedItem != null)
+                {
+                    ScrollIntoViewRequested?.Invoke(SelectedItem);
+                }
             });
         }
 
