@@ -26,27 +26,16 @@
 
         // 参照用
         public Bookmark OriginalBookmark { get; set; }
-
-        public string ImagePath { get; set; }
-
-        [ObservableProperty] private BitmapSource _snapshotImage;
-
+        [ObservableProperty] private BitmapSource? _snapshotImage;
         [ObservableProperty] private bool _isSelected = true;
-
         [ObservableProperty] private int _order;
-
         [ObservableProperty] private double _scale;
-
         [ObservableProperty] private string _serialNumber = "";
-
         [ObservableProperty] private int _caseId;
         [ObservableProperty] private int _stepId;
-
-        [ObservableProperty] private string _note;
+        [ObservableProperty] private string _note = "";
+        [ObservableProperty] private string _exportImagePath = "";
 
         public TimeSpan Time => OriginalBookmark.Time;
-
-        //public string Note => OriginalBookmark.Note ?? "";
-        public ExportItemViewModel() { }
     }
 }

@@ -18,6 +18,7 @@ namespace TraceShot.Features
     using System.Windows.Input;
     using System.Windows.Media;
     using System.Windows.Media.Animation;
+    using System.Windows.Media.Imaging;
     using TraceShot.Models;
     using TraceShot.Services;
     using TraceShot.ViewModels;
@@ -31,11 +32,8 @@ namespace TraceShot.Features
         public ObservableCollection<ExportItemViewModel> ExportItems { get; set; } = [];
         private bool _isPreviewMode = false;
         private int _currentIdx = 0;
-
         private readonly ExportCacheManager _cacheManager;
-
         [ObservableProperty] private ExportItemViewModel? _selectedPreviewItem;
-
         [ObservableProperty] private string? _previewCounterText;
 
         public ExportWindow(ExportCacheManager cacheManager)
@@ -171,7 +169,6 @@ namespace TraceShot.Features
             }
             return 1.0; // デフォルト
         }
-
 
         private void Browse_Click(object sender, RoutedEventArgs e)
         {
@@ -800,22 +797,56 @@ namespace TraceShot.Features
 
         private async void StartCapture_Click(object sender, RoutedEventArgs e)
         {
-            if(Owner is MainWindow main)
+            if (Owner is MainWindow main && main.DataContext is MainViewModel mvm)
             {
                 var scale = GetSelectedScale();
                 var items = ExportItems.Where(x => x.IsSelected);
                 int index = 0;
+
+                // メイン画面のモードを判定
+                bool isRescueMode = mvm.CurrentMode == AppViewMode.Rescue;
+
                 await RunExportTask(async (progress) =>
                 {
                     foreach (var item in items)
                     {
+                        // 1. キャッシュがあればそれを利用（共通）
                         var cached = _cacheManager.GetCachedImage(item.OriginalBookmark.Id, scale);
-                        if (cached is null || item.OriginalBookmark.IsDirty)
+                        if (cached != null && !item.OriginalBookmark.IsDirty)
+                        {
+                            item.SnapshotImage = cached;
+                        }
+                        else if (isRescueMode) // 2. 救済モードの場合：ディスクから直接ロード
+                        {
+                            var snapshot = CreateSnapshotFromImageFile(mvm, item.OriginalBookmark.ImagePath);
+                            if (snapshot != null)
+                            {
+                                var result = RecService.Instance.SaveImage(item.OriginalBookmark, snapshot, scale, false);
+
+                                if (result != null && result.Value.Bitmap != null)
+                                {
+                                    // 1. キャッシュを新しい画像で上書き（重要）
+                                    _cacheManager.RegisterCache(item.OriginalBookmark.Id, result.Value.Bitmap, scale);
+
+                                    // 2. プレビュー用のプロパティにセット
+                                    // ここで Setter が走り、PropertyChanged 通知によって UI が更新されるはずです
+                                    item.SnapshotImage = result.Value.Bitmap;
+
+                                    // 3. エクスポート用のパスも更新（もしプロパティを追加済みなら）
+                                    item.ExportImagePath = result.Value.Path;
+
+                                    item.OriginalBookmark.IsDirty = false;
+                                }
+                            }
+                        }
+                        else // 3. 通常モードの場合：動画をシークしてキャプチャ（既存ロジック）
                         {
                             main.VideoPlayer.Position = item.OriginalBookmark.Time;
-                            await Task.Delay(500);
+                            await Task.Delay(500); // シーク待ち
+
                             var snapshot = new VideoSnapshotInfo(main.VideoPlayer);
                             var result = RecService.Instance.SaveImage(item.OriginalBookmark, snapshot, scale);
+
                             if (result != null && result.Value.Bitmap != null)
                             {
                                 _cacheManager.RegisterCache(item.OriginalBookmark.Id, result.Value.Bitmap, scale);
@@ -823,15 +854,55 @@ namespace TraceShot.Features
                                 item.OriginalBookmark.IsDirty = false;
                             }
                         }
-                        else
-                        {
-                            item.SnapshotImage = cached;
-                        }
+
                         progress.Report((++index) * 100 / items.Count());
                     }
                 });
-                StatusText.Text = "撮影完了。出力する画像を選択・確認してください。";
+
+                StatusText.Text = isRescueMode ? "画像読み込み完了。" : "撮影完了。";
+                StatusText.Text += "出力する画像を選択・確認してください。";
                 OutputGroupBox.IsEnabled = true;
+            }
+        }
+
+        private VideoSnapshotInfo? CreateSnapshotFromImageFile(MainViewModel mvm, string path)
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
+
+            try
+            {
+                // 画像をロード
+                var bitmap = mvm.LoadImageFromFile(path); // 以前作成した、ロックしない読み込みメソッド
+                if (bitmap == null) return null;
+
+                // VideoBrush を画像で作成
+                var imageControl = new Image
+                {
+                    Source = bitmap,
+                    Width = bitmap.PixelWidth,
+                    Height = bitmap.PixelHeight
+                };
+
+                // UIに配置されていない要素をレンダリング対象にするための儀式
+                imageControl.Measure(new Size(bitmap.PixelWidth, bitmap.PixelHeight));
+                imageControl.Arrange(new Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight));
+
+                var brush = new VisualBrush(imageControl);
+
+                // VideoSnapshotInfo のコンストラクタ、またはプロパティ初期化
+                // ※クラス定義に合わせて調整してください
+                return new VideoSnapshotInfo
+                {
+                    VideoBrush = brush,
+                    NaturalWidth = bitmap.PixelWidth,
+                    NaturalHeight = bitmap.PixelHeight,
+                    ActualViewWidth = bitmap.PixelWidth,
+                    ActualViewHeight = bitmap.PixelHeight,
+                };
+            }
+            catch
+            {
+                return null;
             }
         }
 

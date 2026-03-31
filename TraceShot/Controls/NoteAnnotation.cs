@@ -1,6 +1,4 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using System.Diagnostics;
-using System.Text.Json.Serialization;
 using Point = System.Windows.Point;
 using Size = System.Windows.Size;
 
@@ -57,11 +55,15 @@ namespace TraceShot.Controls
             {
                 StartX = pos.X;
                 StartY = pos.Y;
+                RelStartX = Normalize(pos.X, size.Width);
+                RelStartY = Normalize(pos.Y, size.Height);
             }
             else if (tag == "End")
             {
                 X = pos.X;
                 Y = pos.Y;
+                RelX = Normalize(pos.X, size.Width);
+                RelY = Normalize(pos.Y, size.Height);
             }
             return true;
         }

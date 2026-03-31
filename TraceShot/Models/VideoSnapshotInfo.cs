@@ -6,12 +6,12 @@ namespace TraceShot.Models
 {
     public class VideoSnapshotInfo
     {
-        public int NaturalWidth { get; }
-        public int NaturalHeight { get; }
-        public VisualBrush VideoBrush { get; }
-        public double DpiScale { get; }
-        public double ActualViewWidth { get; }
-        public double ActualViewHeight { get; }
+        public int NaturalWidth { get; set; }
+        public int NaturalHeight { get; set; }
+        public VisualBrush? VideoBrush { get; set; }
+        public double DpiScale { get; set; }
+        public double ActualViewWidth { get; set; }
+        public double ActualViewHeight { get; set; }
 
         public VideoSnapshotInfo(MediaElement videoPlayer)
         {
@@ -32,5 +32,6 @@ namespace TraceShot.Models
             // DPI情報の取得（FormattedTextなどで使用）
             DpiScale = VisualTreeHelper.GetDpi(videoPlayer).PixelsPerDip;
         }
+        public VideoSnapshotInfo() { }
     }
 }

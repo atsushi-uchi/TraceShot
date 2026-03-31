@@ -1,4 +1,5 @@
-﻿using NHotkey;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
+using NHotkey;
 using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
@@ -352,6 +353,7 @@ namespace TraceShot.Features
 
         private void OpenExport_Click(object sender, RoutedEventArgs? e)
         {
+            Debug.WriteLine($"OpenExport_Click width={RescueImage.Width} height={RescueImage.Height} ActualWidth={RescueImage.ActualWidth} ActualHeight={RescueImage.ActualHeight}");
             var exportWin = new ExportWindow(_cacheManager)
             {
                 Owner = this // 親ウィンドウをセットして中央に表示
@@ -497,7 +499,43 @@ namespace TraceShot.Features
         {
             if (sender is Thumb thumb && thumb.DataContext is AnnotationBase annotation)
             {
-                // Try to consume a previously recorded "before" state (recorded on DragStarted)
+                // 1. 基準となる要素（Parent）を特定する
+                FrameworkElement referenceElement;
+                if (Data.CurrentMode == AppViewMode.Rescue)
+                {
+                    // 救済モードなら画像表示用のコントロール（例: RescueImage）
+                    referenceElement = RescueImage;
+                }
+                else
+                {
+                    // 通常モードなら VideoPlayer
+                    referenceElement = VideoPlayer;
+                }
+
+
+                // 2. その要素に基づいた現在の座標を取得
+                var transform = thumb.TransformToVisual(referenceElement);
+                Point currentPos = transform.Transform(new Point(0, 0));
+
+                // 2. テキストブロック（終点）の場合のみ、中心オフセットを考慮する
+                var tag = thumb.Tag?.ToString() ?? "";
+                if (annotation is NoteAnnotation note && tag == "End")
+                {
+                    // マウス位置(左上)に、コントロールの幅・高さの半分を足して「中心」を求める
+                    // ※ XAML側で RenderTransform や Margin で中心をずらしている場合は、
+                    // その逆算値をここで currentPos に加算します。
+                    currentPos.X += note.ActualTextWidth / 2.0;
+                    currentPos.Y += note.ActualTextHeight / 2.0;
+                }
+
+                // 3. 正確な ActualSize を取得
+                var actualSize = new Size
+                {
+                    Width = referenceElement.ActualWidth,
+                    Height = referenceElement.ActualHeight,
+                };
+
+                // 4. アン一ドゥ/リドゥ用の処理（ここでも相対座標を扱う）
                 if (Data.AnnotationManager.TryConsumeUpdateStart(annotation.Id, out var before))
                 {
                     var after = new AnnotationManager.UpdateState
@@ -507,28 +545,11 @@ namespace TraceShot.Features
                         RelWidth = annotation.RelWidth,
                         RelHeight = annotation.RelHeight,
                     };
-
-                    if (annotation is NoteAnnotation note)
-                    {
-                        after.RelStartX = note.RelStartX;
-                        after.RelStartY = note.RelStartY;
-                    }
-
-                    // Push the update action so it becomes undo/redoable
                     Data.AnnotationManager.PushUpdateAction(annotation, before!, after, Data.SelectedItem);
                 }
 
-                var transform = thumb.TransformToVisual(VideoPlayer);
-                Point currentPos = transform.Transform(new Point(0, 0));
-
-                var actualPos = new Size
-                {
-                    Width = VideoPlayer.ActualWidth,
-                    Height = VideoPlayer.ActualHeight,
-                };
-                var tag = thumb.Tag?.ToString() ?? "";
-
-                Data.AnnotationManager.CompleteDrawing(annotation, currentPos, actualPos, tag);
+                // 5. 座標確定処理
+                Data.AnnotationManager.CompleteDrawing(annotation, currentPos, actualSize, tag);
 
                 if (TimelineListBox.SelectedItem is Bookmark bookmark)
                 {
@@ -541,8 +562,6 @@ namespace TraceShot.Features
         {
             if (sender is Thumb thumb && thumb.DataContext is AnnotationBase annotation)
             {
-                Debug.WriteLine($"DragStarted: {annotation.Id} ({annotation.GetType().Name})");
-                // Record the starting state so we can create an undo/redo action on completion
                 Data.AnnotationManager.RecordUpdateStart(annotation);
             }
         }
@@ -661,7 +680,7 @@ namespace TraceShot.Features
         {
             if (e.ClickCount == 2)
             {
-                if (sender is Border border && border.DataContext is NoteAnnotation note)
+                if (sender is System.Windows.Controls.Border border && border.DataContext is NoteAnnotation note)
                 {
                     StartNoteEdit(note);
                     e.Handled = true;

@@ -186,29 +186,24 @@ namespace TraceShot.Services
 
                 drawingContext.Pop(); // Transform解除
 
-                //---B.バルーンノートの合成(Scale 外側 / 出力サイズ基準)-- -
+                //---B.バルーンノートの合成 (相対座標ベースへの修正案) ---
                 foreach (var noteAnno in bm.Notes)
                 {
-                    // 全体に対する相対比率 (0.0~1.0)
-                    double ratioX = noteAnno.X / info.ActualViewWidth;
-                    double ratioY = noteAnno.Y / info.ActualViewHeight;
-                    double ratioStartX = noteAnno.StartX / info.ActualViewWidth;
-                    double ratioStartY = noteAnno.StartY / info.ActualViewHeight;
-
-                    // クロップ範囲内での位置に変換し、出力サイズを掛ける
-                    // (全体比率 - クロップ開始位置) / クロップ幅 = クロップ内での相対位置
+                    // 【修正点】UI上のX/YとActualViewWidthを使わず、
+                    // すでに計算・保存済みの RelX / RelStartX を直接使用する。
+                    // (相対比率 - クロップ開始位置) / クロップ幅 = 出力画像内での相対位置
                     var outputEndPt = new Point(
-                        (ratioX - cropRel.X) / cropRel.Width * renderWidth,
-                        (ratioY - cropRel.Y) / cropRel.Height * renderHeight
+                        (noteAnno.RelX - cropRel.X) / cropRel.Width * renderWidth,
+                        (noteAnno.RelY - cropRel.Y) / cropRel.Height * renderHeight
                     );
                     var outputStartPt = new Point(
-                        (ratioStartX - cropRel.X) / cropRel.Width * renderWidth,
-                        (ratioStartY - cropRel.Y) / cropRel.Height * renderHeight
+                        (noteAnno.RelStartX - cropRel.X) / cropRel.Width * renderWidth,
+                        (noteAnno.RelStartY - cropRel.Y) / cropRel.Height * renderHeight
                     );
 
-                    // フォント・サイズの計算
-                    double screenToOutputRatio = (originalWidth * scale) / info.ActualViewWidth;
-                    double dynamicFontSize = Math.Max(16.0, (originalHeight * scale * cropRel.Height) * 0.03);
+                    // 【修正点】フォントサイズ等の計算も UI サイズに依存させない
+                    // 出力される画像の高さ(renderHeight)に対して 3% 程度のサイズにする
+                    double dynamicFontSize = Math.Max(16.0, renderHeight * 0.03);
                     double padding = dynamicFontSize * 0.5;
                     double thickness = Math.Max(2.0, renderWidth / 500.0);
 
@@ -221,7 +216,8 @@ namespace TraceShot.Services
                         SettingsService.Instance.MainTextBrush,
                         VisualTreeHelper.GetDpi(drawingVisual).PixelsPerDip);
 
-                    ft.MaxTextWidth = Math.Max(100, 200 * screenToOutputRatio);
+                    // テキスト最大幅も出力幅の 30% 程度に固定（または適切な比率）
+                    ft.MaxTextWidth = renderWidth * 0.3;
 
                     double boxWidth = ft.Width + (padding * 2);
                     double boxHeight = ft.Height + (padding * 2);
@@ -231,7 +227,7 @@ namespace TraceShot.Services
                         outputEndPt.Y - (boxHeight / 2.0),
                         boxWidth, boxHeight);
 
-                    // 下地（線・丸・背景箱）
+                    // --- 以降の描画処理は変更なし ---
                     var linePen = new Pen(SettingsService.Instance.MainBrush, thickness) { DashStyle = new DashStyle(new double[] { 4, 2 }, 0) };
                     drawingContext.DrawLine(linePen, outputStartPt, outputEndPt);
                     drawingContext.DrawEllipse(SettingsService.Instance.MainBrush, null, outputStartPt, thickness * 2, thickness * 2);
@@ -240,7 +236,6 @@ namespace TraceShot.Services
                         SettingsService.Instance.MainBrush,
                         null, textRect, padding * 0.5, padding * 0.5);
 
-                    // 袋文字
                     var textPos = new Point(textRect.X + padding, textRect.Y + padding);
                     Geometry textGeometry = ft.BuildGeometry(textPos);
                     var outlinePen = new Pen(Brushes.Black, dynamicFontSize * 0.15) { LineJoin = PenLineJoin.Round };

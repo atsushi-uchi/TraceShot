@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Security.RightsManagement;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Data;
@@ -28,7 +29,6 @@ namespace TraceShot.ViewModels
     public partial class MainViewModel : ObservableObject
     {
         [ObservableProperty] private AnnotationManager _annotationManager;
-
         private const string ClipboardFormat = "TraceShot_Annotation_JSON";
 
         public MainViewModel()
