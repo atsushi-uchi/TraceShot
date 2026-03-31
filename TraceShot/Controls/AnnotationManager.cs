@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using TraceShot.Models;
@@ -206,15 +207,45 @@ namespace TraceShot.Controls
             }
         }
 
+        private CropAnnotation? _currentSyncCrop;
+        private RectAnnotation? _currentSyncSource;
+
+        private void LocalFocus_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is RectAnnotation ra && _currentSyncCrop != null)
+            {
+                switch (e.PropertyName)
+                {
+                    case nameof(RectAnnotation.RelX): _currentSyncCrop.RelX = ra.RelX; break;
+                    case nameof(RectAnnotation.RelY): _currentSyncCrop.RelY = ra.RelY; break;
+                    case nameof(RectAnnotation.RelWidth): _currentSyncCrop.RelWidth = ra.RelWidth; break;
+                    case nameof(RectAnnotation.RelHeight): _currentSyncCrop.RelHeight = ra.RelHeight; break;
+                }
+            }
+        }
+        private void Crop_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is CropAnnotation ca)
+            {
+                RecService.Instance.Evidence.CommonCropRect = new Rect(ca.RelX, ca.RelY, ca.RelWidth, ca.RelHeight);
+            }
+        }
+
         public void RefreshCropOverlay()
         {
+            if (_currentSyncSource != null) _currentSyncSource.PropertyChanged -= LocalFocus_PropertyChanged;
+            if (_currentSyncCrop != null) _currentSyncCrop.PropertyChanged -= Crop_PropertyChanged;
+            _currentSyncSource = null;
+            _currentSyncCrop = null;
+
             var overlays = Annotations.Where(a => a is GuardAnnotation || a is CropAnnotation).ToList();
             foreach (var a in overlays) Annotations.Remove(a);
 
-            var localFocus = Annotations.Where(a => a is RectAnnotation rect && rect.IsFocused).FirstOrDefault();
+            var localFocus = Annotations.OfType<RectAnnotation>().FirstOrDefault(rect => rect.IsFocused);
             if (localFocus != null)
             {
-                var crop = new CropAnnotation
+                _currentSyncSource = localFocus;
+                _currentSyncCrop = new CropAnnotation
                 {
                     RelX = localFocus.RelX,
                     RelY = localFocus.RelY,
@@ -222,32 +253,17 @@ namespace TraceShot.Controls
                     RelHeight = localFocus.RelHeight,
                 };
 
-                localFocus.PropertyChanged += (s, e) =>
-                {
-                    if (s is RectAnnotation ra)
-                    {
-                        switch (e.PropertyName)
-                        {
-                            case nameof(RectAnnotation.RelX): crop.RelX = ra.RelX; break;
-                            case nameof(RectAnnotation.RelY): crop.RelY = ra.RelY; break;
-                            case nameof(RectAnnotation.RelWidth): crop.RelWidth = ra.RelWidth; break;
-                            case nameof(RectAnnotation.RelHeight): crop.RelHeight = ra.RelHeight; break;
-                        }
-                    }
-                };
-
-                Annotations.Add(crop);
-                return;
+                _currentSyncSource.PropertyChanged += LocalFocus_PropertyChanged;
+                Annotations.Add(_currentSyncCrop);
             }
-
-            if (RecService.Instance.Evidence.IsCropEnabled)
+            else if (RecService.Instance.Evidence.IsCropEnabled)
             {
                 if (RecService.Instance.Evidence.CropState == CropState.Editing)
                 {
                     Annotations.Add(new GuardAnnotation());
                 }
 
-                var crop = new CropAnnotation
+                _currentSyncCrop = new CropAnnotation
                 {
                     RelX = RecService.Instance.Evidence.CommonCropRect.X,
                     RelY = RecService.Instance.Evidence.CommonCropRect.Y,
@@ -255,14 +271,8 @@ namespace TraceShot.Controls
                     RelHeight = RecService.Instance.Evidence.CommonCropRect.Height,
                 };
 
-                crop.PropertyChanged += (s, e) => {
-                    if (s is CropAnnotation ca)
-                    {
-                        RecService.Instance.Evidence.CommonCropRect = new Rect(ca.RelX, ca.RelY, ca.RelWidth, ca.RelHeight);
-                    }
-                };
-
-                Annotations.Add(crop);
+                _currentSyncCrop.PropertyChanged += Crop_PropertyChanged;
+                Annotations.Add(_currentSyncCrop);
             }
         }
 
