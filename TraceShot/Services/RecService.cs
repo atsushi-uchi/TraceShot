@@ -37,7 +37,6 @@ namespace TraceShot.Services
         private DispatcherTimer _timer;
         private Recorder? _recorder;
         private DateTime _actualStartTime;
-        public List<string> TraceLogs { get; private set; } = [];
         public TimeSpan CurrentDuration => _stopwatch.Elapsed;
         public string CurrentVideoName { get; private set; } = "";
         public string CurrentFolder { get; set; } = "";
@@ -46,6 +45,7 @@ namespace TraceShot.Services
         public bool UseHardwareAccel { get; set; }
 
         public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
+        public event EventHandler<EventArgs>? OnRecordingFinished;
         public event EventHandler<string>? RecordingErrorOccurred;
 
         private RecService()
@@ -189,9 +189,6 @@ namespace TraceShot.Services
                 //---B.バルーンノートの合成 (相対座標ベースへの修正案) ---
                 foreach (var noteAnno in bm.Notes)
                 {
-                    // 【修正点】UI上のX/YとActualViewWidthを使わず、
-                    // すでに計算・保存済みの RelX / RelStartX を直接使用する。
-                    // (相対比率 - クロップ開始位置) / クロップ幅 = 出力画像内での相対位置
                     var outputEndPt = new Point(
                         (noteAnno.RelX - cropRel.X) / cropRel.Width * renderWidth,
                         (noteAnno.RelY - cropRel.Y) / cropRel.Height * renderHeight
@@ -201,8 +198,6 @@ namespace TraceShot.Services
                         (noteAnno.RelStartY - cropRel.Y) / cropRel.Height * renderHeight
                     );
 
-                    // 【修正点】フォントサイズ等の計算も UI サイズに依存させない
-                    // 出力される画像の高さ(renderHeight)に対して 3% 程度のサイズにする
                     double dynamicFontSize = Math.Max(16.0, renderHeight * 0.03);
                     double padding = dynamicFontSize * 0.5;
                     double thickness = Math.Max(2.0, renderWidth / 500.0);
@@ -334,6 +329,7 @@ namespace TraceShot.Services
             File.WriteAllText(JsonPath, jsonString);
         }
 
+
         public void StartFullscreenRecording(string filePath, string targetDeviceName)
         {
             DisplayRecordingSource? screenSource = null;
@@ -368,19 +364,57 @@ namespace TraceShot.Services
                     IsHardwareEncodingEnabled = UseHardwareAccel,
                 },
             };
-
-            // 3. インスタンス生成と開始
-            _recorder = Recorder.CreateRecorder(options);
-            _recorder.OnFrameRecorded += (s, e) => OnPreviewFrameReceived?.Invoke(this, e);
+            InitializeRecorder(options);
 
             StartRecording(filePath);
+        }
+
+        public void InitializeRecorder(RecorderOptions options)
+        {
+            PreperRecorder();
+
+            _recorder = Recorder.CreateRecorder(options);
+
+            _recorder.OnFrameRecorded += Recorder_OnFrameRecorded;
+            _recorder.OnRecordingComplete += Recorder_OnRecordingComplete;
+            _recorder.OnRecordingFailed += Recorder_OnRecordingFailed;
+        }
+
+        private void PreperRecorder()
+        {
+            if (_recorder != null)
+            {
+                _recorder.OnFrameRecorded -= Recorder_OnFrameRecorded;
+                _recorder.OnRecordingComplete -= Recorder_OnRecordingComplete;
+                _recorder.OnRecordingFailed -= Recorder_OnRecordingFailed;
+                _recorder.Dispose();
+                _recorder = null;
+            }
+        }
+
+        private void Recorder_OnFrameRecorded(object? sender, FrameRecordedEventArgs e)
+        {
+            OnPreviewFrameReceived?.Invoke(this, e);
+        }
+
+        private void Recorder_OnRecordingComplete(object? sender, RecordingCompleteEventArgs e)
+        {
+            App.Current.Dispatcher.Invoke(() =>
+            {
+                SaveEvidenceJson();
+                IsRecording = false;
+                RecordingTime = "00:00:00";
+            });
+        }
+
+        private void Recorder_OnRecordingFailed(object? sender, RecordingFailedEventArgs e)
+        {
+            RecordingErrorOccurred?.Invoke(this, e.Error);
         }
 
         public void StartRectangleRecording(string filePath, string targetDeviceName, Rectangle? region)
         {
             if (region is null) return;
-
-            TraceLogs.Clear();
 
             // 1. ソースの作成
             DisplayRecordingSource? screenSource = null;
@@ -422,17 +456,13 @@ namespace TraceShot.Services
                 },
             };
 
-            // 3. インスタンス生成と開始
-            _recorder = Recorder.CreateRecorder(options);
-            _recorder.OnFrameRecorded += (s, e) => OnPreviewFrameReceived?.Invoke(this, e);
+            InitializeRecorder(options);
 
             StartRecording(filePath);
         }
 
         public void StartWindowRecording(string filePath, IntPtr windowHandle)
         {
-            TraceLogs.Clear();
-
             // 1. ウィンドウをソースとして作成
             var windowSource = new WindowRecordingSource(windowHandle);
 
@@ -457,9 +487,7 @@ namespace TraceShot.Services
                 },
             };
 
-            // 3. インスタンス生成と開始
-            _recorder = Recorder.CreateRecorder(options);
-            _recorder.OnFrameRecorded += (s, e) => OnPreviewFrameReceived?.Invoke(this, e);
+            InitializeRecorder(options);
 
             StartRecording(filePath);
         }
@@ -467,24 +495,15 @@ namespace TraceShot.Services
         private void StartRecording(string filePath)
         {
             if (_recorder is null) return;
+
             IsRecording = true;
-
             Entries.Clear();
-            TraceLogs.Clear();
-
-            _recorder.OnRecordingComplete += (s, e) => TraceLogs.Add("Window Recording Complete");
-            _recorder.OnRecordingFailed += (s, e) =>
-            {
-                var errorMsg = "Recording Failed: " + e.Error;
-                TraceLogs.Add(errorMsg);
-                //Debug.WriteLine(errorMsg); // ★ 出力ウィンドウに表示
-                System.Windows.MessageBox.Show(errorMsg); // ★ 実行中に確実に気づけるようにする
-            };
 
             _actualStartTime = Evidence?.RecordingDate ?? DateTime.Now;
 
             _timer.Start();
             _stopwatch.Restart();
+
             _recorder.Record(filePath);
         }
 
@@ -493,9 +512,6 @@ namespace TraceShot.Services
             _timer.Stop();
             _stopwatch.Stop();
             _recorder?.Stop();
-            SaveEvidenceJson();
-            IsRecording = false;
-            RecordingTime = "00:00:00";
         }
     }
 }

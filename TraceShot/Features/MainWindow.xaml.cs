@@ -1,5 +1,4 @@
-﻿using DocumentFormat.OpenXml.Spreadsheet;
-using NHotkey;
+﻿using NHotkey;
 using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
@@ -394,7 +393,6 @@ namespace TraceShot.Features
             catch (Exception ex)
             {
                 Data.StatusText = "❌ フォルダを開けませんでした";
-                RecService.Instance.TraceLogs.Add($"Explorer Error: {ex.Message}");
             }
         }
 
@@ -1224,12 +1222,6 @@ namespace TraceShot.Features
 
                 OnRecordingStopped();
                 Data.IsEditMode = true;
-
-                if (RecService.Instance.TraceLogs.Count > 0)
-                {
-                    taskbarInfo.ProgressState = TaskbarItemProgressState.None;
-                    taskbarInfo.ProgressValue = 0;
-                }
             }
         }
 
