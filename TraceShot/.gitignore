@@ -2,7 +2,3 @@
 [Ob]j/
 .vs/
 *.user
-# 自分のPCで生成した動画やスクショは公開しない
-**/ScreenShot/
-*.mp4
-*.wav

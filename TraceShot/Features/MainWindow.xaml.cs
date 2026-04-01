@@ -63,6 +63,9 @@ namespace TraceShot.Features
         {
             InitializeComponent();
 
+            var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            this.Title = $"TraceShot v{version.Major}.{version.Minor}.{version.Build}";
+
             DataContext = Data;
 
             Data.ScrollIntoViewRequested = (entry) =>

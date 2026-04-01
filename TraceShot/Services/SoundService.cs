@@ -9,12 +9,14 @@ namespace TraceShot.Services
 
         private SoundPlayer? _shutterPlayer;
         private SoundPlayer? _voiceStartPlayer;
+        private string folder = @"Resources\Sounds\";
 
         private SoundService()
         {
             try
             {
-                string soundPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"Resources\shutter.wav");
+                string filename = "Camera-Phone03-1.wav";
+                string soundPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{folder}{filename}");
                 if (File.Exists(soundPath))
                 {
                     _shutterPlayer = new SoundPlayer(soundPath);
@@ -25,7 +27,8 @@ namespace TraceShot.Services
 
             try
             {
-                string soundPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"Resources\voice_start.wav");
+                string filename = "Camera-Phone03-2.wav";
+                string soundPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{folder}{filename}");
                 if (File.Exists(soundPath))
                 {
                     _voiceStartPlayer = new SoundPlayer(soundPath);

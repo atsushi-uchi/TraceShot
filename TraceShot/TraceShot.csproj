@@ -12,6 +12,8 @@
 	<ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
 	<ApplicationIcon>Resources\traceshot_Icon.ico</ApplicationIcon>
 	<PackageIcon>traceshot_icon.ico</PackageIcon>
+	<Title></Title>
+	<Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,7 +43,10 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
-    <None Update="Resources\shutter.wav">
+    <None Update="Resources\Sounds\Camera-Phone03-1.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\Sounds\Camera-Phone03-2.wav">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Resources\traceshot_icon.ico">
