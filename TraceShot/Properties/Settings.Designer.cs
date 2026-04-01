@@ -226,5 +226,29 @@ namespace TraceShot.Properties {
                 this["ChatteringThreshold"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public double ResolutionRate {
+            get {
+                return ((double)(this["ResolutionRate"]));
+            }
+            set {
+                this["ResolutionRate"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("100")]
+        public int VideoQuality {
+            get {
+                return ((int)(this["VideoQuality"]));
+            }
+            set {
+                this["VideoQuality"] = value;
+            }
+        }
     }
 }

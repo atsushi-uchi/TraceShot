@@ -42,6 +42,28 @@ namespace TraceShot.Features
                 }
             }
 
+            // 2.5 録画サイズの倍率を反映
+            double savedRate = Default.ResolutionRate;
+            foreach (ComboBoxItem item in ResolutionRateComboBox.Items)
+            {
+                if (double.TryParse(item.Tag.ToString(), out var r) && Math.Abs(r - savedRate) < 0.01)
+                {
+                    item.IsSelected = true;
+                    break;
+                }
+            }
+
+            // 2.6 録画画質を反映
+            int savedQuality = Default.VideoQuality;
+            foreach (ComboBoxItem item in QualityComboBox.Items)
+            {
+                if (int.TryParse(item.Tag.ToString(), out var q) && q == savedQuality)
+                {
+                    item.IsSelected = true;
+                    break;
+                }
+            }
+
             // 3.ハードウェアアクセル
             HardwareAccelCheckBox.IsChecked = Default.UseHardwareAccel;
 
@@ -134,12 +156,21 @@ namespace TraceShot.Features
             Default.SavePath = SaveFolderTextBox.Text;
 
             // フレームレート
-            if (FpsComboBox.SelectedItem is ComboBoxItem selectedItem)
+            if (FpsComboBox.SelectedItem is ComboBoxItem fpsItem && int.TryParse(fpsItem.Tag.ToString(), out var framerate))
             {
-                if (int.TryParse(selectedItem.Tag.ToString(), out var framerate))
-                {
-                    Default.FrameRate = framerate;
-                }
+                Default.FrameRate = framerate;
+            }
+
+            // 録画サイズの倍率を保存
+            if (ResolutionRateComboBox.SelectedItem is ComboBoxItem resItem && double.TryParse(resItem.Tag.ToString(), out var rate))
+            {
+                Default.ResolutionRate = rate;
+            }
+
+            // 録画画質を保存
+            if (QualityComboBox.SelectedItem is ComboBoxItem qualItem && int.TryParse(qualItem.Tag.ToString(), out var quality))
+            {
+                Default.VideoQuality = quality;
             }
 
             // ハードウェアアクセル

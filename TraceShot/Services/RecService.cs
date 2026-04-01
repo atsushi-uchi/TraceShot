@@ -3,15 +3,19 @@ using ScreenRecorderLib;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;
 using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using TraceShot.Controls;
 using TraceShot.Models;
+using static TraceShot.Properties.Settings;
 using Brushes = System.Windows.Media.Brushes;
 using Pen = System.Windows.Media.Pen;
 using Point = System.Windows.Point;
@@ -41,8 +45,6 @@ namespace TraceShot.Services
         public string CurrentVideoName { get; private set; } = "";
         public string CurrentFolder { get; set; } = "";
         public string? JsonPath { get; set; }
-        public int FrameRate { get; set; }
-        public bool UseHardwareAccel { get; set; }
 
         public event EventHandler<FrameRecordedEventArgs>? OnPreviewFrameReceived;
         public event EventHandler<EventArgs>? OnRecordingFinished;
@@ -89,7 +91,6 @@ namespace TraceShot.Services
 
             try
             {
-                // 💡 2. UIスレッドのデータを安全にコピー
                 var bitmapCopy = source.Clone();
                 bitmapCopy.Freeze();
 
@@ -345,6 +346,9 @@ namespace TraceShot.Services
             {
                 throw new Exception("録画するモニターが見つかりません。");
             }
+            double rate = Default.ResolutionRate;
+            var screen = Screen.AllScreens.FirstOrDefault(s => s.DeviceName == screenSource.DeviceName);
+            var screenSize = new ScreenSize(screen!.Bounds.Width * rate, screen.Bounds.Height * rate);
 
             var options = new RecorderOptions
             {
@@ -354,14 +358,18 @@ namespace TraceShot.Services
                 },
                 OutputOptions = new OutputOptions
                 {
+                    OutputFrameSize = screenSize,
                     RecorderMode = RecorderMode.Video,
                     IsVideoFramePreviewEnabled = true,
                 },
                 VideoEncoderOptions = new VideoEncoderOptions
                 {
-                    Framerate = FrameRate,
-                    IsHardwareEncodingEnabled = UseHardwareAccel,
+                    Framerate = Default.FrameRate,
+                    Quality = Default.VideoQuality,
+                    IsHardwareEncodingEnabled = Default.UseHardwareAccel,
+                    IsFixedFramerate = false,
                 },
+
             };
             InitializeRecorder(options);
 
@@ -435,24 +443,27 @@ namespace TraceShot.Services
                     region.Value.Left, region.Value.Top, region.Value.Width, region.Value.Height);
             }
 
-            // 2. オプションの組み立て
+            double rate = Default.ResolutionRate;
+            var screenSize = new ScreenSize(region.Value.Width * rate, region.Value.Height * rate);
+
             var options = new RecorderOptions
             {
                 SourceOptions = new SourceOptions
                 {
-                    // RecordingSources プロパティを使用（中括弧 { } で追加）
                     RecordingSources = { screenSource }
                 },
                 OutputOptions = new OutputOptions
                 {
                     RecorderMode = RecorderMode.Video,
                     IsVideoFramePreviewEnabled = true,
-                    OutputFrameSize = new ScreenSize(region.Value.Width, region.Value.Height),
+                    OutputFrameSize = screenSize,
                 },
                 VideoEncoderOptions = new VideoEncoderOptions
                 {
-                    Framerate = FrameRate,
-                    IsHardwareEncodingEnabled = UseHardwareAccel,
+                    Framerate = Default.FrameRate,
+                    Quality = Default.VideoQuality,
+                    IsHardwareEncodingEnabled = Default.UseHardwareAccel,
+                    IsFixedFramerate = false,
                 },
             };
 
@@ -461,29 +472,62 @@ namespace TraceShot.Services
             StartRecording(filePath);
         }
 
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+            public readonly int Width => Right - Left;
+            public readonly int Height => Bottom - Top;
+        }
+
         public void StartWindowRecording(string filePath, IntPtr windowHandle)
         {
-            // 1. ウィンドウをソースとして作成
-            var windowSource = new WindowRecordingSource(windowHandle);
+            double width = 1920;
+            double height = 1080;
 
-            // 2. オプションの組み立て
+            var element = AutomationElement.FromHandle(windowHandle);
+            if (element is not null)
+            {
+                width = element.Current.BoundingRectangle.Width;
+                height = element.Current.BoundingRectangle.Height;
+            }
+            else if (GetWindowRect(windowHandle, out RECT rect))
+            {
+                width = rect.Width;
+                height = rect.Height;
+            }
+
+            var rate = Default.ResolutionRate;
+            var screenSize = new ScreenSize(width * rate, height * rate);
+
+            var source = new WindowRecordingSource(windowHandle);
+
+
             var options = new RecorderOptions
             {
                 SourceOptions = new SourceOptions
                 {
-                    // コレクション初期化子で追加
-                    RecordingSources = { windowSource }
+                    RecordingSources = { source }
                 },
                 OutputOptions = new OutputOptions
                 {
                     RecorderMode = RecorderMode.Video,
                     IsVideoFramePreviewEnabled = true,
-                    OutputFrameSize = null,
+                    OutputFrameSize = screenSize,
                 },
                 VideoEncoderOptions = new VideoEncoderOptions
                 {
-                    Framerate = FrameRate,
-                    IsHardwareEncodingEnabled = UseHardwareAccel,
+                    Framerate = Default.FrameRate,
+                    Quality = Default.VideoQuality,
+                    IsHardwareEncodingEnabled = Default.UseHardwareAccel,
+                    IsFixedFramerate = false,
                 },
             };
 

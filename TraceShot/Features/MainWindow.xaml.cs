@@ -236,17 +236,7 @@ namespace TraceShot.Features
                 update = true;
             }
             SavePathStatusText.Text = savedPath;
-            int fps = Default.FrameRate;
-            if (fps == 0)
-            {
-                // フレームレートが未設定の場合、30に設定
-                fps = 30;
-                Default.FrameRate = fps;
-                update = true;
-            }
-
-            FrameRateText.Text = $"FPS: {fps}";
-            RecService.Instance.FrameRate = fps;
+            FrameRateText.Text = $"FPS: {Default.FrameRate}";
 
             if (update)
             {
