@@ -49,6 +49,9 @@
     <None Update="Resources\Sounds\Camera-Phone03-2.wav">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Resources\Sounds\LICENSE_SOUNDS.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Resources\traceshot_icon.ico">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
