@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using DocumentFormat.OpenXml.Drawing.Charts;
 using ScreenRecorderLib;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -9,9 +10,9 @@ using System.Text.Json;
 using System.Text.Unicode;
 using System.Windows;
 using System.Windows.Automation;
-using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Media3D;
 using System.Windows.Threading;
 using TraceShot.Controls;
 using TraceShot.Models;
@@ -31,11 +32,8 @@ namespace TraceShot.Services
 
         public ObservableCollection<Bookmark> Entries => Evidence.Entries;
 
-        [ObservableProperty]
-        private bool _isRecording = false;
-
-        [ObservableProperty]
-        private string _recordingTime = "00:00:00";
+        [ObservableProperty] private bool _isRecording = false;
+        [ObservableProperty] private string _recordingTime = "00:00:00";
 
         private Stopwatch _stopwatch = new Stopwatch();
         private DispatcherTimer _timer;
@@ -54,7 +52,7 @@ namespace TraceShot.Services
         {
             _timer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromSeconds(0.5)
+                Interval = TimeSpan.FromSeconds(0.1)
             };
             _timer.Tick += (s, e) =>
             {
@@ -78,38 +76,26 @@ namespace TraceShot.Services
             return Entries.Where(e => e.Annotations.Contains(annotation)).FirstOrDefault();
         }
 
-        public string? SaveBitmap(Bookmark bm, WriteableBitmap source)
+        public void SaveBitmap(Bookmark bookmark)
         {
-            if (string.IsNullOrEmpty(CurrentFolder) || source == null) return null;
-
-            string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot");
-            if (!Directory.Exists(screenshotFolder)) Directory.CreateDirectory(screenshotFolder);
-
-            var timestamp = _actualStartTime.Add(bm.Time);
-            string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
-            string filePath = Path.Combine(screenshotFolder, fileName);
-
-            try
+            Task.Run(() =>
             {
-                var bitmapCopy = source.Clone();
-                bitmapCopy.Freeze();
+                string screenshotFolder = Path.Combine(CurrentFolder, "ScreenShot");
+                if (!Directory.Exists(screenshotFolder)) Directory.CreateDirectory(screenshotFolder);
+
+                var timestamp = _actualStartTime.Add(bookmark.Time);
+                string fileName = $"SS_{timestamp:yyyy-MM-dd_HHmmss_fff}.png";
+                string filePath = Path.Combine(screenshotFolder, fileName);
 
                 using (var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
                 {
-                    PngBitmapEncoder encoder = new PngBitmapEncoder();
-                    encoder.Frames.Add(BitmapFrame.Create(bitmapCopy));
-                    encoder.Save(stream);
-                    stream.Flush();
+                    if (_recorder?.TakeSnapshot(stream) ?? false)
+                    {
+                        bookmark.ImagePath = filePath;
+                    }
                 }
-                return filePath;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Backup Save Error: {ex.Message}");
-                return null;
-            }
+            });
         }
-
 
         public (string? Path, BitmapSource? Bitmap)? SaveImage(Bookmark bm, VideoSnapshotInfo? info, double scale = 0.5, bool saveToFile = true)
         {
@@ -263,31 +249,6 @@ namespace TraceShot.Services
             return (filePath, bmp);
         }
 
-        public void AddBookmark(Bookmark bookmark)
-        {
-            if (Evidence == null) return;
-
-            Entries.Add(bookmark);
-        }
-
-        public Bookmark? AddBookmark(string note = " - Screenshot")
-        {
-            if (Evidence == null) return null;
-
-            if (_stopwatch.IsRunning)
-            {
-                var bm = new Bookmark
-                {
-                    Time = _stopwatch.Elapsed,
-                    Icon = "📌",
-                    Note = note,
-                };
-                Entries.Add(bm);
-                return bm;
-            }
-            return null;
-        }
-
         public string PrepareEvidence(string path, string modeName)
         {
             string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
@@ -373,7 +334,7 @@ namespace TraceShot.Services
             };
             InitializeRecorder(options);
 
-            StartRecording(filePath);
+            StartRecording(filePath, screenSize);
         }
 
         public void InitializeRecorder(RecorderOptions options)
@@ -469,7 +430,7 @@ namespace TraceShot.Services
 
             InitializeRecorder(options);
 
-            StartRecording(filePath);
+            StartRecording(filePath, screenSize);
         }
 
         [DllImport("user32.dll")]
@@ -509,7 +470,6 @@ namespace TraceShot.Services
 
             var source = new WindowRecordingSource(windowHandle);
 
-
             var options = new RecorderOptions
             {
                 SourceOptions = new SourceOptions
@@ -533,21 +493,29 @@ namespace TraceShot.Services
 
             InitializeRecorder(options);
 
-            StartRecording(filePath);
+            StartRecording(filePath, screenSize);
         }
 
-        private void StartRecording(string filePath)
+        public WriteableBitmap? PreviewBitmap { get; set; }
+
+        private void StartRecording(string filePath, ScreenSize screeSize)
         {
             if (_recorder is null) return;
+            int width = (int)screeSize.Width;
+            int height = (int)screeSize.Height;
+
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                PreviewBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr32, null);
+            });
 
             IsRecording = true;
             Entries.Clear();
 
-            _actualStartTime = Evidence?.RecordingDate ?? DateTime.Now;
+            _actualStartTime = Evidence.RecordingDate;
 
             _timer.Start();
             _stopwatch.Restart();
-
             _recorder.Record(filePath);
         }
 

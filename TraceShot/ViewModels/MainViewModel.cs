@@ -140,8 +140,6 @@ namespace TraceShot.ViewModels
 
         public event EventHandler? ShutterRequested;
 
-        public WriteableBitmap? PreviewBitmap;
-
         [ObservableProperty] private Uri? _videoSource;
         [ObservableProperty] private string _statusText = "";
         [ObservableProperty] private bool _canAddEntry = false;
@@ -366,6 +364,7 @@ namespace TraceShot.ViewModels
                 Note = noteText,
                 Icon = "📸"
             };
+            Recorder.SaveBitmap(entry);
 
             if (resultType.In(TestResult.OK, TestResult.NG, TestResult.PEND))
             {
@@ -373,12 +372,6 @@ namespace TraceShot.ViewModels
             }
 
             ShutterRequested?.Invoke(this, EventArgs.Empty);
-
-            if (PreviewBitmap != null)
-            {
-                var path = Recorder.SaveBitmap(entry, PreviewBitmap);
-                entry.ImagePath = path;
-            }
 
             TimelineEntries.Add(entry);
             UpdateTimelineGroups();

@@ -1146,8 +1146,6 @@ namespace TraceShot.Features
             // フラグ更新
             _isRecording = false;
 
-            Data.PreviewBitmap = null;
-
             PreviewImage.Source = ImageService.GetReadyStandardImage();
 
             RefreshBookmarkCanvas();
@@ -1225,10 +1223,7 @@ namespace TraceShot.Features
         {
             TriggerShutterEffect();
 
-            if (Data.PreviewBitmap is not null)
-            {
-                Data.AddTimelineEntry();
-            }
+            Data.AddTimelineEntry();
         }
 
         private void RecorderManager_OnPreviewFrameReceived(object? sender, FrameRecordedEventArgs e)
@@ -1244,33 +1239,31 @@ namespace TraceShot.Features
                 int width = data.Width;
                 int height = data.Height;
 
-                // ビットマップの初期化/再作成
-                if (Data.PreviewBitmap == null || Data.PreviewBitmap.PixelWidth != width || Data.PreviewBitmap.PixelHeight != height)
+                var bitmap = RecService.Instance.PreviewBitmap;
+                if (bitmap == null || bitmap.PixelWidth != data.Width || bitmap.PixelHeight != data.Height)
                 {
-                    Data.PreviewBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr32, null);
-                    PreviewImage.Source = Data.PreviewBitmap;
+                    bitmap = new WriteableBitmap(data.Width, data.Height, 96, 96, PixelFormats.Bgr32, null);
+                    RecService.Instance.PreviewBitmap = bitmap;
+                    PreviewImage.Source = bitmap;
+                }
+                else if (PreviewImage.Source != bitmap)
+                {
+                    PreviewImage.Source = bitmap;
                 }
 
-                Data.PreviewBitmap.Lock();
                 try
                 {
-                    int bufferSize = data.Stride * height;
-
-                    Data.PreviewBitmap.WritePixels(
-                        new Int32Rect(0, 0, width, height),
+                    bitmap.WritePixels(
+                        new Int32Rect(0, 0, data.Width, data.Height),
                         data.Data,
-                        bufferSize,
+                        data.Stride * data.Height,
                         data.Stride);
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Preview Update Error: {ex.Message}");
                 }
-                finally
-                {
-                    Data.PreviewBitmap.Unlock();
-                }
-            }));
+            }), DispatcherPriority.Render);
         }
 
         private void TimelineListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
