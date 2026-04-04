@@ -815,9 +815,9 @@
                         <RowDefinition Height="180" />
                     </Grid.RowDefinitions>
 
-                    <ListBox x:Name="TimelineListBox" 
-                             PreviewKeyDown="TimelineListBox_PreviewKeyDown"
-                             SelectionChanged="TimelineListBox_SelectionChanged"
+                    <ListBox x:Name="BookmarkListBox" 
+                             PreviewKeyDown="BookmarkListBox_PreviewKeyDown"
+                             SelectionChanged="BookmarkListBox_SelectionChanged"
                              ItemsSource="{Binding TimelineView}" 
                              SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                              SelectionMode="Extended"

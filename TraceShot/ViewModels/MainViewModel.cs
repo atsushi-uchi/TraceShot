@@ -406,10 +406,10 @@ namespace TraceShot.ViewModels
             App.Current.Dispatcher.Invoke(() =>
             {
                 TimelineView?.Refresh();
-                //if (SelectedItem != null)
-                //{
-                //    ScrollIntoViewRequested?.Invoke(SelectedItem);
-                //}
+                if (SelectedItem != null)
+                {
+                    ScrollIntoViewRequested?.Invoke(SelectedItem);
+                }
             });
         }
 

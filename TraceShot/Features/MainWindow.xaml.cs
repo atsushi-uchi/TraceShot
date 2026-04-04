@@ -64,7 +64,7 @@ namespace TraceShot.Features
             InitializeComponent();
 
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            this.Title = $"TraceShot v{version.Major}.{version.Minor}.{version.Build}";
+            this.Title = $"TraceShot v{version?.Major}.{version?.Minor}.{version?.Build}";
 
             DataContext = Data;
 
@@ -72,10 +72,17 @@ namespace TraceShot.Features
             {
                 App.Current.Dispatcher.Invoke(() =>
                 {
-                    TimelineListBox.ScrollIntoView(entry);
-                    TimelineListBox.SelectedItem = entry;
-                }, DispatcherPriority.Background);
+                    BookmarkListBox.SelectedItem = entry;
+                    BookmarkListBox.ScrollIntoView(entry);
+                    BookmarkListBox.UpdateLayout();
+                    var container = BookmarkListBox.ItemContainerGenerator.ContainerFromItem(entry) as ListBoxItem;
+                    if (container != null)
+                    {
+                        container.Focus();
+                    }
+                }, DispatcherPriority.Render);
             };
+
             Data.RefreshCanvas = () =>
             {
                 App.Current.Dispatcher.Invoke(() =>
@@ -420,7 +427,7 @@ namespace TraceShot.Features
                 return;
             }
 
-            if (TimelineListBox.SelectedItem is not Bookmark entry)
+            if (BookmarkListBox.SelectedItem is not Bookmark entry)
             {
                 // 救済モード（動画なし）の場合、現在の再生時間は取れないので
                 // 必要に応じて処理を分岐（例：新規作成を禁止するか、0秒で作るか）
@@ -480,7 +487,7 @@ namespace TraceShot.Features
 
         private void DrawingCanvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (TimelineListBox.SelectedItem is Bookmark bookmark)
+            if (BookmarkListBox.SelectedItem is Bookmark bookmark)
             {
                 Data.AnnotationManager.CompleteDrawing(bookmark);
 
@@ -543,7 +550,7 @@ namespace TraceShot.Features
 
                     Data.AnnotationManager.RefreshCropOverlay();
                 }
-                else if (TimelineListBox.SelectedItem is Bookmark bookmark)
+                else if (BookmarkListBox.SelectedItem is Bookmark bookmark)
                 {
                     bookmark.Modified();
                 }
@@ -562,7 +569,7 @@ namespace TraceShot.Features
         {
             var textBox = sender as TextBox;
             var note = textBox?.DataContext as NoteAnnotation;
-            var bookmark = TimelineListBox.SelectedItem as Bookmark;
+            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
 
             if (note == null) return;
 
@@ -589,7 +596,7 @@ namespace TraceShot.Features
         {
             var textBox = sender as TextBox;
             var note = textBox?.DataContext as NoteAnnotation;
-            var bookmark = TimelineListBox.SelectedItem as Bookmark;
+            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
 
             if (note == null) return;
 
@@ -808,7 +815,7 @@ namespace TraceShot.Features
 
         private void OnDeleteMenu_Click(object sender, RoutedEventArgs e)
         {
-            var bookmark = TimelineListBox.SelectedItem as Bookmark;
+            var bookmark = BookmarkListBox.SelectedItem as Bookmark;
 
             // MenuItem -> ContextMenu -> 紐付いている Thumb を辿って DataContext を取得
             if (sender is MenuItem menuItem && menuItem.DataContext is AnnotationBase annotation)
@@ -860,7 +867,7 @@ namespace TraceShot.Features
         private void DeleteBookmarkButton_Click(object? sender, RoutedEventArgs? e)
         {
             // 1. 選択されている項目があるかチェック
-            if (TimelineListBox.SelectedItems.Count == 0)
+            if (BookmarkListBox.SelectedItems.Count == 0)
             {
                 Data.StatusText = "ℹ️ 削除する項目を選択してください";
                 return;
@@ -868,18 +875,18 @@ namespace TraceShot.Features
 
             // 確認メッセージ（任意）
             var result = MessageBox.Show(
-                $"{TimelineListBox.SelectedItems.Count} 件のチェックポイントを削除しますか？",
+                $"{BookmarkListBox.SelectedItems.Count} 件のチェックポイントを削除しますか？",
                 "削除の確認",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 
             if (result == MessageBoxResult.Yes)
             {
-                int index = TimelineListBox.SelectedIndex;
+                int index = BookmarkListBox.SelectedIndex;
 
                 // 2. 選択された項目を一度別リストにコピーする
                 // (列挙中に元のコレクションを変更するとエラーになるため)
-                var bookmarks = TimelineListBox.SelectedItems.Cast<Bookmark>().ToList();
+                var bookmarks = BookmarkListBox.SelectedItems.Cast<Bookmark>().ToList();
                 foreach (var cp in bookmarks)
                 {
                     RecService.Instance.Entries.Remove(cp);
@@ -887,13 +894,13 @@ namespace TraceShot.Features
 
                 //Debug.WriteLine($"index:{index} count:{TimelineListBox.Items.Count}");
 
-                if (TimelineListBox.Items.Count > index)
+                if (BookmarkListBox.Items.Count > index)
                 {
-                    TimelineListBox.SelectedItem = TimelineListBox.Items[index];
+                    BookmarkListBox.SelectedItem = BookmarkListBox.Items[index];
                 }
-                else if (TimelineListBox.Items.Count > 0)
+                else if (BookmarkListBox.Items.Count > 0)
                 {
-                    TimelineListBox.SelectedItem = TimelineListBox.Items[0];
+                    BookmarkListBox.SelectedItem = BookmarkListBox.Items[0];
                 }
 
                 // 4. 保存とステータス更新
@@ -983,7 +990,7 @@ namespace TraceShot.Features
             {
                 VideoPlayer.Position = TimeSpan.FromSeconds(TimelineSlider.Value);
                 PlayerPause(true);
-                TimelineListBox.SelectedItem = null;
+                BookmarkListBox.SelectedItem = null;
 
                 // 何も選択されていない場合はキャンバスを空にする
                 Data.AnnotationManager.Annotations.Clear();
@@ -1266,7 +1273,7 @@ namespace TraceShot.Features
             }), DispatcherPriority.Render);
         }
 
-        private void TimelineListBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void BookmarkListBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Down || e.Key == Key.Up)
             {
@@ -1310,28 +1317,49 @@ namespace TraceShot.Features
             {
                 var listBox = (System.Windows.Controls.ListBox)sender;
                 var currentIndex = listBox.SelectedIndex;
-                var caseId = (listBox.Items[currentIndex] as Bookmark)?.CaseId ?? 0;
+                if (currentIndex <= 0) return;
 
-                for (int nextIndex = currentIndex; nextIndex > 0; nextIndex--)
+                var currentCaseId = (listBox.Items[currentIndex] as Bookmark)?.CaseId;
+                int targetIndex = -1;
+
+                // 1. まず「現在のケースとは違うCaseId」を後ろ向きに探す
+                for (int i = currentIndex - 1; i >= 0; i--)
                 {
-                    if (listBox.Items[nextIndex] is Bookmark next && next.CaseId != caseId)
+                    if (listBox.Items[i] is Bookmark prev && prev.CaseId != currentCaseId)
                     {
-                        listBox.SelectedIndex = nextIndex;
-                        listBox.ScrollIntoView(listBox.SelectedItem);
+                        // 2. 違うCaseIdが見つかったら、さらにその「一つ前のCaseId」の境界まで遡る
+                        // つまり、見つかったCaseIdと同じものが続く限り、さらに遡る
+                        var prevCaseId = prev.CaseId;
+                        targetIndex = i;
 
-                        var container = listBox.ItemContainerGenerator.ContainerFromIndex(nextIndex) as UIElement;
-                        container?.Focus();
-
-                        e.Handled = true;
+                        for (int j = i - 1; j >= 0; j--)
+                        {
+                            if (listBox.Items[j] is Bookmark start && start.CaseId == prevCaseId)
+                            {
+                                targetIndex = j; // より前の「同じCaseId」が見つかれば更新
+                            }
+                            else
+                            {
+                                break; // 違うCaseIdになったら、そこが先頭なので終了
+                            }
+                        }
                         break;
                     }
+                }
+
+                if (targetIndex != -1)
+                {
+                    listBox.SelectedIndex = targetIndex;
+                    listBox.ScrollIntoView(listBox.SelectedItem);
+                    (listBox.ItemContainerGenerator.ContainerFromIndex(targetIndex) as UIElement)?.Focus();
+                    e.Handled = true;
                 }
             }
         }
 
-        private void TimelineListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void BookmarkListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (TimelineListBox.SelectedItem is Bookmark selected)
+            if (BookmarkListBox.SelectedItem is Bookmark selected)
             {
                 // --- 救済モード時の画像更新 ---
                 if (Data.CurrentMode == AppViewMode.Rescue)
@@ -1392,7 +1420,7 @@ namespace TraceShot.Features
 
                 double xPos = (ratio * effectiveWidth) + (ThumbWidth / 2.0);
 
-                bool isSelected = TimelineListBox.SelectedItems.Contains(entry);
+                bool isSelected = BookmarkListBox.SelectedItems.Contains(entry);
                 double r = isSelected ? 1.2 : 1.1;
 
                 // 三角形（▲）の作成
@@ -1530,8 +1558,8 @@ namespace TraceShot.Features
                 VideoPlayer.Position = entity.Time;
 
                 // 2. (任意) リストボックス等の該当項目を選択状態にする
-                TimelineListBox.SelectedItem = entity;
-                TimelineListBox.ScrollIntoView(entity);
+                BookmarkListBox.SelectedItem = entity;
+                BookmarkListBox.ScrollIntoView(entity);
 
                 // Slider側のクリックイベントが動かないように「処理済み」とする
                 e.Handled = true;
@@ -1625,7 +1653,7 @@ namespace TraceShot.Features
 
         private void TextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (TimelineListBox.SelectedItem is Bookmark bookmark)
+            if (BookmarkListBox.SelectedItem is Bookmark bookmark)
             {
                 bookmark.IsDirty = true;
             }
@@ -1638,11 +1666,11 @@ namespace TraceShot.Features
 
         private void CaesNoEditBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (TimelineListBox.SelectedItems.Count > 1 && sender is TextBox textBox)
+            if (BookmarkListBox.SelectedItems.Count > 1 && sender is TextBox textBox)
             {
                 if (textBox.IsFocused && int.TryParse(textBox.Text, out int newCaseId))
                 {
-                    var selectedList = TimelineListBox.SelectedItems.Cast<Bookmark>().ToList();
+                    var selectedList = BookmarkListBox.SelectedItems.Cast<Bookmark>().ToList();
                     foreach (Bookmark entry in selectedList)
                     {
                         if (entry.CaseId != newCaseId)
@@ -1667,25 +1695,25 @@ namespace TraceShot.Features
 
             if ((Keyboard.Modifiers & ModifierKeys.Control) == 0)
             {
-                TimelineListBox.SelectedItems.Clear();
+                BookmarkListBox.SelectedItems.Clear();
             }
 
             foreach (var item in itemsToSelect)
             {
-                if (!TimelineListBox.SelectedItems.Contains(item))
+                if (!BookmarkListBox.SelectedItems.Contains(item))
                 {
-                    TimelineListBox.SelectedItems.Add(item);
+                    BookmarkListBox.SelectedItems.Add(item);
                 }
             }
 
             e.Handled = true;
 
-            TimelineListBox.Focus();
+            BookmarkListBox.Focus();
         }
 
         private void RenumberCases_Click(object sender, RoutedEventArgs e)
         {
-            if (TimelineListBox.SelectedItem is Bookmark selected)
+            if (BookmarkListBox.SelectedItem is Bookmark selected)
             {
                 // No.0 自体を選択して「ここから振り直し」をした場合は、No.1から開始させる
                 int currentNewId = (selected.CaseId == 0) ? 1 : selected.CaseId;
@@ -1723,7 +1751,7 @@ namespace TraceShot.Features
 
         private void DeleteEntry_Click(object sender, RoutedEventArgs e)
         {
-            var selectedItems = TimelineListBox.SelectedItems.Cast<Bookmark>().ToList();
+            var selectedItems = BookmarkListBox.SelectedItems.Cast<Bookmark>().ToList();
             foreach (Bookmark entry in selectedItems)
             {
                 RecService.Instance.Entries.Remove(entry);
@@ -1746,7 +1774,7 @@ namespace TraceShot.Features
 
         private void OnPasteMenu_Click(object sender, RoutedEventArgs? e)
         {
-            if (TimelineListBox.SelectedItem is Bookmark bookmark)
+            if (BookmarkListBox.SelectedItem is Bookmark bookmark)
             {
                 Data.PasteAnnotation(bookmark);
             }
