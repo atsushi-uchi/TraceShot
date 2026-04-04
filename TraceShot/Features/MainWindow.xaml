@@ -816,6 +816,7 @@
                     </Grid.RowDefinitions>
 
                     <ListBox x:Name="TimelineListBox" 
+                             PreviewKeyDown="TimelineListBox_PreviewKeyDown"
                              SelectionChanged="TimelineListBox_SelectionChanged"
                              ItemsSource="{Binding TimelineView}" 
                              SelectedItem="{Binding SelectedItem, Mode=TwoWay}"

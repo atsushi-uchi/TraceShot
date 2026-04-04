@@ -1266,6 +1266,69 @@ namespace TraceShot.Features
             }), DispatcherPriority.Render);
         }
 
+        private void TimelineListBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Down || e.Key == Key.Up)
+            {
+                var listBox = (System.Windows.Controls.ListBox)sender;
+                var currentIndex = listBox.SelectedIndex;
+                int nextIndex = e.Key == Key.Down ? currentIndex + 1 : currentIndex - 1;
+
+                if (nextIndex >= 0 && nextIndex < listBox.Items.Count)
+                {
+                    listBox.SelectedIndex = nextIndex;
+                    listBox.ScrollIntoView(listBox.SelectedItem);
+
+                    var container = listBox.ItemContainerGenerator.ContainerFromIndex(nextIndex) as UIElement;
+                    container?.Focus();
+
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.Right)
+            {
+                var listBox = (System.Windows.Controls.ListBox)sender;
+                var currentIndex = listBox.SelectedIndex;
+                var caseId = (listBox.Items[currentIndex] as Bookmark)?.CaseId ?? 0;
+
+                for (int nextIndex = currentIndex; nextIndex < listBox.Items.Count; nextIndex++)
+                {
+                    if (listBox.Items[nextIndex] is Bookmark next && next.CaseId != caseId)
+                    {
+                        listBox.SelectedIndex = nextIndex;
+                        listBox.ScrollIntoView(listBox.SelectedItem);
+
+                        var container = listBox.ItemContainerGenerator.ContainerFromIndex(nextIndex) as UIElement;
+                        container?.Focus();
+
+                        e.Handled = true;
+                        break;
+                    }
+                }
+            }
+            else if (e.Key == Key.Left)
+            {
+                var listBox = (System.Windows.Controls.ListBox)sender;
+                var currentIndex = listBox.SelectedIndex;
+                var caseId = (listBox.Items[currentIndex] as Bookmark)?.CaseId ?? 0;
+
+                for (int nextIndex = currentIndex; nextIndex > 0; nextIndex--)
+                {
+                    if (listBox.Items[nextIndex] is Bookmark next && next.CaseId != caseId)
+                    {
+                        listBox.SelectedIndex = nextIndex;
+                        listBox.ScrollIntoView(listBox.SelectedItem);
+
+                        var container = listBox.ItemContainerGenerator.ContainerFromIndex(nextIndex) as UIElement;
+                        container?.Focus();
+
+                        e.Handled = true;
+                        break;
+                    }
+                }
+            }
+        }
+
         private void TimelineListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (TimelineListBox.SelectedItem is Bookmark selected)
