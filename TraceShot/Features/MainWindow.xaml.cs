@@ -1275,11 +1275,11 @@ namespace TraceShot.Features
 
         private void BookmarkListBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Down || e.Key == Key.Up)
+            if (e.Key == Key.Left || e.Key == Key.Right)
             {
                 var listBox = (System.Windows.Controls.ListBox)sender;
                 var currentIndex = listBox.SelectedIndex;
-                int nextIndex = e.Key == Key.Down ? currentIndex + 1 : currentIndex - 1;
+                int nextIndex = e.Key == Key.Right ? currentIndex + 1 : currentIndex - 1;
 
                 if (nextIndex >= 0 && nextIndex < listBox.Items.Count)
                 {
@@ -1292,7 +1292,7 @@ namespace TraceShot.Features
                     e.Handled = true;
                 }
             }
-            else if (e.Key == Key.Right)
+            else if (e.Key == Key.Down)
             {
                 var listBox = (System.Windows.Controls.ListBox)sender;
                 var currentIndex = listBox.SelectedIndex;
@@ -1313,37 +1313,47 @@ namespace TraceShot.Features
                     }
                 }
             }
-            else if (e.Key == Key.Left)
+            else if (e.Key == Key.Up)
             {
                 var listBox = (System.Windows.Controls.ListBox)sender;
                 var currentIndex = listBox.SelectedIndex;
                 if (currentIndex <= 0) return;
 
-                var currentCaseId = (listBox.Items[currentIndex] as Bookmark)?.CaseId;
+                var currentItem = listBox.Items[currentIndex] as Bookmark;
+                var currentCaseId = currentItem?.CaseId;
                 int targetIndex = -1;
 
-                // 1. まず「現在のケースとは違うCaseId」を後ろ向きに探す
-                for (int i = currentIndex - 1; i >= 0; i--)
+                // A. まず、現在選択しているケースの「さらに上」に同じCaseIdがあるかチェック
+                //（＝今、ケースの途中にいるか？）
+                if (currentIndex > 0 && (listBox.Items[currentIndex - 1] as Bookmark)?.CaseId == currentCaseId)
                 {
-                    if (listBox.Items[i] is Bookmark prev && prev.CaseId != currentCaseId)
+                    // 現在のケースの先頭を探す
+                    for (int i = currentIndex - 1; i >= 0; i--)
                     {
-                        // 2. 違うCaseIdが見つかったら、さらにその「一つ前のCaseId」の境界まで遡る
-                        // つまり、見つかったCaseIdと同じものが続く限り、さらに遡る
-                        var prevCaseId = prev.CaseId;
-                        targetIndex = i;
-
-                        for (int j = i - 1; j >= 0; j--)
+                        if ((listBox.Items[i] as Bookmark)?.CaseId == currentCaseId)
+                            targetIndex = i;
+                        else
+                            break;
+                    }
+                }
+                else
+                {
+                    // B. すでにケースの先頭にいるなら、前のケースの先頭を探す（既存ロジック）
+                    for (int i = currentIndex - 1; i >= 0; i--)
+                    {
+                        if (listBox.Items[i] is Bookmark prev && prev.CaseId != currentCaseId)
                         {
-                            if (listBox.Items[j] is Bookmark start && start.CaseId == prevCaseId)
+                            var prevCaseId = prev.CaseId;
+                            targetIndex = i;
+                            for (int j = i - 1; j >= 0; j--)
                             {
-                                targetIndex = j; // より前の「同じCaseId」が見つかれば更新
+                                if ((listBox.Items[j] as Bookmark)?.CaseId == prevCaseId)
+                                    targetIndex = j;
+                                else
+                                    break;
                             }
-                            else
-                            {
-                                break; // 違うCaseIdになったら、そこが先頭なので終了
-                            }
+                            break;
                         }
-                        break;
                     }
                 }
 
@@ -1351,6 +1361,8 @@ namespace TraceShot.Features
                 {
                     listBox.SelectedIndex = targetIndex;
                     listBox.ScrollIntoView(listBox.SelectedItem);
+                    // コンテナの取得とフォーカス強制
+                    listBox.UpdateLayout();
                     (listBox.ItemContainerGenerator.ContainerFromIndex(targetIndex) as UIElement)?.Focus();
                     e.Handled = true;
                 }
