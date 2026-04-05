@@ -13,7 +13,7 @@
 	<ApplicationIcon>Resources\traceshot_Icon.ico</ApplicationIcon>
 	<PackageIcon>traceshot_icon.ico</PackageIcon>
 	<Title></Title>
-	<Version>1.0.1</Version>
+	<Version>1.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
