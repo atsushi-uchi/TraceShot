@@ -1,14 +1,11 @@
-using System;
 using System.Windows;
-using Point = System.Windows.Point;
-using Size = System.Windows.Size;
 using System.Windows.Controls.Primitives;
-using System.Windows.Controls;
-using TraceShot.Controls;
 using TraceShot.Models;
 using TraceShot.ViewModels;
+using Point = System.Windows.Point;
+using Size = System.Windows.Size;
 
-namespace TraceShot.Features
+namespace TraceShot.Controls
 {
     internal class AnnotationController
     {
@@ -56,7 +53,7 @@ namespace TraceShot.Features
 
             if (_data.AnnotationManager.TryConsumeUpdateStart(annotation.Id, out var before))
             {
-                var after = new TraceShot.Controls.AnnotationManager.UpdateState
+                var after = new AnnotationManager.UpdateState
                 {
                     RelX = annotation.RelX,
                     RelY = annotation.RelY,

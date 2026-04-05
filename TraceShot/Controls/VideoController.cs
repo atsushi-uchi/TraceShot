@@ -2,7 +2,7 @@ using System;
 using System.Windows.Controls;
 using System.Windows.Threading;
 
-namespace TraceShot.Features
+namespace TraceShot.Controls
 {
     public class VideoPositionEventArgs : EventArgs
     {
@@ -24,8 +24,8 @@ namespace TraceShot.Features
 
         private readonly Func<bool>? _isPlayingGetter;
         private readonly Func<bool>? _stopAtPointEnabledGetter;
-        private readonly Func<System.Collections.Generic.IEnumerable<TraceShot.Models.Bookmark>>? _getEntries;
-        private readonly Action<TraceShot.Models.Bookmark?>? _onEntryFound;
+        private readonly Func<System.Collections.Generic.IEnumerable<Models.Bookmark>>? _getEntries;
+        private readonly Action<Models.Bookmark?>? _onEntryFound;
         private readonly double _stopThresholdSeconds;
 
         public event EventHandler<VideoPositionEventArgs>? PositionUpdated;
@@ -33,8 +33,8 @@ namespace TraceShot.Features
         public VideoController(MediaElement videoPlayer,
                                Func<bool>? isPlayingGetter = null,
                                Func<bool>? stopAtPointEnabledGetter = null,
-                               Func<System.Collections.Generic.IEnumerable<TraceShot.Models.Bookmark>>? getEntries = null,
-                               Action<TraceShot.Models.Bookmark?>? onEntryFound = null,
+                               Func<System.Collections.Generic.IEnumerable<Models.Bookmark>>? getEntries = null,
+                               Action<Models.Bookmark?>? onEntryFound = null,
                                double stopThresholdSeconds = 0.1)
         {
             _videoPlayer = videoPlayer ?? throw new ArgumentNullException(nameof(videoPlayer));
