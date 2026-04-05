@@ -58,6 +58,11 @@ namespace TraceShot.Features
         string _fullDeviceName = string.Empty;
         string _rectDeviceName = string.Empty;
         private DebugWindow? _debugWindow;
+        private AnnotationController? _annotationController;
+        private VideoController? _videoController;
+
+        private DateTime _lastCanvasRefresh = DateTime.MinValue;
+        private const int CanvasRefreshIntervalMs = 100;  // 100ms ごと
 
         public MainWindow()
         {
@@ -102,12 +107,59 @@ namespace TraceShot.Features
 
             InitializeKeyBindings();
 
-            _playerTimer = new DispatcherTimer
+            // Initialize AnnotationController
+            _annotationController = new AnnotationController(
+                Data,
+                () => Data.CurrentMode,
+                () => Data.CurrentMode == AppViewMode.Rescue ? (FrameworkElement)RescueImage : (FrameworkElement)VideoPlayer,
+                () => BookmarkListBox);
+
+            // Initialize VideoController and move StopAtPoint logic into it
+            _videoController = new VideoController(
+                VideoPlayer,
+                isPlayingGetter: () => _isPlaying,
+                stopAtPointEnabledGetter: () => StopAtPointCheckBox.IsChecked ?? false,
+                getEntries: () => RecService.Instance.Evidence?.Entries ?? Enumerable.Empty<Bookmark>(),
+                onEntryFound: (entry) =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (entry != null)
+                        {
+                            if (Data.SelectedItem != entry)
+                            {
+                                Data.SelectedItem = entry;
+                            }
+                        }
+                        else
+                        {
+                            Data.SelectedItem = null;
+                        }
+                    });
+                });
+
+            _videoController.PositionUpdated += (s, args) =>
             {
-                Interval = TimeSpan.FromMilliseconds(100)
+                // Update UI elements on UI thread
+                Dispatcher.Invoke(() =>
+                {
+                    TimelineSlider.Maximum = args.Total.TotalSeconds;
+                    string current = args.Current.ToString(@"mm\:ss");
+                    string total = args.Total.ToString(@"mm\:ss");
+                    TimeText.Text = $"{current} / {total}";
+
+                    bool isUserInteracting = _isDragging || Mouse.LeftButton == MouseButtonState.Pressed;
+                    if (!isUserInteracting)
+                    {
+                        TimelineSlider.Value = args.Current.TotalSeconds;
+                    }
+                });
             };
-            _playerTimer.Tick += Timer_Tick;
-            _playerTimer.Start();
+
+            _videoController.Start();
+
+            // Timer has been migrated to VideoController; remove legacy timer
+            _playerTimer = null!;
 
             Data.Config.PropertyChanged += (s, e) =>
             {
@@ -162,46 +214,7 @@ namespace TraceShot.Features
             };
         }
 
-        private void Timer_Tick(object? sender, EventArgs e)
-        {
-            if (VideoPlayer.NaturalDuration.HasTimeSpan)
-            {
-                TimelineSlider.Maximum = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
-                string current = VideoPlayer.Position.ToString(@"mm\:ss");
-                string total = VideoPlayer.NaturalDuration.TimeSpan.ToString(@"mm\:ss");
-                TimeText.Text = $"{current} / {total}";
-
-                bool isUserInteracting = _isDragging || Mouse.LeftButton == MouseButtonState.Pressed;
-                if (!isUserInteracting)
-                {
-                    TimelineSlider.Value = VideoPlayer.Position.TotalSeconds;
-                }
-
-                if (_isPlaying)
-                {
-                    if (StopAtPointCheckBox.IsChecked ?? false)
-                    {
-                        // 現在のポジション付近にエントリーが存在するか
-                        var entry = RecService.Instance.Evidence.Entries
-                            .Where(bm => Math.Abs(bm.Time.TotalSeconds - VideoPlayer.Position.TotalSeconds) < 0.1)
-                            .OrderBy(bm => bm.Time)
-                            .FirstOrDefault();
-
-                        if (entry != null)
-                        {
-                            if (Data.SelectedItem != entry)
-                            {
-                                Data.SelectedItem = entry;
-                            }
-                        }
-                        else
-                        {
-                            Data.SelectedItem = null;
-                        }
-                    }
-                }
-            }
-        }
+        // Timer logic moved to VideoController
 
         private void Window_KeyDown(object sender, KeyEventArgs e)
         {
@@ -499,70 +512,12 @@ namespace TraceShot.Features
 
         private void OnAnnotation_DragCompleted(object sender, DragCompletedEventArgs e)
         {
-            if (sender is Thumb thumb && thumb.DataContext is AnnotationBase annotation)
-            {
-                // 1. 基準要素の特定と有効性チェック
-                FrameworkElement referenceElement = (Data.CurrentMode == AppViewMode.Rescue) ? RescueImage : VideoPlayer;
-                if (!referenceElement.IsVisible) return;
-
-                // 2. 座標取得とテキスト中心オフセット補正
-                var transform = thumb.TransformToVisual(referenceElement);
-                Point currentPos = transform.Transform(new Point(0, 0));
-
-                var tag = thumb.Tag?.ToString() ?? "";
-                if (annotation is NoteAnnotation note && tag == "End")
-                {
-                    currentPos.X += note.ActualTextWidth / 2.0;
-                    currentPos.Y += note.ActualTextHeight / 2.0;
-                }
-
-                var actualSize = new Size(referenceElement.ActualWidth, referenceElement.ActualHeight);
-
-                // --- 修正：先に座標を確定させる ---
-                // これにより annotation 内部の RelX 等が最新になる
-                Data.AnnotationManager.CompleteDrawing(annotation, currentPos, actualSize, tag);
-
-                // 4. アン一ドゥ/リドゥ用の処理（最新の状態を保存）
-                if (Data.AnnotationManager.TryConsumeUpdateStart(annotation.Id, out var before))
-                {
-                    var after = new AnnotationManager.UpdateState
-                    {
-                        RelX = annotation.RelX,
-                        RelY = annotation.RelY,
-                        RelWidth = annotation.RelWidth,
-                        RelHeight = annotation.RelHeight,
-                    };
-
-                    // Note特有のプロパティも忘れずに
-                    if (annotation is NoteAnnotation noteAnno)
-                    {
-                        after.RelStartX = noteAnno.RelStartX;
-                        after.RelStartY = noteAnno.RelStartY;
-                    }
-
-                    Data.AnnotationManager.PushUpdateAction(annotation, before!, after, Data.SelectedItem);
-                }
-
-                // --- 5. ダーティフラグ更新 ---
-                if (annotation is CropAnnotation)
-                {
-                    foreach (var bookmark in Data.Recorder.Entries) { bookmark.Modified(); }
-
-                    Data.AnnotationManager.RefreshCropOverlay();
-                }
-                else if (BookmarkListBox.SelectedItem is Bookmark bookmark)
-                {
-                    bookmark.Modified();
-                }
-            }
+            _annotationController?.OnAnnotation_DragCompleted(sender, e);
         }
 
         private void OnAnnotation_DragStarted(object sender, DragStartedEventArgs e)
         {
-            if (sender is Thumb thumb && thumb.DataContext is AnnotationBase annotation)
-            {
-                Data.AnnotationManager.RecordUpdateStart(annotation);
-            }
+            _annotationController?.OnAnnotation_DragStarted(sender, e);
         }
 
         private void TextInput_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -689,120 +644,22 @@ namespace TraceShot.Features
 
         private void OnNoteStart_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            if (sender is Thumb t && t.DataContext is NoteAnnotation note)
-            {
-                if (Data.CurrentMode == AppViewMode.Edit)
-                {
-                    note.RelStartX += e.HorizontalChange / VideoPlayer.ActualWidth;
-                    note.RelStartY += e.VerticalChange / VideoPlayer.ActualHeight;
-                }
-                else if (Data.CurrentMode == AppViewMode.Rescue)
-                {
-                    note.RelStartX += e.HorizontalChange / RescueImage.ActualWidth;
-                    note.RelStartY += e.VerticalChange / RescueImage.ActualHeight;
-                }
-            }
+            _annotationController?.OnNoteStart_DragDelta(sender, e);
         }
 
         private void OnNoteText_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            if (sender is Thumb t && t.DataContext is NoteAnnotation note)
-                if (!note.IsEditing) // 編集中は移動させない設定
-                {
-                    if (Data.CurrentMode == AppViewMode.Edit)
-                    {
-                        // 動画プレイヤーのサイズを基準に、相対的な移動量を加算
-                        note.RelX += e.HorizontalChange / VideoPlayer.ActualWidth;
-                        note.RelY += e.VerticalChange / VideoPlayer.ActualHeight;
-                    }
-                    else if(Data.CurrentMode == AppViewMode.Rescue)
-                    {
-                        note.RelX += e.HorizontalChange / RescueImage.ActualWidth;
-                        note.RelY += e.VerticalChange / RescueImage.ActualHeight;
-                    }
-
-                    // 念のため、キャンバスからはみ出さないように制限（0.0 〜 1.0）
-                    note.RelX = Math.Clamp(note.RelX, 0, 1);
-                    note.RelY = Math.Clamp(note.RelY, 0, 1);
-                }
+            _annotationController?.OnNoteText_DragDelta(sender, e);
         }
 
         private void OnMoveThumb_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            if (sender is Thumb t && t.DataContext is RectAnnotation rect)
-            {
-                if (Data.CurrentMode == AppViewMode.Edit)
-                {
-                    // 変化量(px) / 動画プレイヤーの現在のサイズ(px) = 相対変化量
-                    rect.RelX += e.HorizontalChange / VideoPlayer.ActualWidth;
-                    rect.RelY += e.VerticalChange / VideoPlayer.ActualHeight;
-                }
-                else if (Data.CurrentMode == AppViewMode.Rescue)
-                {
-                    rect.RelX += e.HorizontalChange / RescueImage.ActualWidth;
-                    rect.RelY += e.VerticalChange / RescueImage.ActualHeight;
-                }
-
-            }
+            _annotationController?.OnMoveThumb_DragDelta(sender, e);
         }
 
         private void OnResize_DragDelta(object sender, DragDeltaEventArgs e)
         {
-            if (sender is not Thumb t || t.DataContext is not RectAnnotation rect) return;
-
-            double deltaX = e.HorizontalChange / VideoPlayer.ActualWidth;
-            double deltaY = e.VerticalChange / VideoPlayer.ActualHeight;
-
-            if (Data.CurrentMode == AppViewMode.Rescue) // レスキューモード用
-            {
-                deltaX = e.HorizontalChange / RescueImage.ActualWidth;
-                deltaY = e.VerticalChange / RescueImage.ActualHeight;
-            }
-
-            switch (t.Tag?.ToString())
-            {
-                case "Left":
-                    rect.RelX += deltaX;
-                    rect.RelWidth -= deltaX;
-                    break;
-
-                case "Right":
-                    rect.RelWidth += deltaX;
-                    break;
-
-                case "Top":
-                    rect.RelY += deltaY;
-                    rect.RelHeight -= deltaY;
-                    break;
-
-                case "Bottom":
-                    rect.RelHeight += deltaY;
-                    break;
-
-                case "TopLeft":
-                    rect.RelX += deltaX;
-                    rect.RelWidth -= deltaX;
-                    rect.RelY += deltaY;
-                    rect.RelHeight -= deltaY;
-                    break;
-
-                case "TopRight":
-                    rect.RelWidth += deltaX;
-                    rect.RelY += deltaY;
-                    rect.RelHeight -= deltaY;
-                    break;
-
-                case "BottomLeft":
-                    rect.RelX += deltaX;
-                    rect.RelWidth -= deltaX;
-                    rect.RelHeight += deltaY;
-                    break;
-
-                case "BottomRight":
-                    rect.RelWidth += deltaX;
-                    rect.RelHeight += deltaY;
-                    break;
-            }
+            _annotationController?.OnResize_DragDelta(sender, e);
         }
 
         private void OnEditMenu_Click(object sender, RoutedEventArgs e)
@@ -891,8 +748,6 @@ namespace TraceShot.Features
                 {
                     RecService.Instance.Entries.Remove(cp);
                 }
-
-                //Debug.WriteLine($"index:{index} count:{TimelineListBox.Items.Count}");
 
                 if (BookmarkListBox.Items.Count > index)
                 {
@@ -988,9 +843,9 @@ namespace TraceShot.Features
         {
             if (_isDragging)
             {
-                VideoPlayer.Position = TimeSpan.FromSeconds(TimelineSlider.Value);
+                _videoController?.Seek(TimeSpan.FromSeconds(TimelineSlider.Value));
                 PlayerPause(true);
-                BookmarkListBox.SelectedItem = null;
+                Data.SelectedItem = null;
 
                 // 何も選択されていない場合はキャンバスを空にする
                 Data.AnnotationManager.Annotations.Clear();
@@ -1010,7 +865,7 @@ namespace TraceShot.Features
             _isDragging = false;
             SliderToolTip.IsOpen = false;
             SliderToolTip.Visibility = Visibility.Collapsed;
-            AfterSliderChange();
+            AfterSliderChange(); // Ensure the slider change is processed
         }
 
         private void AfterSliderChange()
@@ -1073,14 +928,16 @@ namespace TraceShot.Features
             if (_isPlaying)
             {
                 PlayerPause(false);
+                _videoController?.Pause();
             }
             else
             {
                 // 再生処理
-                VideoPlayer.Play();
+                _videoController?.Play();
                 PlayPauseIcon.Text = "⏸️";
                 PlayPauseText.Text = "一時停止";
                 _isPlaying = true;
+                _videoController?.SetPlaying(true);
 
                 Data.StatusText = "▶ 再生中...";
                 //StartPlayerTimer();
@@ -1090,9 +947,8 @@ namespace TraceShot.Features
         private void PlayerPause(bool withReflash)
         {
             if (withReflash) VideoPlayer.Play();
-
             // 一時停止処理
-            VideoPlayer.Pause();
+            _videoController?.Pause();
             PlayPauseIcon.Text = "▶️";
             PlayPauseText.Text = "再生";
             _isPlaying = false;
@@ -1392,7 +1248,7 @@ namespace TraceShot.Features
                 {
                     if (!_isInternalSelectionChange)
                     {
-                        VideoPlayer.Position = selected.Time;
+                        _videoController?.Seek(selected.Time);
                         PlayerPause(true);
                         Data.StatusText = $"Seek: {selected.Time}";
                     }
@@ -1411,6 +1267,9 @@ namespace TraceShot.Features
 
         private void RefreshBookmarkCanvas()
         {
+            if ((DateTime.Now - _lastCanvasRefresh).TotalMilliseconds < CanvasRefreshIntervalMs)
+                return;
+
             if (RecService.Instance.Evidence == null || !VideoPlayer.NaturalDuration.HasTimeSpan) return;
             BookmarkCanvas.Children.Clear();
 
@@ -1456,6 +1315,9 @@ namespace TraceShot.Features
 
                 BookmarkCanvas.Children.Add(triangle);
             }
+
+            _lastCanvasRefresh = DateTime.Now;
+
             RefreshResultRangeCanvas();
         }
 
@@ -1570,8 +1432,7 @@ namespace TraceShot.Features
                 VideoPlayer.Position = entity.Time;
 
                 // 2. (任意) リストボックス等の該当項目を選択状態にする
-                BookmarkListBox.SelectedItem = entity;
-                BookmarkListBox.ScrollIntoView(entity);
+                Data.SelectedItem = entity;
 
                 // Slider側のクリックイベントが動かないように「処理済み」とする
                 e.Handled = true;
