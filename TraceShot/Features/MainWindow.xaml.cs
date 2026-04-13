@@ -73,6 +73,20 @@ namespace TraceShot.Features
 
             DataContext = Data;
 
+            try
+            {
+                if (CaesNoEditBox != null)
+                {
+                    InputMethod.SetIsInputMethodEnabled(CaesNoEditBox, false);
+                    CaesNoEditBox.PreviewTextInput += CaesNoEditBox_PreviewTextInput;
+                    System.Windows.DataObject.AddPastingHandler(CaesNoEditBox, new DataObjectPastingEventHandler(CaesNoEditBox_OnPaste));
+                }
+            }
+            catch
+            {
+                // ignore in case control not available at initialization
+            }
+
             Data.ScrollIntoViewRequested = (entry) =>
             {
                 App.Current.Dispatcher.Invoke(() =>
@@ -1529,6 +1543,60 @@ namespace TraceShot.Features
             if (BookmarkListBox.SelectedItem is Bookmark bookmark)
             {
                 bookmark.IsDirty = true;
+            }
+        }
+
+        private void CaesNoEditBox_PreviewTextInput(object sender, System.Windows.Input.TextCompositionEventArgs e)
+        {
+            // Normalize full-width digits to ASCII digits on the fly
+            if (string.IsNullOrEmpty(e.Text)) return;
+            var sb = new System.Text.StringBuilder();
+            foreach (var ch in e.Text)
+            {
+                if (ch >= '\uFF10' && ch <= '\uFF19')
+                {
+                    sb.Append((char)('0' + (ch - '\uFF10')));
+                }
+                else
+                {
+                    sb.Append(ch);
+                }
+            }
+            var normalized = sb.ToString();
+            if (normalized != e.Text)
+            {
+                // replace input
+                e.Handled = true;
+                var tb = sender as TextBox;
+                if (tb != null)
+                {
+                    var selStart = tb.SelectionStart;
+                    tb.Text = tb.Text.Remove(selStart, tb.SelectionLength);
+                    tb.Text = tb.Text.Insert(selStart, normalized);
+                    tb.SelectionStart = selStart + normalized.Length;
+                }
+            }
+        }
+
+        private void CaesNoEditBox_OnPaste(object sender, System.Windows.DataObjectPastingEventArgs e)
+        {
+            if (e.DataObject.GetDataPresent(System.Windows.DataFormats.Text))
+            {
+                var text = e.DataObject.GetData(System.Windows.DataFormats.Text) as string ?? string.Empty;
+                // Normalize full-width digits
+                var sb = new System.Text.StringBuilder(text.Length);
+                foreach (var ch in text)
+                {
+                    if (ch >= '\uFF10' && ch <= '\uFF19') sb.Append((char)('0' + (ch - '\uFF10')));
+                    else sb.Append(ch);
+                }
+                var normalized = sb.ToString();
+                if (normalized != text)
+                {
+                    var data = new System.Windows.DataObject();
+                    data.SetData(System.Windows.DataFormats.Text, normalized);
+                    e.DataObject = data;
+                }
             }
         }
 
