@@ -2,6 +2,7 @@
 using ScreenRecorderLib;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -30,7 +31,6 @@ using Point = System.Windows.Point;
 using Rectangle = System.Windows.Shapes.Rectangle;
 using Size = System.Windows.Size;
 using TextBox = System.Windows.Controls.TextBox;
-using Thumb = System.Windows.Controls.Primitives.Thumb;
 
 namespace TraceShot.Features
 {
@@ -1783,6 +1783,29 @@ namespace TraceShot.Features
 
                 SoundService.Instance.PlayShutter();
             });
+        }
+
+        private void NextNoEditBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            // 半角数値以外なら入力をキャンセル
+            e.Handled = !Regex.IsMatch(e.Text, "^[0-9]+$");
+        }
+
+        private void NextNoEditBox_Pasting(object sender, DataObjectPastingEventArgs e)
+        {
+            if (e.DataObject.GetDataPresent(System.Windows.DataFormats.Text))
+            {
+                string text = (string)e.DataObject.GetData(System.Windows.DataFormats.Text);
+                // 貼り付けようとしている文字列が数値でないならキャンセル
+                if (!Regex.IsMatch(text, "^[0-9]+$"))
+                {
+                    e.CancelCommand();
+                }
+            }
+            else
+            {
+                e.CancelCommand();
+            }
         }
     }
 }

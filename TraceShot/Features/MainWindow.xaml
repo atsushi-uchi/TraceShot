@@ -923,6 +923,8 @@
                                 <TextBox Grid.Column="1" 
                                          Name="NextNoEditBox" 
                                          Text="{Binding NextNo, UpdateSourceTrigger=PropertyChanged}" 
+                                         PreviewTextInput="NextNoEditBox_PreviewTextInput"
+                                         DataObject.Pasting="NextNoEditBox_Pasting"
                                          VerticalAlignment="Center"
                                          Visibility="{Binding CurrentMode,
                                                       Converter={StaticResource EnumToVisibilityConverter},
