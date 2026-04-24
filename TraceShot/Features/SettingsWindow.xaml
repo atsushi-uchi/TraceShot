@@ -90,10 +90,34 @@
                     <Button x:Name="HotkeySettingButton" Grid.Column="1" Content="F12" Margin="0,0,0,5" Click="HotkeySettingButton_Click"/>
                     <TextBlock Grid.Column="2" Text="※クリックしてキー入力" VerticalAlignment="Center" Margin="10,0,0,5" FontSize="10" Foreground="Gray"/>
 
-                    <TextBlock Grid.Row="1" Text="音声メモホットキー:" VerticalAlignment="Center" Margin="0,5,10,0"/>
+                    <!--<TextBlock Grid.Row="1" Text="音声メモホットキー:" VerticalAlignment="Center" Margin="0,5,10,0"/>
                     <Button x:Name="VoiceHotkeySettingButton" Grid.Row="1" Grid.Column="1" Content="None" Margin="0,5,0,0" Click="HotkeySettingButton_Click"/>
-                    <TextBlock Grid.Row="1" Grid.Column="2" Text="※クリックしてキー入力" VerticalAlignment="Center" Margin="10,5,0,0" FontSize="10" Foreground="Gray"/>
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="※クリックしてキー入力" VerticalAlignment="Center" Margin="10,5,0,0" FontSize="10" Foreground="Gray"/>-->
                 </Grid>
+
+                <Border BorderBrush="#EEE" BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="0,10,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="50"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="シャッター音量:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+
+                        <Slider x:Name="VolumeSlider" Grid.Column="1" 
+                        Minimum="0" Maximum="100" 
+                        TickFrequency="10" IsSnapToTickEnabled="False"
+                        VerticalAlignment="Center"/>
+
+                        <TextBlock Grid.Column="2" 
+                           Text="{Binding ElementName=VolumeSlider, Path=Value, StringFormat={}{0:0}%}" 
+                           VerticalAlignment="Center" Margin="5,0,0,0" FontSize="10"/>
+
+                        <Button Grid.Column="3" Content="♪ テスト" Click="TestSound_Click" 
+                        Padding="5,0" FontSize="10" Height="20"/>
+                    </Grid>
+                </Border>
 
                 <Border BorderBrush="#EEE" BorderThickness="0,1,0,0" Margin="0,10" Padding="0,10,0,0">
                     <StackPanel>
@@ -115,11 +139,11 @@
                     </StackPanel>
                 </Border>
 
-                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                <!--<StackPanel Orientation="Horizontal" Margin="0,5,0,0">
                     <CheckBox x:Name="EnableVoiceRecognitionCheckBox" Content="音声認識を有効にする" VerticalAlignment="Center"/>
                     <TextBlock Text="（起動時の負荷を軽減するにはオフ）" 
                VerticalAlignment="Center" FontSize="10" Foreground="Gray" Margin="10,0,0,0"/>
-                </StackPanel>
+                </StackPanel>-->
             </StackPanel>
         </GroupBox>
 

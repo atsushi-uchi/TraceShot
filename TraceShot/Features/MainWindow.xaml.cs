@@ -282,6 +282,9 @@ namespace TraceShot.Features
             // ホットキー登録
             RefreshHotkey();
 
+            // シャッター音量
+            SoundService.Instance.Volume = Default.SoundVolume;
+
             // マウス中央、サイドボタンの撮影設定
             _mouseHook.ChatteringThreshold = Default.ChatteringThreshold;
             _mouseHook.EnableMiddleClick = Default.EnableMiddleClick;

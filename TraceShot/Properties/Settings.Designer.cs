@@ -49,7 +49,7 @@ namespace TraceShot.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
         public bool UseHardwareAccel {
             get {
                 return ((bool)(this["UseHardwareAccel"]));
@@ -205,7 +205,7 @@ namespace TraceShot.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool EnableSideClick {
             get {
                 return ((bool)(this["EnableSideClick"]));
@@ -248,6 +248,18 @@ namespace TraceShot.Properties {
             }
             set {
                 this["VideoQuality"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0.5")]
+        public double SoundVolume {
+            get {
+                return ((double)(this["SoundVolume"]));
+            }
+            set {
+                this["SoundVolume"] = value;
             }
         }
     }
