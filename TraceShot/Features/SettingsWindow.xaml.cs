@@ -74,9 +74,12 @@ namespace TraceShot.Features
 
             _tempVoiceKey = (Key)Default.VoiceHotkeyKey;
             _tempVoiceMod = (ModifierKeys)Default.VoiceHotkeyMod;
-            VoiceHotkeySettingButton.Content = HotkeyRegister.Format(_tempVoiceKey, _tempVoiceMod);
+            //VoiceHotkeySettingButton.Content = HotkeyRegister.Format(_tempVoiceKey, _tempVoiceMod);
 
-            EnableVoiceRecognitionCheckBox.IsChecked = _setting.IsVoiceEnabled;
+            //EnableVoiceRecognitionCheckBox.IsChecked = _setting.IsVoiceEnabled;
+
+            // 4.5 シャッタ音 0.5 -> 50(%) に変換してスライダーにセット
+            VolumeSlider.Value = Properties.Settings.Default.SoundVolume * 100;
 
             // 5.マウス中央、サイドボタン
             EnableMiddleClickCheckBox.IsChecked = Default.EnableMiddleClick;
@@ -183,8 +186,12 @@ namespace TraceShot.Features
             Default.VoiceHotkeyKey = (int)_tempVoiceKey;
             Default.VoiceHotkeyMod = (int)_tempVoiceMod;
 
+            // シャッター音
+            Default.SoundVolume = VolumeSlider.Value / 100.0;
+            Default.Save();
+
             // 音声認識オン／オフ
-            SettingsService.Instance.IsVoiceEnabled = EnableVoiceRecognitionCheckBox.IsChecked ?? false;
+            //SettingsService.Instance.IsVoiceEnabled = EnableVoiceRecognitionCheckBox.IsChecked ?? false;
 
             // プロパティへの反映（Configクラスなどがある前提）
             Default.EnableMiddleClick = EnableMiddleClickCheckBox.IsChecked ?? true;
@@ -194,6 +201,15 @@ namespace TraceShot.Features
             SettingsService.Instance.Save();
             this.DialogResult = true;
             this.Close();
+        }
+
+        // テスト再生ボタン
+        private void TestSound_Click(object sender, RoutedEventArgs e)
+        {
+            // 保存前の現在のスライダー位置の音量で鳴らしてみる
+            var currentVol = VolumeSlider.Value / 100.0;
+            SoundService.Instance.Volume = currentVol;
+            SoundService.Instance.PlayShutter();
         }
     }
 }
